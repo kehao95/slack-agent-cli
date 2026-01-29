@@ -187,3 +187,225 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+func TestPostMessageValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		channel   string
+		opts      PostMessageOptions
+		wantError string
+	}{
+		{
+			name:      "valid message with text",
+			channel:   "C123ABC",
+			opts:      PostMessageOptions{Text: "Hello"},
+			wantError: "",
+		},
+		{
+			name:      "empty channel",
+			channel:   "",
+			opts:      PostMessageOptions{Text: "Hello"},
+			wantError: "channel is required",
+		},
+		{
+			name:      "no text or blocks",
+			channel:   "C123ABC",
+			opts:      PostMessageOptions{},
+			wantError: "either text or blocks is required",
+		},
+		{
+			name:    "valid with blocks",
+			channel: "C123ABC",
+			opts: PostMessageOptions{
+				Blocks: []slackapi.Block{
+					slackapi.NewSectionBlock(nil, nil, nil),
+				},
+			},
+			wantError: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := New("xoxb-test-token")
+			ctx := context.Background()
+
+			_, err := client.PostMessage(ctx, tt.channel, tt.opts)
+
+			if tt.wantError == "" {
+				// We expect an API error since we're using a fake token,
+				// but not a validation error
+				if err != nil && err.Error() == tt.wantError {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+			} else {
+				// We expect a specific validation error
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !contains(err.Error(), tt.wantError) {
+					t.Fatalf("expected error containing %q, got %q", tt.wantError, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestPostMessageResultLines(t *testing.T) {
+	result := &PostMessageResult{
+		OK:        true,
+		Channel:   "#general",
+		Timestamp: "1705312365.000100",
+		Text:      "Test message",
+	}
+
+	lines := result.Lines()
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+
+	if !contains(lines[0], "Message sent successfully") {
+		t.Errorf("expected success message in first line, got %q", lines[0])
+	}
+
+	if !contains(lines[1], "#general") {
+		t.Errorf("expected channel in output, got %q", lines[1])
+	}
+
+	if !contains(lines[2], "1705312365.000100") {
+		t.Errorf("expected timestamp in output, got %q", lines[2])
+	}
+}
+
+func TestReactionValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		channel   string
+		timestamp string
+		emoji     string
+		wantError string
+	}{
+		{
+			name:      "valid reaction",
+			channel:   "C123ABC",
+			timestamp: "1705312365.000100",
+			emoji:     "thumbsup",
+			wantError: "",
+		},
+		{
+			name:      "empty channel",
+			channel:   "",
+			timestamp: "1705312365.000100",
+			emoji:     "thumbsup",
+			wantError: "channel is required",
+		},
+		{
+			name:      "empty timestamp",
+			channel:   "C123ABC",
+			timestamp: "",
+			emoji:     "thumbsup",
+			wantError: "timestamp is required",
+		},
+		{
+			name:      "empty emoji",
+			channel:   "C123ABC",
+			timestamp: "1705312365.000100",
+			emoji:     "",
+			wantError: "emoji is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" (add)", func(t *testing.T) {
+			client := New("xoxb-test-token")
+			ctx := context.Background()
+
+			err := client.AddReaction(ctx, tt.channel, tt.timestamp, tt.emoji)
+
+			if tt.wantError == "" {
+				// We expect an API error since we're using a fake token,
+				// but not a validation error
+				if err != nil && contains(err.Error(), "required") {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+			} else {
+				// We expect a specific validation error
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !contains(err.Error(), tt.wantError) {
+					t.Fatalf("expected error containing %q, got %q", tt.wantError, err.Error())
+				}
+			}
+		})
+
+		t.Run(tt.name+" (remove)", func(t *testing.T) {
+			client := New("xoxb-test-token")
+			ctx := context.Background()
+
+			err := client.RemoveReaction(ctx, tt.channel, tt.timestamp, tt.emoji)
+
+			if tt.wantError == "" {
+				// We expect an API error since we're using a fake token,
+				// but not a validation error
+				if err != nil && contains(err.Error(), "required") {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+			} else {
+				// We expect a specific validation error
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !contains(err.Error(), tt.wantError) {
+					t.Fatalf("expected error containing %q, got %q", tt.wantError, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestReactionResultLines(t *testing.T) {
+	tests := []struct {
+		name     string
+		result   *ReactionResult
+		expected string
+	}{
+		{
+			name: "add reaction",
+			result: &ReactionResult{
+				OK:        true,
+				Action:    "add",
+				Channel:   "#general",
+				ChannelID: "C123ABC",
+				Timestamp: "1705312365.000100",
+				Emoji:     "thumbsup",
+			},
+			expected: "✓ Added :thumbsup: to message in #general",
+		},
+		{
+			name: "remove reaction",
+			result: &ReactionResult{
+				OK:        true,
+				Action:    "remove",
+				Channel:   "#devops",
+				ChannelID: "C456DEF",
+				Timestamp: "1705312365.000100",
+				Emoji:     "rocket",
+			},
+			expected: "✓ Removed :rocket: from message in #devops",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lines := tt.result.Lines()
+			if len(lines) != 1 {
+				t.Fatalf("expected 1 line, got %d", len(lines))
+			}
+
+			if lines[0] != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, lines[0])
+			}
+		})
+	}
+}
