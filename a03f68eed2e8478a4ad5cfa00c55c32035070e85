@@ -1,0 +1,33 @@
+internal/slack/client.go
+  109cfcd8af01c1e4 143-145,148,151-155
+cmd/cache.go
+  109cfcd8af01c1e4 78
+internal/cache/populate.go
+  109cfcd8af01c1e4 7,41,46-48,91,102,107,109-142,150,156-157,169,185,191-195,203,205
+docs/DESIGN.md
+  109cfcd8af01c1e4 398-399,401-405,407-411,413-418,598,608,610,613,615-617
+internal/channels/resolver_test.go
+  109cfcd8af01c1e4 46,57-58,72-74,113,125-130,134,142-176,178-184,186,188-189,191,193-194,196-197,214-216,221,225-227,234,237,239-244,246-247
+internal/channels/resolver.go
+  109cfcd8af01c1e4 31,45,57-58,63,70-78,81,85-86,88-89,96,99,106,109,112-113,116-120,122-124,126,128-133,136-156,158-167,169-172,174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "a03f68eed2e8478a4ad5cfa00c55c32035070e85",
+  "prompts": {
+    "109cfcd8af01c1e4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 278,
+      "total_deletions": 125,
+      "accepted_lines": 252,
+      "overriden_lines": 0
+    }
+  }
+}
