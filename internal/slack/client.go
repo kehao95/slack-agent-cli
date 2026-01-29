@@ -164,6 +164,58 @@ func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, li
 	return channels, nextCursor, len(channels), nil
 }
 
+// AuthTestResponse contains the result of an auth.test API call.
+type AuthTestResponse struct {
+	OK     bool   `json:"ok"`
+	URL    string `json:"url"`
+	Team   string `json:"team"`
+	User   string `json:"user"`
+	TeamID string `json:"team_id"`
+	UserID string `json:"user_id"`
+	BotID  string `json:"bot_id,omitempty"`
+	IsBot  bool   `json:"is_bot"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *AuthTestResponse) Lines() []string {
+	lines := []string{
+		"Authentication Test",
+		"-------------------",
+		fmt.Sprintf("Status: %s", statusString(r.OK)),
+		fmt.Sprintf("Team: %s (%s)", r.Team, r.TeamID),
+		fmt.Sprintf("User: %s (%s)", r.User, r.UserID),
+		fmt.Sprintf("Workspace URL: %s", r.URL),
+	}
+	if r.BotID != "" {
+		lines = append(lines, fmt.Sprintf("Bot ID: %s", r.BotID))
+	}
+	return lines
+}
+
+func statusString(ok bool) string {
+	if ok {
+		return "✓ Valid"
+	}
+	return "✗ Invalid"
+}
+
+// AuthTest verifies the bot token is valid.
+func (c *APIClient) AuthTest(ctx context.Context) (*AuthTestResponse, error) {
+	resp, err := c.sdk.AuthTestContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth test: %w", err)
+	}
+	return &AuthTestResponse{
+		OK:     true,
+		URL:    resp.URL,
+		Team:   resp.Team,
+		User:   resp.User,
+		TeamID: resp.TeamID,
+		UserID: resp.UserID,
+		BotID:  resp.BotID,
+	}, nil
+}
+
 // DoWithRetry executes fn with simple retry logic for rate-limited operations.
 func DoWithRetry(ctx context.Context, fn func() error) error {
 	var lastErr error
