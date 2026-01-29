@@ -13,6 +13,7 @@ import (
 // UserClient defines the Slack operations needed for user lookups.
 type UserClient interface {
 	GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error)
+	ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error)
 }
 
 // CachedUser holds the subset of user info we persist.
@@ -41,7 +42,6 @@ func NewCachedResolver(client UserClient, store *cache.Store) *Resolver {
 }
 
 // RefreshCache clears the user cache.
-// Use "slack-cli cache populate users --all" to repopulate.
 func (r *Resolver) RefreshCache(ctx context.Context) error {
 	if r.cache != nil {
 		if err := r.cache.Expire(cache.CacheKeyUsers); err != nil {
@@ -55,35 +55,22 @@ func (r *Resolver) RefreshCache(ctx context.Context) error {
 }
 
 // GetDisplayName returns a human-friendly name for a user ID.
-// Falls back to the raw user ID if lookup fails or cache is empty.
+// If the cache is empty, it will fetch all users from the API first.
 func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
-	users, _ := r.loadUsers(ctx)
-	if users == nil {
-		// No cache - try single lookup if we have a client
+	users, err := r.loadOrFetchUsers(ctx)
+	if err != nil || users == nil {
+		// Fallback to single lookup if bulk fetch failed
 		if r.client != nil {
 			info, err := r.client.GetUserInfo(ctx, userID)
 			if err == nil {
-				cu := toCachedUser(info)
-				if cu.DisplayName != "" {
-					return cu.DisplayName
-				}
-				if cu.RealName != "" {
-					return cu.RealName
-				}
-				return cu.Name
+				return displayName(toCachedUser(info))
 			}
 		}
 		return userID
 	}
 
 	if u, ok := users[userID]; ok {
-		if u.DisplayName != "" {
-			return u.DisplayName
-		}
-		if u.RealName != "" {
-			return u.RealName
-		}
-		return u.Name
+		return displayName(u)
 	}
 
 	// Not in cache, try single lookup and add to cache
@@ -96,13 +83,7 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 			if r.cache != nil {
 				_ = r.cache.Save(cache.CacheKeyUsers, users)
 			}
-			if cu.DisplayName != "" {
-				return cu.DisplayName
-			}
-			if cu.RealName != "" {
-				return cu.RealName
-			}
-			return cu.Name
+			return displayName(cu)
 		}
 	}
 
@@ -111,7 +92,7 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 
 // GetUser returns cached user info or fetches it.
 func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, error) {
-	users, err := r.loadUsers(ctx)
+	users, err := r.loadOrFetchUsers(ctx)
 	if err != nil {
 		return CachedUser{}, err
 	}
@@ -134,6 +115,40 @@ func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, erro
 		_ = r.cache.Save(cache.CacheKeyUsers, users)
 	}
 	return cu, nil
+}
+
+// loadOrFetchUsers returns the cached user map, fetching all users if cache is empty.
+func (r *Resolver) loadOrFetchUsers(ctx context.Context) (map[string]CachedUser, error) {
+	// Try to load from cache first
+	users, err := r.loadUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if users != nil {
+		return users, nil
+	}
+
+	// Cache is empty - fetch all users
+	if r.client == nil {
+		return nil, nil
+	}
+
+	allUsers, err := r.fetchAllUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to map and cache
+	users = make(map[string]CachedUser, len(allUsers))
+	for _, u := range allUsers {
+		users[u.ID] = toCachedUser(&u)
+	}
+
+	if r.cache != nil {
+		_ = r.cache.Save(cache.CacheKeyUsers, users)
+	}
+
+	return users, nil
 }
 
 // loadUsers returns the cached user map (from complete or partial cache).
@@ -170,6 +185,24 @@ func (r *Resolver) loadUsers(ctx context.Context) (map[string]CachedUser, error)
 	return nil, nil
 }
 
+// fetchAllUsers fetches all users from the API.
+func (r *Resolver) fetchAllUsers(ctx context.Context) ([]slackapi.User, error) {
+	var all []slackapi.User
+	cursor := ""
+	for {
+		users, nextCursor, err := r.client.ListUsers(ctx, cursor, 200)
+		if err != nil {
+			return all, err // Return what we have so far
+		}
+		all = append(all, users...)
+		if nextCursor == "" {
+			break
+		}
+		cursor = nextCursor
+	}
+	return all, nil
+}
+
 func toCachedUser(u *slackapi.User) CachedUser {
 	return CachedUser{
 		ID:          u.ID,
@@ -178,4 +211,14 @@ func toCachedUser(u *slackapi.User) CachedUser {
 		DisplayName: u.Profile.DisplayName,
 		IsBot:       u.IsBot,
 	}
+}
+
+func displayName(u CachedUser) string {
+	if u.DisplayName != "" {
+		return u.DisplayName
+	}
+	if u.RealName != "" {
+		return u.RealName
+	}
+	return u.Name
 }

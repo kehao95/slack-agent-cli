@@ -11,10 +11,13 @@ import (
 )
 
 type mockUserClient struct {
-	singleUser  *slackapi.User
-	users       map[string]*slackapi.User
-	err         error
-	callsGetOne int
+	singleUser   *slackapi.User
+	users        map[string]*slackapi.User
+	allUsers     []slackapi.User // For ListUsers
+	err          error
+	listUsersErr error
+	callsGetOne  int
+	callsListAll int
 }
 
 func (m *mockUserClient) GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error) {
@@ -31,6 +34,15 @@ func (m *mockUserClient) GetUserInfo(ctx context.Context, userID string) (*slack
 		}
 	}
 	return nil, errors.New("user not found")
+}
+
+func (m *mockUserClient) ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error) {
+	m.callsListAll++
+	if m.listUsersErr != nil {
+		return nil, "", m.listUsersErr
+	}
+	// Return all users with empty cursor (simulating single page)
+	return m.allUsers, "", nil
 }
 
 func TestResolver_GetDisplayName_FromCache(t *testing.T) {

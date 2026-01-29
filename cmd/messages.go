@@ -11,6 +11,7 @@ import (
 	"github.com/contentsquare/slack-cli/internal/messages"
 	"github.com/contentsquare/slack-cli/internal/output"
 	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/contentsquare/slack-cli/internal/users"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +70,8 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	client := slack.New(cfg.BotToken)
 	fetcher := slack.NewMessageFetcher(client)
 	service := messages.NewService(fetcher)
-	resolver := channels.NewCachedResolver(client, cacheStore)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+	userResolver := users.NewCachedResolver(client, cacheStore)
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -83,12 +85,15 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 
 	// Handle cache refresh
 	if refreshCache {
-		if err := resolver.RefreshCache(ctx); err != nil {
+		if err := channelResolver.RefreshCache(ctx); err != nil {
 			return fmt.Errorf("refresh cache: %w", err)
+		}
+		if err := userResolver.RefreshCache(ctx); err != nil {
+			return fmt.Errorf("refresh user cache: %w", err)
 		}
 	}
 
-	channelID, err := resolver.ResolveID(ctx, channelInput)
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
 	if err != nil {
 		return err
 	}
@@ -102,6 +107,11 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// Set display metadata for human-readable output
 	result.Channel = channelInput
+	result.ChannelName = channelInput
+	result.SetUserResolver(ctx, userResolver)
+
 	return output.Print(cmd, result)
 }
