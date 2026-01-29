@@ -583,28 +583,38 @@ slack-cli messages list --channel "#support-bot-testing" --limit 20
 
 ### 7.1 User Token Scopes
 
-| Scope | Purpose |
-|-------|---------|
-| `channels:history` | Read messages from public channels |
-| `channels:read` | List and get info about public channels |
-| `channels:write` | Join/leave public channels |
-| `chat:write` | Send messages |
-| `groups:history` | Read messages from private channels |
-| `groups:read` | List and get info about private channels |
-| `im:history` | Read direct messages |
-| `im:read` | List and get info about DMs |
-| `im:write` | Start DMs |
-| `mpim:history` | Read group DMs |
-| `mpim:read` | List and get info about group DMs |
-| `reactions:read` | Read reactions |
-| `reactions:write` | Add/remove reactions |
-| `users:read` | Read user info |
-| `pins:read` | Read pinned messages |
-| `pins:write` | Pin/unpin messages |
-| `files:read` | Read file info |
-| `files:write` | Upload files |
-| `emoji:read` | List custom emoji |
-| `search:read` | Search messages |
+Configure these scopes in your Slack App under **OAuth & Permissions → User Token Scopes**.
+
+**Minimum Required Scopes:**
+
+| Scope | Purpose | Commands Enabled |
+|-------|---------|------------------|
+| `channels:read` | List public channels user is member of | `channels list` |
+| `search:read` | Search messages across workspace | `messages search` |
+| `identify` | Verify user identity | `auth test`, `auth whoami` |
+
+**Additional Scopes for Full Functionality:**
+
+| Scope | Purpose | Commands Enabled |
+|-------|---------|------------------|
+| `channels:history` | Read messages from public channels | `messages list` |
+| `groups:read` | List private channels user is member of | `channels list --types private_channel` |
+| `groups:history` | Read messages from private channels | `messages list` (private channels) |
+| `im:read` | List direct messages | `channels list --types im` |
+| `im:history` | Read direct messages | `messages list` (DMs) |
+| `mpim:read` | List group direct messages | `channels list --types mpim` |
+| `mpim:history` | Read group DMs | `messages list` (group DMs) |
+| `chat:write` | Send messages as yourself | `messages send`, `messages reply` |
+| `users:read` | List workspace members | `users list`, `users info` |
+| `reactions:read` | Read reactions on messages | `reactions list` |
+| `reactions:write` | Add/remove reactions | `reactions add`, `reactions remove` |
+| `pins:read` | Read pinned messages | `pins list` |
+| `pins:write` | Pin/unpin messages | `pins add`, `pins remove` |
+| `files:read` | Read file info | `files list`, `files info` |
+| `files:write` | Upload files | `files upload` |
+| `emoji:read` | List custom emoji | `emoji list` |
+
+**Note:** After adding scopes, you must **reinstall the app** to your workspace to get a new token with the updated permissions.
 
 ---
 
