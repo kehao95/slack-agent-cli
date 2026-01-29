@@ -24,6 +24,11 @@ type UserResolver interface {
 	GetDisplayName(ctx context.Context, userID string) string
 }
 
+// UserGroupResolver resolves usergroup IDs to handles.
+type UserGroupResolver interface {
+	GetHandle(ctx context.Context, groupID string) string
+}
+
 // Service coordinates message list operations.
 type Service struct {
 	fetcher Fetcher
@@ -46,20 +51,27 @@ type Params struct {
 
 // Result represents list output.
 type Result struct {
-	Channel      string             `json:"channel"`
-	ChannelName  string             `json:"channel_name,omitempty"`
-	ThreadTS     string             `json:"thread_ts,omitempty"`
-	Messages     []slackapi.Message `json:"messages"`
-	HasMore      bool               `json:"has_more"`
-	NextCursor   string             `json:"next_cursor"`
-	userResolver UserResolver       `json:"-"`
-	ctx          context.Context    `json:"-"`
+	Channel           string             `json:"channel"`
+	ChannelName       string             `json:"channel_name,omitempty"`
+	ThreadTS          string             `json:"thread_ts,omitempty"`
+	Messages          []slackapi.Message `json:"messages"`
+	HasMore           bool               `json:"has_more"`
+	NextCursor        string             `json:"next_cursor"`
+	userResolver      UserResolver       `json:"-"`
+	userGroupResolver UserGroupResolver  `json:"-"`
+	ctx               context.Context    `json:"-"`
 }
 
 // SetUserResolver sets the user resolver for human-readable output.
 func (r *Result) SetUserResolver(ctx context.Context, resolver UserResolver) {
 	r.ctx = ctx
 	r.userResolver = resolver
+}
+
+// SetUserGroupResolver sets the usergroup resolver for human-readable output.
+func (r *Result) SetUserGroupResolver(ctx context.Context, resolver UserGroupResolver) {
+	r.ctx = ctx
+	r.userGroupResolver = resolver
 }
 
 // List retrieves channel or thread history.
@@ -155,28 +167,49 @@ func (r Result) displayUser(msg slackapi.Message) string {
 	return userID
 }
 
-// resolveUserMentions replaces <@USERID> mentions with @username in message text.
+// resolveUserMentions replaces <@USERID> and <!subteam^GROUPID> mentions with @username/@grouphandle in message text.
 func (r Result) resolveUserMentions(text string) string {
-	if r.userResolver == nil || r.ctx == nil {
-		return text
+	// Match user mentions like <@U06D82H8QUW>
+	if r.userResolver != nil && r.ctx != nil {
+		userMentionRegex := regexp.MustCompile(`<@([A-Z0-9]+)>`)
+		text = userMentionRegex.ReplaceAllStringFunc(text, func(match string) string {
+			// Extract user ID from <@USERID>
+			userID := match[2 : len(match)-1] // Remove <@ and >
+
+			// Try to resolve the user ID
+			name := r.userResolver.GetDisplayName(r.ctx, userID)
+			if name != userID {
+				return "@" + name
+			}
+
+			// If resolution failed, keep the original format
+			return match
+		})
 	}
 
-	// Match user mentions like <@U06D82H8QUW>
-	userMentionRegex := regexp.MustCompile(`<@([A-Z0-9]+)>`)
+	// Match usergroup mentions like <!subteam^S06EQF4UV5M>
+	if r.userGroupResolver != nil && r.ctx != nil {
+		usergroupMentionRegex := regexp.MustCompile(`<!subteam\^([A-Z0-9]+)(?:\|[^>]+)?>`)
+		text = usergroupMentionRegex.ReplaceAllStringFunc(text, func(match string) string {
+			// Extract group ID from <!subteam^GROUPID> or <!subteam^GROUPID|name>
+			parts := regexp.MustCompile(`<!subteam\^([A-Z0-9]+)`).FindStringSubmatch(match)
+			if len(parts) < 2 {
+				return match
+			}
+			groupID := parts[1]
 
-	return userMentionRegex.ReplaceAllStringFunc(text, func(match string) string {
-		// Extract user ID from <@USERID>
-		userID := match[2 : len(match)-1] // Remove <@ and >
+			// Try to resolve the group ID
+			handle := r.userGroupResolver.GetHandle(r.ctx, groupID)
+			if handle != groupID {
+				return "@" + handle
+			}
 
-		// Try to resolve the user ID
-		name := r.userResolver.GetDisplayName(r.ctx, userID)
-		if name != userID {
-			return "@" + name
-		}
+			// If resolution failed, keep the original format
+			return match
+		})
+	}
 
-		// If resolution failed, keep the original format
-		return match
-	})
+	return text
 }
 
 // formatTimestamp converts a Slack timestamp (e.g., "1769710907.130119") to human-readable format.

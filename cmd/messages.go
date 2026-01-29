@@ -11,6 +11,7 @@ import (
 	"github.com/contentsquare/slack-cli/internal/messages"
 	"github.com/contentsquare/slack-cli/internal/output"
 	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/contentsquare/slack-cli/internal/usergroups"
 	"github.com/contentsquare/slack-cli/internal/users"
 	"github.com/spf13/cobra"
 )
@@ -72,6 +73,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	service := messages.NewService(fetcher)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 	userResolver := users.NewCachedResolver(client, cacheStore)
+	userGroupResolver := usergroups.NewCachedResolver(client, cacheStore)
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -90,6 +92,9 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		}
 		if err := userResolver.RefreshCache(ctx); err != nil {
 			return fmt.Errorf("refresh user cache: %w", err)
+		}
+		if err := userGroupResolver.RefreshCache(ctx); err != nil {
+			return fmt.Errorf("refresh usergroup cache: %w", err)
 		}
 	}
 
@@ -112,6 +117,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	result.Channel = channelInput
 	result.ChannelName = channelInput
 	result.SetUserResolver(ctx, userResolver)
+	result.SetUserGroupResolver(ctx, userGroupResolver)
 
 	return output.Print(cmd, result)
 }
