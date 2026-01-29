@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	slackapi "github.com/slack-go/slack"
@@ -37,11 +38,14 @@ type PopulateResult struct {
 	Complete   bool
 	NextCursor string
 	Pages      int
+	Scanned    int // Total items scanned (before filtering)
 }
 
 // ChannelFetcher defines the interface for fetching channels.
 type ChannelFetcher interface {
-	ListChannels(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, error)
+	// ListChannels returns (memberChannels, nextCursor, totalScanned, error)
+	// totalScanned is the number of channels checked before filtering
+	ListChannels(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, int, error)
 }
 
 // UserFetcher defines the interface for fetching users.
@@ -84,6 +88,7 @@ func (s *Store) PopulateChannels(ctx context.Context, fetcher ChannelFetcher, cf
 	}
 
 	pages := 0
+	scanned := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,12 +99,47 @@ func (s *Store) PopulateChannels(ctx context.Context, fetcher ChannelFetcher, cf
 				Complete:   false,
 				NextCursor: cursor,
 				Pages:      pages,
+				Scanned:    scanned,
 			}, ctx.Err()
 		default:
 		}
 
-		page, nextCursor, err := fetcher.ListChannels(ctx, cursor, cfg.PageSize)
+		page, nextCursor, pageScanned, err := fetcher.ListChannels(ctx, cursor, cfg.PageSize)
 		if err != nil {
+			// Check for rate limit error and retry
+			if rlErr, ok := err.(*slackapi.RateLimitedError); ok {
+				s.log(cfg.Output, "Rate limited, waiting %v...\n", rlErr.RetryAfter)
+				select {
+				case <-ctx.Done():
+					_ = s.SavePartial(CacheKeyChannels, channels, cursor, false, len(channels))
+					return PopulateResult{
+						Count:      len(channels),
+						Complete:   false,
+						NextCursor: cursor,
+						Pages:      pages,
+						Scanned:    scanned,
+					}, ctx.Err()
+				case <-time.After(rlErr.RetryAfter):
+					continue // Retry the same page
+				}
+			}
+			// Check for rate limit in error message (some errors come as strings)
+			if strings.Contains(err.Error(), "rate limit") {
+				s.log(cfg.Output, "Rate limited, waiting 30s...\n")
+				select {
+				case <-ctx.Done():
+					_ = s.SavePartial(CacheKeyChannels, channels, cursor, false, len(channels))
+					return PopulateResult{
+						Count:      len(channels),
+						Complete:   false,
+						NextCursor: cursor,
+						Pages:      pages,
+						Scanned:    scanned,
+					}, ctx.Err()
+				case <-time.After(30 * time.Second):
+					continue // Retry the same page
+				}
+			}
 			// Save progress before returning error
 			_ = s.SavePartial(CacheKeyChannels, channels, cursor, false, len(channels))
 			return PopulateResult{
@@ -107,12 +147,14 @@ func (s *Store) PopulateChannels(ctx context.Context, fetcher ChannelFetcher, cf
 				Complete:   false,
 				NextCursor: cursor,
 				Pages:      pages,
+				Scanned:    scanned,
 			}, fmt.Errorf("fetch channels: %w", err)
 		}
 
 		channels = append(channels, page...)
 		pages++
-		s.log(cfg.Output, "Fetched page %d: %d channels total\n", pages, len(channels))
+		scanned += pageScanned
+		s.log(cfg.Output, "Page %d: %d channels (%d total)\n", pages, len(page), len(channels))
 
 		// Save progress after each page
 		if nextCursor == "" {
@@ -124,6 +166,7 @@ func (s *Store) PopulateChannels(ctx context.Context, fetcher ChannelFetcher, cf
 				Count:    len(channels),
 				Complete: true,
 				Pages:    pages,
+				Scanned:  scanned,
 			}, nil
 		}
 
@@ -139,12 +182,17 @@ func (s *Store) PopulateChannels(ctx context.Context, fetcher ChannelFetcher, cf
 				Complete:   false,
 				NextCursor: nextCursor,
 				Pages:      pages,
+				Scanned:    scanned,
 			}, nil
 		}
 
 		cursor = nextCursor
 
-		// Rate limit delay
+		// Rate limit delay - shorter if no results on this page
+		delay := cfg.PageDelay
+		if len(page) == 0 {
+			delay = cfg.PageDelay / 2 // Faster when no results
+		}
 		select {
 		case <-ctx.Done():
 			return PopulateResult{
@@ -152,8 +200,9 @@ func (s *Store) PopulateChannels(ctx context.Context, fetcher ChannelFetcher, cf
 				Complete:   false,
 				NextCursor: nextCursor,
 				Pages:      pages,
+				Scanned:    scanned,
 			}, ctx.Err()
-		case <-time.After(cfg.PageDelay):
+		case <-time.After(delay):
 		}
 	}
 }

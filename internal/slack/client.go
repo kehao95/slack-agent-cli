@@ -140,13 +140,19 @@ func (c *APIClient) ListUsers(ctx context.Context, cursor string, limit int) ([]
 }
 
 // ListChannelsPaginated provides a simpler interface for cache population.
-func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, error) {
-	return c.ListChannels(ctx, ListChannelsParams{
+// Returns all visible channels (both member and non-member).
+func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, int, error) {
+	channels, nextCursor, err := c.ListChannels(ctx, ListChannelsParams{
 		Limit:           limit,
 		Cursor:          cursor,
-		IncludeArchived: true,
+		IncludeArchived: false,
 		Types:           []string{"public_channel", "private_channel"},
 	})
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	return channels, nextCursor, len(channels), nil
 }
 
 // DoWithRetry executes fn with simple retry logic for rate-limited operations.
