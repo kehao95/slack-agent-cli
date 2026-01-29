@@ -16,13 +16,11 @@ const (
 )
 
 // Config represents the configuration stored on disk.
+// This CLI operates as a user client, using User Token (xoxp-...) to act on behalf of the user.
 type Config struct {
 	Version   int            `json:"version"`
-	AppToken  string         `json:"app_token"`
-	BotToken  string         `json:"bot_token"`
 	UserToken string         `json:"user_token"`
 	Defaults  Defaults       `json:"defaults"`
-	Watch     WatchConfig    `json:"watch"`
 	Channels  map[string]ACL `json:"channels"`
 }
 
@@ -31,13 +29,6 @@ type Defaults struct {
 	OutputFormat   string `json:"output_format"`
 	IncludeBots    bool   `json:"include_bots"`
 	TextChunkLimit int    `json:"text_chunk_limit"`
-}
-
-// WatchConfig stores watch command defaults.
-type WatchConfig struct {
-	Channels       []string `json:"channels"`
-	Events         []string `json:"events"`
-	IncludeThreads bool     `json:"include_threads"`
 }
 
 // ACL describes per-channel rules.
@@ -99,10 +90,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Version:   currentVersion,
 		Defaults:  Defaults{OutputFormat: "human", IncludeBots: false, TextChunkLimit: 4000},
-		Watch:     WatchConfig{Channels: []string{}, Events: []string{"message", "reaction_added", "reaction_removed"}, IncludeThreads: true},
 		Channels:  map[string]ACL{},
-		AppToken:  "",
-		BotToken:  "",
 		UserToken: "",
 	}
 }
@@ -112,8 +100,8 @@ func (c *Config) Validate() error {
 	if c == nil {
 		return errors.New("config is nil")
 	}
-	if c.BotToken == "" {
-		return errors.New("bot token is required")
+	if c.UserToken == "" {
+		return errors.New("user token is required (set SLACK_USER_TOKEN or add user_token to config)")
 	}
 	return nil
 }
@@ -136,12 +124,6 @@ func resolvePath(path string) (string, error) {
 }
 
 func applyEnvOverrides(cfg *Config) {
-	if val := os.Getenv("SLACK_APP_TOKEN"); val != "" {
-		cfg.AppToken = val
-	}
-	if val := os.Getenv("SLACK_BOT_TOKEN"); val != "" {
-		cfg.BotToken = val
-	}
 	if val := os.Getenv("SLACK_USER_TOKEN"); val != "" {
 		cfg.UserToken = val
 	}

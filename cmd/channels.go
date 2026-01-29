@@ -16,13 +16,13 @@ import (
 var channelsCmd = &cobra.Command{
 	Use:   "channels",
 	Short: "Channel operations",
-	Long:  "List, inspect, and manage Slack channels accessible to the bot.",
+	Long:  "List, inspect, and manage Slack channels accessible to the user.",
 }
 
 var channelsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List channels",
-	Long:  "List public and private channels the bot has access to via conversations.list.",
+	Long:  "List public and private channels the user has access to via conversations.list.",
 	RunE:  runChannelsList,
 }
 
@@ -52,7 +52,7 @@ func runChannelsList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	service := channels.NewService(client)
 
 	// Create resolver to manage cache for channel metadata

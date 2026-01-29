@@ -96,7 +96,7 @@ func runPinsAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
@@ -142,7 +142,7 @@ func runPinsRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
@@ -187,7 +187,7 @@ func runPinsList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)

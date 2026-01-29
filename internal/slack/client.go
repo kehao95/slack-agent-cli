@@ -239,9 +239,9 @@ type APIClient struct {
 	sdk *slackapi.Client
 }
 
-// New creates a new APIClient using the provided bot token.
-func New(botToken string) *APIClient {
-	return &APIClient{sdk: slackapi.New(botToken)}
+// New creates a new APIClient using the provided user token.
+func New(userToken string) *APIClient {
+	return &APIClient{sdk: slackapi.New(userToken)}
 }
 
 // ListConversationsHistory retrieves channel history.
@@ -513,7 +513,7 @@ func statusString(ok bool) string {
 	return "✗ Invalid"
 }
 
-// AuthTest verifies the bot token is valid.
+// AuthTest verifies the user token is valid.
 func (c *APIClient) AuthTest(ctx context.Context) (*AuthTestResponse, error) {
 	resp, err := c.sdk.AuthTestContext(ctx)
 	if err != nil {

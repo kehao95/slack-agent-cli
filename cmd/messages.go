@@ -47,7 +47,7 @@ var messagesListCmd = &cobra.Command{
 var messagesSearchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Search messages",
-	Long:  "Search messages across the workspace (requires user token).",
+	Long:  "Search messages across the workspace.",
 	Example: `  # Basic search
   slack-cli messages search --query "deployment failed"
 
@@ -83,7 +83,7 @@ var messagesSendCmd = &cobra.Command{
 var messagesEditCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit a message",
-	Long:  "Edit an existing message sent by the bot.",
+	Long:  "Edit an existing message sent by you.",
 	Example: `  # Edit a message
   slack-cli messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
 
@@ -95,7 +95,7 @@ var messagesEditCmd = &cobra.Command{
 var messagesDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a message",
-	Long:  "Delete a message sent by the bot.",
+	Long:  "Delete a message sent by you.",
 	Example: `  # Delete a message
   slack-cli messages delete --channel "#general" --ts "1705312365.000100"
 
@@ -162,7 +162,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	fetcher := slack.NewMessageFetcher(client)
 	service := messages.NewService(fetcher)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
@@ -223,11 +223,6 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	}
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
-
-	// Check for user token
-	if cfg.UserToken == "" {
-		return fmt.Errorf("messages search requires user token (set SLACK_USER_TOKEN or add user_token to config)")
 	}
 
 	query, _ := cmd.Flags().GetString("query")
@@ -346,7 +341,7 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
@@ -395,7 +390,7 @@ func runMessagesEdit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
@@ -437,7 +432,7 @@ func runMessagesDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)

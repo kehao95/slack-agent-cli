@@ -6,8 +6,6 @@ import (
 )
 
 func TestLoadDefaultWhenMissing(t *testing.T) {
-	t.Setenv("SLACK_APP_TOKEN", "")
-	t.Setenv("SLACK_BOT_TOKEN", "")
 	t.Setenv("SLACK_USER_TOKEN", "")
 	t.Setenv("SLACK_CLI_FORMAT", "")
 
@@ -19,20 +17,18 @@ func TestLoadDefaultWhenMissing(t *testing.T) {
 	if actualPath != path {
 		t.Fatalf("expected path %s, got %s", path, actualPath)
 	}
-	if cfg.BotToken != "" {
-		t.Fatalf("expected empty bot token, got %q", cfg.BotToken)
+	if cfg.UserToken != "" {
+		t.Fatalf("expected empty user token, got %q", cfg.UserToken)
 	}
 }
 
 func TestSaveAndLoad(t *testing.T) {
-	t.Setenv("SLACK_APP_TOKEN", "")
-	t.Setenv("SLACK_BOT_TOKEN", "")
 	t.Setenv("SLACK_USER_TOKEN", "")
 	t.Setenv("SLACK_CLI_FORMAT", "")
 
 	path := filepath.Join(t.TempDir(), "slack", "config.json")
 	cfg := DefaultConfig()
-	cfg.BotToken = "xoxb-123"
+	cfg.UserToken = "xoxp-123"
 	savedPath, err := Save(path, cfg)
 	if err != nil {
 		t.Fatalf("Save returned error: %v", err)
@@ -47,26 +43,18 @@ func TestSaveAndLoad(t *testing.T) {
 	if actualPath != path {
 		t.Fatalf("expected actual path %s, got %s", path, actualPath)
 	}
-	if loaded.BotToken != cfg.BotToken {
-		t.Fatalf("expected bot token %s, got %s", cfg.BotToken, loaded.BotToken)
+	if loaded.UserToken != cfg.UserToken {
+		t.Fatalf("expected user token %s, got %s", cfg.UserToken, loaded.UserToken)
 	}
 }
 
 func TestApplyEnvOverrides(t *testing.T) {
-	t.Setenv("SLACK_BOT_TOKEN", "xoxb-env")
-	t.Setenv("SLACK_APP_TOKEN", "xapp-env")
 	t.Setenv("SLACK_USER_TOKEN", "xoxp-env")
 	t.Setenv("SLACK_CLI_FORMAT", "json")
 
 	cfg := DefaultConfig()
 	applyEnvOverrides(cfg)
 
-	if cfg.BotToken != "xoxb-env" {
-		t.Fatalf("expected bot token override, got %s", cfg.BotToken)
-	}
-	if cfg.AppToken != "xapp-env" {
-		t.Fatalf("expected app token override, got %s", cfg.AppToken)
-	}
 	if cfg.UserToken != "xoxp-env" {
 		t.Fatalf("expected user token override, got %s", cfg.UserToken)
 	}
@@ -78,9 +66,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 func TestValidate(t *testing.T) {
 	cfg := DefaultConfig()
 	if err := cfg.Validate(); err == nil {
-		t.Fatalf("expected error when bot token empty")
+		t.Fatalf("expected error when user token empty")
 	}
-	cfg.BotToken = "xoxb"
+	cfg.UserToken = "xoxp"
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
