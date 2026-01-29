@@ -18,7 +18,8 @@ func NewService(client slack.ChannelClient) *Service {
 	return &Service{client: client}
 }
 
-var defaultChannelTypes = []string{"public_channel", "private_channel"}
+// Default to public channels only - private_channel requires groups:read scope
+var defaultChannelTypes = []string{"public_channel"}
 
 type ListParams struct {
 	Limit           int

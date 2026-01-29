@@ -33,7 +33,7 @@ func init() {
 	channelsListCmd.Flags().Bool("include-archived", false, "Include archived channels")
 	channelsListCmd.Flags().Int("limit", 200, "Maximum channels per page")
 	channelsListCmd.Flags().String("cursor", "", "Continuation cursor")
-	channelsListCmd.Flags().StringSlice("types", []string{"public_channel", "private_channel"}, "Conversation types to include")
+	channelsListCmd.Flags().StringSlice("types", []string{"public_channel"}, "Conversation types to include (public_channel requires channels:read, private_channel requires groups:read)")
 	channelsListCmd.Flags().Bool("refresh-cache", false, "Force refresh of cached channel metadata")
 }
 
