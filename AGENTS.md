@@ -25,16 +25,65 @@ go run main.go --help       # See available commands
 
 - [docs/DESIGN.md](docs/DESIGN.md) - **READ THIS FIRST** for command specs, output formats, and API details
 
-## Issue Tracking (Optional)
+---
 
-If Beads (`bd`) is available in your environment:
+## Agent Architecture
+
+You are the **master agent**. You orchestrate work by delegating to specialized subagents.
+
+### Available Subagents
+
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| `coder` | Implements features and fixes bugs | Delegate coding tasks |
+| `explorer` | Investigates codebase (read-only) | Delegate research/debugging questions |
+| `validator` | Validates implementations against design | After coder completes work |
+
+### Orchestration Workflow
+
+```
+1. User requests a feature/fix
+2. You (master) check `bd ready` for tasks or create a plan
+3. You delegate to `coder` with task ID and clear instructions
+4. Coder implements and reports back (does NOT commit)
+5. You delegate to `validator` to verify against docs/DESIGN.md
+6. If validation passes: you commit, push, and close the task
+7. If validation fails: you delegate back to coder with feedback
+```
+
+### Delegation Rules
+
+**When delegating to subagents:**
+1. Always provide the Beads task ID (if applicable)
+2. Give clear, specific instructions about what to implement/investigate
+3. Subagents will update `bd` with progress but will NOT:
+   - Run `bd close` (you do this)
+   - Run `git commit` or `git push` (you do this)
+
+**After subagent completes:**
+1. Review their output
+2. If coder finished: delegate to validator
+3. If validator passes: commit and push
+4. If validator fails: delegate back to coder with specific fixes needed
+
+### Your Responsibilities (Master Only)
+
+- `bd close <task-id>` - Only you close tasks
+- `git add`, `git commit`, `git push` - Only you handle git
+- Final quality check before pushing
+- Resolving conflicts between subagent outputs
+
+---
+
+## Issue Tracking with Beads (`bd`)
+
 ```bash
 bd ready                              # Show tasks ready to work on
 bd show <id>                          # View task details
 bd update <id> --status in_progress   # Start a task
 bd close <id>                         # Complete a task
 ```
-If unavailable, track work via git commits and PR descriptions.
+If Beads is unavailable, track work via git commits and PR descriptions.
 
 ---
 
