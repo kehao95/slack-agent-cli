@@ -1,0 +1,31 @@
+internal/cache/populate.go
+  109cfcd8af01c1e4 216-218
+internal/slack/client.go
+  109cfcd8af01c1e4 142-150
+internal/messages/list.go
+  109cfcd8af01c1e4 27-31,61,71-74,170,173-187,190-204,206,210,212
+internal/usergroups/resolver.go
+  109cfcd8af01c1e4 1-123
+cmd/messages.go
+  109cfcd8af01c1e4 14,76,96-97,120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "6558fabdb6a75d5c22bfa46d172a1f70eed7ae41",
+  "prompts": {
+    "109cfcd8af01c1e4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 201,
+      "total_deletions": 27,
+      "accepted_lines": 189,
+      "overriden_lines": 0
+    }
+  }
+}
