@@ -11,17 +11,6 @@ import (
 	"github.com/contentsquare/slack-cli/internal/slack"
 )
 
-// ErrCacheIncomplete is returned when the cache doesn't have enough data to resolve a channel.
-type ErrCacheIncomplete struct {
-	CachedCount int
-	ChannelName string
-}
-
-func (e ErrCacheIncomplete) Error() string {
-	return fmt.Sprintf("channel %q not found in cache (%d channels cached). "+
-		"Run: slack-cli cache populate channels --all", e.ChannelName, e.CachedCount)
-}
-
 // Resolver resolves channel names to IDs using disk-cached lookups.
 type Resolver struct {
 	client slack.ChannelClient
@@ -39,7 +28,7 @@ func NewCachedResolver(client slack.ChannelClient, store *cache.Store) *Resolver
 }
 
 // RefreshCache forces a cache refresh for channels by clearing existing cache.
-// Use "slack-cli cache populate channels --all" to repopulate.
+// Use "slack-cli cache populate channels" to repopulate.
 func (r *Resolver) RefreshCache(ctx context.Context) error {
 	if r.cache != nil {
 		if err := r.cache.Expire(cache.CacheKeyChannels); err != nil {
@@ -53,7 +42,7 @@ func (r *Resolver) RefreshCache(ctx context.Context) error {
 }
 
 // ResolveID returns a channel ID for a provided name or ID string.
-// If the cache is incomplete and the channel is not found, returns ErrCacheIncomplete.
+// If the channel is not found in cache, it will fetch more pages from the API.
 func (r *Resolver) ResolveID(ctx context.Context, input string) (string, error) {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
@@ -65,77 +54,123 @@ func (r *Resolver) ResolveID(ctx context.Context, input string) (string, error) 
 	}
 	normalized := strings.TrimPrefix(trimmed, "#")
 
-	channels, complete, err := r.loadChannels(ctx)
+	// First, check existing cache
+	channels, cursor, err := r.loadChannels(ctx)
 	if err != nil {
 		return "", fmt.Errorf("resolve channel %s: %w", trimmed, err)
 	}
 
+	// Search in cached channels
 	for _, ch := range channels {
 		if strings.EqualFold(ch.Name, normalized) {
 			return ch.ID, nil
 		}
 	}
 
-	// Not found - provide helpful error based on cache state
-	if !complete {
-		return "", ErrCacheIncomplete{CachedCount: len(channels), ChannelName: trimmed}
+	// Not found in cache - fetch from API if we have a client
+	// Fetch if: we have more pages (cursor != "") OR we have no cached data yet
+	if r.client != nil && (cursor != "" || len(channels) == 0) {
+		id, err := r.fetchUntilFound(ctx, normalized, channels, cursor)
+		if err != nil {
+			return "", fmt.Errorf("resolve channel %s: %w", trimmed, err)
+		}
+		if id != "" {
+			return id, nil
+		}
 	}
+
 	return "", fmt.Errorf("channel %s not found", trimmed)
 }
 
-// loadChannels returns the cached channel list and whether the cache is complete.
-// It checks both complete and partial caches. Does NOT auto-fetch from API.
-func (r *Resolver) loadChannels(ctx context.Context) ([]slackapi.Channel, bool, error) {
+// loadChannels returns the cached channel list and the next cursor (if partial).
+func (r *Resolver) loadChannels(ctx context.Context) ([]slackapi.Channel, string, error) {
 	if r.cache == nil {
-		// No cache configured - fall back to direct API fetch (legacy behavior)
-		channels, err := r.fetchAllChannels(ctx)
-		return channels, true, err
+		// No cache configured - return empty, will fetch on demand
+		return nil, "", nil
 	}
 
 	// Try complete cache first
 	var cached []slackapi.Channel
 	found, err := r.cache.Load(cache.CacheKeyChannels, &cached)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	if found {
-		return cached, true, nil
+		return cached, "", nil // Empty cursor means complete
 	}
 
 	// Try partial cache
 	var partial []slackapi.Channel
 	state, found, err := r.cache.LoadPartial(cache.CacheKeyChannels, &partial)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 	if found {
-		return partial, state.Complete, nil
+		return partial, state.NextCursor, nil
 	}
 
-	// No cache at all - return empty with hint to populate
-	return nil, false, nil
+	// No cache at all - return empty with empty cursor (will fetch from start)
+	return nil, "", nil
 }
 
-// fetchAllChannels fetches all channels from the API (legacy fallback for non-cached resolver).
-func (r *Resolver) fetchAllChannels(ctx context.Context) ([]slackapi.Channel, error) {
-	var all []slackapi.Channel
-	params := slack.ListChannelsParams{Limit: 1000, IncludeArchived: true, Types: defaultChannelTypes}
+// fetchUntilFound continues fetching pages until the channel is found or no more pages.
+// Updates the cache as it fetches.
+func (r *Resolver) fetchUntilFound(ctx context.Context, name string, existing []slackapi.Channel, cursor string) (string, error) {
+	channels := existing
+	currentCursor := cursor
+
+	// If no cursor, start from beginning
+	if currentCursor == "" && len(channels) == 0 {
+		currentCursor = "" // Will fetch first page
+	}
+
 	for {
-		var channels []slackapi.Channel
-		var cursor string
-		err := slack.DoWithRetry(ctx, func() error {
-			var err error
-			channels, cursor, err = r.client.ListChannels(ctx, params)
-			return err
+		// Fetch next page
+		page, nextCursor, err := r.client.ListChannels(ctx, slack.ListChannelsParams{
+			Limit:           200,
+			Cursor:          currentCursor,
+			IncludeArchived: false,
+			Types:           []string{"public_channel", "private_channel"},
 		})
 		if err != nil {
-			return nil, err
+			// Save progress before returning error
+			if r.cache != nil && len(channels) > 0 {
+				_ = r.cache.SavePartial(cache.CacheKeyChannels, channels, currentCursor, false, len(channels))
+			}
+			return "", err
 		}
-		all = append(all, channels...)
-		if cursor == "" {
-			break
+
+		// Search in new page
+		for _, ch := range page {
+			if strings.EqualFold(ch.Name, name) {
+				// Found! Save progress and return
+				channels = append(channels, page...)
+				if r.cache != nil {
+					if nextCursor == "" {
+						_ = r.cache.PromotePartial(cache.CacheKeyChannels, channels)
+					} else {
+						_ = r.cache.SavePartial(cache.CacheKeyChannels, channels, nextCursor, false, len(channels))
+					}
+				}
+				return ch.ID, nil
+			}
 		}
-		params.Cursor = cursor
+
+		channels = append(channels, page...)
+
+		// No more pages
+		if nextCursor == "" {
+			// Save as complete
+			if r.cache != nil {
+				_ = r.cache.PromotePartial(cache.CacheKeyChannels, channels)
+			}
+			return "", nil // Not found
+		}
+
+		// Save progress and continue
+		if r.cache != nil {
+			_ = r.cache.SavePartial(cache.CacheKeyChannels, channels, nextCursor, false, len(channels))
+		}
+		currentCursor = nextCursor
 	}
-	return all, nil
 }

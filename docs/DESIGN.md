@@ -395,20 +395,28 @@ slack-cli cache clear users
 ### 4.5 Cache and Channel Resolution
 
 Commands that accept `--channel` support two formats:
-1. **Direct ID** (`C074S0L3MCG`): Works without cache, calls API directly
-2. **Channel name** (`#general`): Requires cache to resolve name → ID
+1. **Direct ID** (`C074S0L3MCG`): Works immediately, no cache needed
+2. **Channel name** (`#general`): Uses lazy-fetch strategy
 
-When a channel name is not found in cache, the command returns an error with a hint:
+**Lazy-fetch behavior for channel names:**
+1. Check existing cache (complete or partial)
+2. If found, return immediately
+3. If not found, fetch more pages from API until found or exhausted
+4. Save progress to cache after each page (resume-friendly)
 
+This means:
+- First lookup of a new channel name may be slow (fetches pages)
+- Subsequent lookups are instant (cached)
+- Cache grows organically based on usage
+- Direct channel IDs always work without any API calls
+
+**Pre-warming the cache (optional):**
+```bash
+# Fetch a few pages to cache common channels
+slack-cli cache populate channels
+slack-cli cache populate channels
+slack-cli cache populate channels
 ```
-Error: channel "#support" not found in cache
-Hint: Run 'slack-cli cache populate channels --all' to fetch channels
-```
-
-This explicit model prevents:
-- Surprise API calls and rate limits during command execution
-- Timeouts from slow pagination during message fetching
-- Lost progress when fetches are interrupted
 
 ### 4.7 Config Schema
 
@@ -578,10 +586,6 @@ slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "t
 ```bash
 # Agent wants to monitor #support and respond to questions
 
-# 0. First-time setup: Populate caches (only needed once, or when stale)
-slack-cli cache populate channels --all
-slack-cli cache populate users --all
-
 # 1. Start watching (agent runs this in background or with timeout)
 slack-cli watch --channels "#support" --timeout 5m --json > /tmp/slack-events.jsonl &
 
@@ -590,7 +594,8 @@ tail -f /tmp/slack-events.jsonl | while read -r event; do
   # Agent processes each event...
 done
 
-# 3. Or use batch mode for one-shot queries (fast with cached lookups)
+# 3. Or use batch mode for one-shot queries
+# First lookup may fetch pages, subsequent lookups are instant
 slack-cli messages list --channel "#support" --since 1h --json | jq '.messages[]'
 
 # 4. Send a response
@@ -600,24 +605,16 @@ slack-cli messages send --channel "#support" --thread "$THREAD_TS" --text "Here'
 slack-cli reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
 ```
 
-### 6.3 Handling Large Workspaces
+### 6.3 Using Channel IDs for Speed
 
-For workspaces with thousands of channels/users, use incremental caching:
+For maximum speed, use channel IDs directly (no cache lookup needed):
 
 ```bash
-# Option A: Fetch one page at a time (predictable timing)
-slack-cli cache populate channels          # Page 1
-slack-cli cache populate channels          # Page 2 (resumes from cursor)
-# ... repeat until complete
-
-# Option B: Fetch all with longer delay (safer for rate limits)
-slack-cli cache populate channels --all --page-delay 3s
-
-# Check progress anytime
-slack-cli cache status --json
-
-# If only using channel IDs, skip cache entirely
+# Direct channel ID - always instant
 slack-cli messages list --channel C074S0L3MCG --limit 20
+
+# Channel name - may fetch pages on first use, then cached
+slack-cli messages list --channel "#support-bot-testing" --limit 20
 ```
 
 ---

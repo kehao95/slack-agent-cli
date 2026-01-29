@@ -75,7 +75,7 @@ type channelFetcherAdapter struct {
 	client *slack.APIClient
 }
 
-func (a *channelFetcherAdapter) ListChannels(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, error) {
+func (a *channelFetcherAdapter) ListChannels(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, int, error) {
 	return a.client.ListChannelsPaginated(ctx, cursor, limit)
 }
 
