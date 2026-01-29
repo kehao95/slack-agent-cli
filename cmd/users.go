@@ -79,7 +79,7 @@ func runUsersList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid config (%s): %w", path, err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	service := users.NewService(client)
 
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -110,7 +110,7 @@ func runUsersInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid config (%s): %w", path, err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	service := users.NewService(client)
 
 	userInput, _ := cmd.Flags().GetString("user")

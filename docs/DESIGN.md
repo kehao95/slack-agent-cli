@@ -2,11 +2,11 @@
 
 ## 1. Executive Summary
 
-A command-line interface for AI coding agents to interact with Slack workspaces. The CLI exposes all Slack operations as shell commands, enabling agents like Claude Code and OpenCode to read messages, send replies, manage reactions, and more.
+A command-line interface for interacting with Slack workspaces as an authenticated user. The CLI exposes all Slack operations as shell commands, enabling users (including AI coding agents like Claude Code and OpenCode) to read messages, send replies, manage reactions, and more.
 
 **Key Design Decisions:**
-- **Socket Mode** for real-time message streaming
-- **Hybrid watch model**: `watch` for real-time, `messages list` for batch/history
+- **User Token authentication** for acting as yourself in Slack
+- **Batch operations** via `messages list` for history and `messages search` for queries
 - **Single workspace** per configuration
 - **Config file** for auth storage (`~/.config/slack-cli/config.json`)
 - **Both output formats**: Human-readable default, `--json` flag for structured output
@@ -17,8 +17,8 @@ A command-line interface for AI coding agents to interact with Slack workspaces.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        AI Coding Agent                          │
-│                  (Claude Code / OpenCode)                       │
+│                         User / Agent                            │
+│               (Human / Claude Code / OpenCode)                  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ Subprocess / Shell exec
@@ -26,19 +26,19 @@ A command-line interface for AI coding agents to interact with Slack workspaces.
 ┌─────────────────────────────────────────────────────────────────┐
 │                         slack-cli                               │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐   │
-│  │  watch   │  │ messages │  │  send    │  │  reactions   │   │
-│  │ (stream) │  │  (batch) │  │          │  │              │   │
+│  │ messages │  │ channels │  │reactions │  │    pins      │   │
+│  │  (list)  │  │  (list)  │  │          │  │              │   │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────────┘   │
 │        │              │            │              │             │
 │        └──────────────┴────────────┴──────────────┘             │
 │                              │                                  │
 │                    ┌─────────▼─────────┐                       │
 │                    │   Slack SDK       │                       │
-│                    │  (@slack/bolt)    │                       │
+│                    │  (slack-go)       │                       │
 │                    └─────────┬─────────┘                       │
 └──────────────────────────────│──────────────────────────────────┘
                                │
-                               │ Socket Mode / Web API
+                               │ Web API (User Token)
                                ▼
                     ┌─────────────────────┐
                     │    Slack Platform   │
@@ -60,14 +60,12 @@ slack-cli
 │
 ├── auth            # Authentication
 │   ├── test        # Verify credentials work
-│   └── whoami      # Show current bot/user info
+│   └── whoami      # Show current user info
 │
 ├── cache           # Cache management (for name resolution)
 │   ├── populate    # Fetch and cache channels/users
 │   ├── status      # Show cache state
 │   └── clear       # Clear cached data
-│
-├── watch           # Real-time message streaming (Socket Mode)
 │
 ├── channels        # Channel operations
 │   ├── list        # List accessible channels
@@ -81,7 +79,7 @@ slack-cli
 │   ├── reply       # Reply in thread
 │   ├── edit        # Edit a message
 │   ├── delete      # Delete a message
-│   └── search      # Search messages (requires user token)
+│   └── search      # Search messages
 │
 ├── reactions       # Reaction operations
 │   ├── add         # Add reaction to message
@@ -122,53 +120,16 @@ Slack CLI Configuration
 =======================
 
 1. Create a Slack app at https://api.slack.com/apps
-2. Enable Socket Mode and create an App Token (xapp-...)
-3. Add Bot Token Scopes and install to workspace
-4. Copy the Bot Token (xoxb-...)
+2. Add User Token Scopes and install to workspace
+3. Copy the User Token (xoxp-...)
 
-? App Token (xapp-...): xapp-1-A123-456-abc...
-? Bot Token (xoxb-...): xoxb-123-456-abc...
-? User Token (xoxp-..., optional): 
+? User Token (xoxp-...): xoxp-123-456-abc...
 
 Testing connection... ✓
-Bot name: my-bot
+User: alice
 Workspace: My Workspace
 
 Configuration saved to ~/.config/slack-cli/config.json
-```
-
----
-
-#### `slack-cli watch`
-
-Real-time message streaming via Socket Mode.
-
-```bash
-slack-cli watch [options]
-
-Options:
-  --channels <list>      Comma-separated channel names/IDs to watch (default: all)
-  --include-bots         Include messages from bots (default: false)
-  --include-own          Include bot's own messages (default: false)
-  --include-threads      Include thread replies (default: true)
-  --timeout <duration>   Exit after duration (e.g., "60s", "5m", "1h")
-  --events <list>        Event types to watch (default: message,reaction_added,reaction_removed)
-  --json                 Output as JSON lines (one event per line)
-  --quiet                Suppress connection status messages
-```
-
-**Output (Human-readable):**
-```
-[2024-01-15 10:32:45] #general | @alice: Hello everyone!
-[2024-01-15 10:32:48] #general | @bob reacted with :wave: to "Hello everyone!"
-[2024-01-15 10:33:01] #general | @alice (thread): Let's discuss the new feature
-```
-
-**Output (JSON):**
-```json
-{"type":"message","ts":"1705312365.000100","channel":"C123ABC","channel_name":"general","user":"U456DEF","username":"alice","text":"Hello everyone!","thread_ts":null}
-{"type":"reaction_added","ts":"1705312368.000200","channel":"C123ABC","user":"U789GHI","username":"bob","reaction":"wave","item_ts":"1705312365.000100"}
-{"type":"message","ts":"1705312381.000300","channel":"C123ABC","channel_name":"general","user":"U456DEF","username":"alice","text":"Let's discuss the new feature","thread_ts":"1705312365.000100"}
 ```
 
 ---
@@ -241,6 +202,35 @@ slack-cli messages send --channel "@alice" --text "Private message"
 
 ---
 
+#### `slack-cli messages search`
+
+Search messages across the workspace.
+
+```bash
+slack-cli messages search [options]
+
+Options:
+  --query <text>         Search query (required)
+  --limit <n>            Max results to return (default: 20)
+  --sort <field>         Sort by 'score' or 'timestamp' (default: timestamp)
+  --sort-dir <dir>       Sort direction 'asc' or 'desc' (default: desc)
+  --json                 Output as JSON
+```
+
+**Examples:**
+```bash
+# Basic search
+slack-cli messages search --query "deployment failed"
+
+# Search with advanced syntax
+slack-cli messages search --query "from:@alice in:#general"
+
+# Search and sort by relevance
+slack-cli messages search --query "error" --sort score --limit 20
+```
+
+---
+
 #### `slack-cli reactions add/remove/list`
 
 Manage emoji reactions.
@@ -260,11 +250,7 @@ slack-cli reactions list --channel "#general" --ts "1705312365.000100" --json
 
 ## 4. Configuration
 
-### 4.1 Workspace Context
-
-The production bot currently runs in `support-bot-testing (C074S0L3MCG)`. Examples throughout this document assume that workspace unless otherwise stated.
-
-### 4.2 Config File Location
+### 4.1 Config File Location
 
 ```
 ~/.config/slack-cli/config.json
@@ -272,7 +258,7 @@ The production bot currently runs in `support-bot-testing (C074S0L3MCG)`. Exampl
 
 Or via `SLACK_CLI_CONFIG` environment variable.
 
-### 4.3 Persistent Cache Location
+### 4.2 Persistent Cache Location
 
 ```
 ~/.config/slack-cli/cache/
@@ -283,9 +269,8 @@ Or via `SLACK_CLI_CONFIG` environment variable.
 - Each file contains a payload of Slack metadata plus a `fetched_at` ISO 8601 timestamp used for TTL checks.
 - Cache entries default to a 7-day TTL and are refreshed automatically when stale or when commands are invoked with `--refresh-cache`.
 - Any command that mutates Slack state (e.g., channel creation) must invalidate affected cache files to prevent stale reads.
-- Goal: after the first metadata fetch, commands like `messages list` in `support-bot-testing (C074S0L3MCG)` or any other workspace replay immediately by using cached channel/user lookups.
 
-### 4.4 Cache Population Commands
+### 4.3 Cache Population Commands
 
 The `cache` command group provides explicit control over metadata caching with incremental pagination support. This design allows AI agents to:
 1. Control when API calls are made (no surprise rate limits)
@@ -392,7 +377,7 @@ slack-cli cache clear channels
 slack-cli cache clear users
 ```
 
-### 4.5 Cache and Channel Resolution
+### 4.4 Cache and Channel Resolution
 
 Commands that accept `--channel` support two formats:
 1. **Direct ID** (`C074S0L3MCG`): Works immediately, no cache needed
@@ -418,25 +403,17 @@ slack-cli cache populate channels
 slack-cli cache populate channels
 ```
 
-### 4.7 Config Schema
+### 4.5 Config Schema
 
 ```json
 {
   "version": 1,
-  "app_token": "xapp-1-A123...",
-  "bot_token": "xoxb-123...",
   "user_token": "xoxp-123...",
   
   "defaults": {
     "output_format": "human",
     "include_bots": false,
     "text_chunk_limit": 4000
-  },
-  
-  "watch": {
-    "channels": [],
-    "events": ["message", "reaction_added", "reaction_removed"],
-    "include_threads": true
   },
   
   "channels": {
@@ -449,12 +426,10 @@ slack-cli cache populate channels
 }
 ```
 
-### 4.8 Environment Variable Overrides
+### 4.6 Environment Variable Overrides
 
 | Variable | Description |
 |----------|-------------|
-| `SLACK_APP_TOKEN` | Override app token |
-| `SLACK_BOT_TOKEN` | Override bot token |
 | `SLACK_USER_TOKEN` | Override user token |
 | `SLACK_CLI_CONFIG` | Config file path |
 | `SLACK_CLI_FORMAT` | Default output format (`json` or `human`) |
@@ -534,15 +509,6 @@ $ slack-cli messages list --channel "#general" --limit 3 --json
 }
 ```
 
-### 5.3 JSON Lines (for `watch` streaming)
-
-Each event is a single JSON line for easy parsing:
-
-```jsonl
-{"type":"message","ts":"1705312365.000100","channel":"C123ABC","user":"U456DEF","text":"Hello!"}
-{"type":"reaction_added","ts":"1705312368.000200","channel":"C123ABC","reaction":"wave","item_ts":"1705312365.000100"}
-```
-
 ---
 
 ## 6. Agent Integration Examples
@@ -552,18 +518,18 @@ Each event is a single JSON line for easy parsing:
 ```markdown
 ## slack-cli
 
-A command-line tool for interacting with Slack.
-
-### Watching for messages
-```bash
-# Watch all channels for 60 seconds, output as JSON
-slack-cli watch --timeout 60s --json
-```
+A command-line tool for interacting with Slack as yourself.
 
 ### Reading message history
 ```bash
 # Get last 20 messages from a channel
 slack-cli messages list --channel "#general" --limit 20 --json
+```
+
+### Searching messages
+```bash
+# Search for specific content
+slack-cli messages search --query "deployment failed" --json
 ```
 
 ### Sending messages
@@ -584,24 +550,18 @@ slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "t
 ### 6.2 Example Agent Workflow
 
 ```bash
-# Agent wants to monitor #support and respond to questions
+# Agent wants to check #support and respond to questions
 
-# 1. Start watching (agent runs this in background or with timeout)
-slack-cli watch --channels "#support" --timeout 5m --json > /tmp/slack-events.jsonl &
-
-# 2. Process incoming messages
-tail -f /tmp/slack-events.jsonl | while read -r event; do
-  # Agent processes each event...
-done
-
-# 3. Or use batch mode for one-shot queries
-# First lookup may fetch pages, subsequent lookups are instant
+# 1. Check recent messages
 slack-cli messages list --channel "#support" --since 1h --json | jq '.messages[]'
 
-# 4. Send a response
+# 2. Search for specific issues
+slack-cli messages search --query "error in:#support" --json
+
+# 3. Send a response
 slack-cli messages send --channel "#support" --thread "$THREAD_TS" --text "Here's the answer..."
 
-# 5. Add acknowledgment reaction
+# 4. Add acknowledgment reaction
 slack-cli reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
 ```
 
@@ -619,34 +579,15 @@ slack-cli messages list --channel "#support-bot-testing" --limit 20
 
 ---
 
-## 7. Feature Mapping (vs Molt Bot)
+## 7. Required Slack App Permissions
 
-| Molt Bot Feature | slack-cli Equivalent |
-|------------------|---------------------|
-| Socket Mode connection | `watch` command |
-| HTTP Mode (webhooks) | Not supported (Socket Mode only) |
-| Message history context | `messages list --since` |
-| Send/edit/delete messages | `messages send/edit/delete` |
-| Reactions | `reactions add/remove/list` |
-| Pins | `pins add/remove/list` |
-| Member info | `users info` |
-| Custom emoji list | `emoji list` |
-| File uploads | `files upload` |
-| Slash commands | Not supported (agent-driven, not bot-driven) |
-| Multi-account | Not supported (single workspace) |
-| Reply threading modes | Manual via `--thread` flag |
-| DM handling | `--channel "@username"` |
-
----
-
-## 8. Required Slack App Permissions
-
-### 8.1 Bot Token Scopes (Required)
+### 7.1 User Token Scopes
 
 | Scope | Purpose |
 |-------|---------|
 | `channels:history` | Read messages from public channels |
 | `channels:read` | List and get info about public channels |
+| `channels:write` | Join/leave public channels |
 | `chat:write` | Send messages |
 | `groups:history` | Read messages from private channels |
 | `groups:read` | List and get info about private channels |
@@ -663,43 +604,13 @@ slack-cli messages list --channel "#support-bot-testing" --limit 20
 | `files:read` | Read file info |
 | `files:write` | Upload files |
 | `emoji:read` | List custom emoji |
-
-### 8.2 User Token Scopes (Optional)
-
-| Scope | Purpose |
-|-------|---------|
 | `search:read` | Search messages |
 
-### 8.3 App Token Scopes (Required for Socket Mode)
-
-| Scope | Purpose |
-|-------|---------|
-| `connections:write` | Establish Socket Mode connection |
-
 ---
 
-## 9. Event Subscriptions (for `watch`)
+## 8. Error Handling
 
-| Event | Description |
-|-------|-------------|
-| `message.channels` | Messages in public channels |
-| `message.groups` | Messages in private channels |
-| `message.im` | Direct messages |
-| `message.mpim` | Group DMs |
-| `reaction_added` | Reaction added to message |
-| `reaction_removed` | Reaction removed |
-| `member_joined_channel` | User joined channel |
-| `member_left_channel` | User left channel |
-| `channel_rename` | Channel renamed |
-| `pin_added` | Message pinned |
-| `pin_removed` | Message unpinned |
-| `app_mention` | Bot was @mentioned |
-
----
-
-## 10. Error Handling
-
-### 10.1 Exit Codes
+### 8.1 Exit Codes
 
 | Code | Meaning |
 |------|---------|
@@ -712,7 +623,7 @@ slack-cli messages list --channel "#support-bot-testing" --limit 20
 | 6 | Permission denied (missing scopes) |
 | 7 | Resource not found (channel, user, message) |
 
-### 10.2 Error Output Format
+### 8.2 Error Output Format
 
 **Human-readable:**
 ```
@@ -732,42 +643,36 @@ Error: Channel not found: #nonexistent
 
 ---
 
-## 11. Implementation Plan
+## 9. Implementation Plan
 
 ### Phase 1: Core Infrastructure
 - [x] Project setup (Go)
 - [x] Config management (load/save/validate)
 - [x] Slack SDK integration
-- [ ] Auth test command
+- [x] Auth test command
 
 ### Phase 2: Read Operations
 - [x] `channels list`
 - [x] `messages list`
-- [ ] `users list/info`
+- [x] `users list/info`
 - [ ] `reactions list`
 
 ### Phase 3: Write Operations
-- [ ] `messages send`
-- [ ] `messages reply`
-- [ ] `reactions add/remove`
-- [ ] `pins add/remove`
+- [x] `messages send`
+- [x] `messages edit/delete`
+- [x] `reactions add/remove`
+- [x] `pins add/remove/list`
 
-### Phase 4: Real-time
-- [ ] `watch` command (Socket Mode)
-- [ ] Event filtering
-- [ ] Timeout handling
-
-### Phase 5: Advanced Features
-- [ ] `messages edit/delete`
-- [ ] `messages search` (user token)
+### Phase 4: Search & Advanced
+- [x] `messages search`
 - [ ] `files upload/download`
 - [ ] `channels join/leave`
 
 ---
 
-## 12. Technology Choices
+## 10. Technology Choices
 
-### Option A: Go
+### Go ✓ (Implemented)
 
 **Pros:**
 - Single binary distribution
@@ -775,27 +680,11 @@ Error: Channel not found: #nonexistent
 - Fast startup time
 - Good Slack SDK (slack-go/slack)
 
-**Cons:**
-- More verbose code
-
-### Option B: Node.js/TypeScript
-
-**Pros:**
-- Official Slack Bolt SDK
-- Faster development
-- Rich ecosystem
-
-**Cons:**
-- Requires Node.js runtime
-- Slower startup
-
-### Recommendation: **Go** ✓ (Implemented)
-
 The CLI is built in Go using slack-go/slack. Single binary distribution and fast startup are achieved.
 
 ---
 
-## 13. Security Considerations
+## 11. Security Considerations
 
 1. **Token Storage**: Config file should have 600 permissions
 2. **Token Validation**: Validate tokens on startup, fail fast
@@ -805,9 +694,8 @@ The CLI is built in Go using slack-go/slack. Single binary distribution and fast
 
 ---
 
-## 14. Future Considerations
+## 12. Future Considerations
 
 - Multi-workspace support via named profiles
 - Plugin system for custom commands
-- Caching layer for frequently accessed data
 - Integration with other messaging platforms (Discord, Teams)

@@ -84,7 +84,7 @@ func runReactionsAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
@@ -132,7 +132,7 @@ func runReactionsRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 	channelResolver := channels.NewCachedResolver(client, cacheStore)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)

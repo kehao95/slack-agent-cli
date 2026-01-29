@@ -28,8 +28,8 @@ var authTestCmd = &cobra.Command{
 
 var authWhoamiCmd = &cobra.Command{
 	Use:   "whoami",
-	Short: "Show current bot identity",
-	Long:  "Display information about the currently authenticated bot.",
+	Short: "Show current user identity",
+	Long:  "Display information about the currently authenticated user.",
 	Example: `  slack-cli auth whoami
   slack-cli auth whoami --json`,
 	RunE: runAuthWhoami,
@@ -50,7 +50,7 @@ func runAuthTest(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid config (%s): %w", path, err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 	defer cancel()

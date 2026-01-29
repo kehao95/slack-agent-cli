@@ -107,7 +107,7 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	client := slack.New(cfg.BotToken)
+	client := slack.New(cfg.UserToken)
 
 	fetchAll, _ := cmd.Flags().GetBool("all")
 	pageSize, _ := cmd.Flags().GetInt("page-size")
