@@ -42,3 +42,6 @@ build/
 # Development tools
 .beads/
 *.log
+
+# Internal documentation (not for public repo)
+.internal/
