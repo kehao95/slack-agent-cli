@@ -47,6 +47,7 @@ type Params struct {
 type Result struct {
 	Channel      string             `json:"channel"`
 	ChannelName  string             `json:"channel_name,omitempty"`
+	ThreadTS     string             `json:"thread_ts,omitempty"`
 	Messages     []slackapi.Message `json:"messages"`
 	HasMore      bool               `json:"has_more"`
 	NextCursor   string             `json:"next_cursor"`
@@ -80,7 +81,7 @@ func (s *Service) List(ctx context.Context, params Params) (Result, error) {
 		if err != nil {
 			return Result{}, err
 		}
-		return Result{Channel: params.Channel, Messages: msgs, HasMore: more, NextCursor: cursor}, nil
+		return Result{Channel: params.Channel, ThreadTS: params.Thread, Messages: msgs, HasMore: more, NextCursor: cursor}, nil
 	}
 	msgs, cursor, more, err := s.fetcher.ListMessages(ctx, slack.HistoryParams{
 		Channel:   params.Channel,
@@ -104,10 +105,24 @@ func (r Result) Lines() []string {
 		channelDisplay = r.Channel
 	}
 
-	title := fmt.Sprintf("#%s - %d messages", strings.TrimPrefix(channelDisplay, "#"), len(r.Messages))
+	var title string
+	if r.ThreadTS != "" {
+		title = fmt.Sprintf("#%s - Thread %s - %d messages", strings.TrimPrefix(channelDisplay, "#"), r.ThreadTS, len(r.Messages))
+	} else {
+		title = fmt.Sprintf("#%s - %d messages", strings.TrimPrefix(channelDisplay, "#"), len(r.Messages))
+	}
+
 	lines := []string{title, strings.Repeat("-", len(title))}
 	for _, msg := range r.Messages {
-		lines = append(lines, fmt.Sprintf("[%s] @%s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), msg.Msg.Text))
+		msgLine := fmt.Sprintf("[%s] @%s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), msg.Msg.Text)
+
+		// Add thread indicator if message has replies (and we're not already in a thread view)
+		if msg.ReplyCount > 0 && r.ThreadTS == "" {
+			threadInfo := fmt.Sprintf(" [thread: %d replies, ts: %s]", msg.ReplyCount, msg.ThreadTimestamp)
+			msgLine += threadInfo
+		}
+
+		lines = append(lines, msgLine)
 	}
 	if r.NextCursor != "" {
 		lines = append(lines, fmt.Sprintf("Next cursor: %s", r.NextCursor))
