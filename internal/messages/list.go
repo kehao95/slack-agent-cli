@@ -16,6 +16,11 @@ type Fetcher interface {
 	ListThread(context.Context, slack.ThreadParams) ([]slackapi.Message, string, bool, error)
 }
 
+// UserResolver resolves user IDs to display names.
+type UserResolver interface {
+	GetDisplayName(ctx context.Context, userID string) string
+}
+
 // Service coordinates message list operations.
 type Service struct {
 	fetcher Fetcher
@@ -38,10 +43,19 @@ type Params struct {
 
 // Result represents list output.
 type Result struct {
-	Channel    string             `json:"channel"`
-	Messages   []slackapi.Message `json:"messages"`
-	HasMore    bool               `json:"has_more"`
-	NextCursor string             `json:"next_cursor"`
+	Channel      string             `json:"channel"`
+	ChannelName  string             `json:"channel_name,omitempty"`
+	Messages     []slackapi.Message `json:"messages"`
+	HasMore      bool               `json:"has_more"`
+	NextCursor   string             `json:"next_cursor"`
+	userResolver UserResolver       `json:"-"`
+	ctx          context.Context    `json:"-"`
+}
+
+// SetUserResolver sets the user resolver for human-readable output.
+func (r *Result) SetUserResolver(ctx context.Context, resolver UserResolver) {
+	r.ctx = ctx
+	r.userResolver = resolver
 }
 
 // List retrieves channel or thread history.
@@ -82,10 +96,16 @@ func (s *Service) List(ctx context.Context, params Params) (Result, error) {
 
 // Lines returns human-readable lines for Result.
 func (r Result) Lines() []string {
-	title := fmt.Sprintf("%s - %d messages", r.Channel, len(r.Messages))
+	// Use channel name if available, otherwise channel ID
+	channelDisplay := r.ChannelName
+	if channelDisplay == "" {
+		channelDisplay = r.Channel
+	}
+
+	title := fmt.Sprintf("#%s - %d messages", strings.TrimPrefix(channelDisplay, "#"), len(r.Messages))
 	lines := []string{title, strings.Repeat("-", len(title))}
 	for _, msg := range r.Messages {
-		lines = append(lines, fmt.Sprintf("[%s] %s: %s", msg.Msg.Timestamp, displayUser(msg), msg.Msg.Text))
+		lines = append(lines, fmt.Sprintf("[%s] @%s: %s", msg.Msg.Timestamp, r.displayUser(msg), msg.Msg.Text))
 	}
 	if r.NextCursor != "" {
 		lines = append(lines, fmt.Sprintf("Next cursor: %s", r.NextCursor))
@@ -93,12 +113,24 @@ func (r Result) Lines() []string {
 	return lines
 }
 
-func displayUser(msg slackapi.Message) string {
+func (r Result) displayUser(msg slackapi.Message) string {
+	// If we have a username already, use it
 	if msg.Username != "" {
 		return msg.Username
 	}
-	if msg.Msg.User != "" {
-		return msg.Msg.User
+
+	userID := msg.Msg.User
+	if userID == "" {
+		return "unknown"
 	}
-	return "unknown"
+
+	// Try to resolve using user resolver
+	if r.userResolver != nil && r.ctx != nil {
+		name := r.userResolver.GetDisplayName(r.ctx, userID)
+		if name != userID { // Only use if actually resolved
+			return name
+		}
+	}
+
+	return userID
 }
