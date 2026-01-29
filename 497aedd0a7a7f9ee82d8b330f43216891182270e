@@ -1,0 +1,43 @@
+cmd/auth.go
+  897f0363dfb60c67 31-32,53
+cmd/pins.go
+  897f0363dfb60c67 99,145,190
+docs/DESIGN.md
+  897f0363dfb60c67 5,8-9,20-21,29-30,37,41,63,82,123-124,126,129,205-229,253,261,273,380,406,429,521,529-532,553,555,558-561,564,582,584,590,611,613,626,646,652,657,661-667,673,675,687,697
+cmd/channels.go
+  897f0363dfb60c67 19,25,55
+internal/config/config_test.go
+  897f0363dfb60c67 20-21,31,46-47,69,71
+cmd/cache.go
+  897f0363dfb60c67 110
+internal/config/config.go
+  897f0363dfb60c67 19,103-104
+internal/slack/client.go
+  897f0363dfb60c67 242-244,516
+cmd/users.go
+  897f0363dfb60c67 82,113
+cmd/messages.go
+  897f0363dfb60c67 50,86,98,165,344,393,435
+cmd/reactions.go
+  897f0363dfb60c67 87,135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "497aedd0a7a7f9ee82d8b330f43216891182270e",
+  "prompts": {
+    "897f0363dfb60c67": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4442caaffeYv00DTMTdvQQsP",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 119,
+      "total_deletions": 266,
+      "accepted_lines": 119,
+      "overriden_lines": 0
+    }
+  }
+}
