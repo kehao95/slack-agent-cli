@@ -139,6 +139,15 @@ func (c *APIClient) ListUsers(ctx context.Context, cursor string, limit int) ([]
 	return users, "", nil
 }
 
+// GetUserGroups fetches all user groups from the workspace.
+func (c *APIClient) GetUserGroups(ctx context.Context) ([]slackapi.UserGroup, error) {
+	groups, err := c.sdk.GetUserGroupsContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get user groups: %w", err)
+	}
+	return groups, nil
+}
+
 // ListChannelsPaginated provides a simpler interface for cache population.
 // Returns all visible channels (both member and non-member).
 func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, int, error) {

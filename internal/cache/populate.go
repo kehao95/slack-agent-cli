@@ -213,6 +213,9 @@ const CacheKeyChannels = "channels"
 // CacheKeyUsers is the cache key for users.
 const CacheKeyUsers = "users"
 
+// CacheKeyUserGroups is the cache key for usergroups.
+const CacheKeyUserGroups = "usergroups"
+
 // PopulateUsers incrementally populates the user cache.
 func (s *Store) PopulateUsers(ctx context.Context, fetcher UserFetcher, cfg PopulateConfig) (PopulateResult, error) {
 	if cfg.PageSize == 0 {
