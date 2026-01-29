@@ -9,27 +9,32 @@ A CLI tool for AI coding agents to interact with Slack workspaces via command li
 | Language | Go |
 | CLI Framework | Cobra + Viper |
 | Slack SDK | slack-go/slack |
-| Issue Tracker | Beads (`bd`) |
 | Config Location | `~/.config/slack-cli/config.json` |
 
 ## Quick Reference
 
 ```bash
-# Issue tracking
-bd ready                    # Show tasks ready to work on
-bd show <id>                # View task details and acceptance criteria
-bd update <id> --status in_progress   # Start a task
-bd close <id>               # Complete a task
-
-# Development
-go build ./...              # Build
-go test ./...               # Run tests
-go run main.go <command>    # Run CLI
+# Development commands
+go build ./...              # Build all packages
+go test ./...               # Run all tests
+go run main.go <command>    # Run CLI directly
+go run main.go --help       # See available commands
 ```
 
 ## Documentation
 
-- [docs/DESIGN.md](docs/DESIGN.md) - Full design document with API specs
+- [docs/DESIGN.md](docs/DESIGN.md) - **READ THIS FIRST** for command specs, output formats, and API details
+
+## Issue Tracking (Optional)
+
+If Beads (`bd`) is available in your environment:
+```bash
+bd ready                              # Show tasks ready to work on
+bd show <id>                          # View task details
+bd update <id> --status in_progress   # Start a task
+bd close <id>                         # Complete a task
+```
+If unavailable, track work via git commits and PR descriptions.
 
 ---
 
@@ -46,72 +51,74 @@ go run main.go <command>    # Run CLI
 
 - **Always keep Beads up to date.** Every time you begin coding, run `bd update <task-id> --status in_progress` (if not already) and add a short note on what you are tackling next.
 - **Log progress after each meaningful change or test run.** Use `bd update <task-id> --notes "Progress: <summary>. Tests: go test ./..."` to capture what was implemented and which verification commands were executed.
-- **One source of truth.** The Beads task must reflect the current state of work (in progress, blocked, ready for review, etc.) and mention whether requirements are satisfied/tests are passing. Avoid silent progress—if it’s done or tested, it must be recorded via `bd update` or `bd close`.
+- **One source of truth.** The Beads task must reflect the current state of work (in progress, blocked, ready for review, etc.) and mention whether requirements are satisfied/tests are passing. Avoid silent progress—if it's done or tested, it must be recorded via `bd update` or `bd close`.
 
 ### Task Completion Criteria
 
-**A task is ONLY complete when ALL of the following are true:**
+**A task is ONLY complete when ALL quality gates pass:**
 
-1. ✅ Code compiles without errors: `go build ./...`
-2. ✅ All tests pass: `go test ./...`
-3. ✅ New code has tests (aim for >80% coverage on new code)
-4. ✅ Code follows Go conventions: `go fmt ./...` and `go vet ./...`
-5. ✅ The specific acceptance criteria in the task are met
-6. ✅ Changes are committed with a meaningful message
-7. ✅ Task is closed: `bd close <task-id>`
+```bash
+# Run this single command to verify all criteria
+go fmt ./... && go vet ./... && go build ./... && go test ./...
+```
+
+| Criterion | Verification | Expected Output |
+|-----------|-------------|-----------------|
+| Compiles | `go build ./...` | No output (exit 0) |
+| Tests pass | `go test ./...` | `ok` for each package |
+| Formatted | `go fmt ./...` | No output (no changes) |
+| No issues | `go vet ./...` | No output (exit 0) |
+
+**Additional requirements:**
+- New code has tests (aim for >80% coverage on new code)
+- Changes are committed with a meaningful message
+- If using Beads: `bd close <task-id>`
 
 ---
 
 ## Task-Specific Deliverables
 
-Each task type has specific deliverables that MUST be completed:
+**DISCOVERY FIRST**: Before writing any code, use tools to understand existing patterns. Do not rely on documentation alone—the codebase is the source of truth.
 
 ### For "Implement X command" tasks
 
-**Required deliverables:**
-1. Command file: `cmd/<command>.go` or `cmd/<parent>/<subcommand>.go`
-2. Business logic: `internal/<domain>/<feature>.go`
-3. Tests: `internal/<domain>/<feature>_test.go`
-4. Command registered in parent command's `init()`
-5. Help text with examples: `Use`, `Short`, `Long`, `Example` fields
-
-**Verification:**
+**Step 1: Discover the pattern**
 ```bash
-# Command appears in help
-go run main.go --help
-go run main.go <parent> --help
+# Find the most similar existing command
+go run main.go --help                    # What commands exist?
+go run main.go <similar-command> --help  # How does it work?
+```
 
-# Command executes without panic (even if API fails without config)
-go run main.go <command> --help
+Then READ the corresponding `cmd/<similar>.go` file to understand:
+- How flags are defined
+- How the `RunE` function is structured
+- What internal packages it imports
+
+**Step 2: Verify your implementation**
+```bash
+# MUST pass all checks
+go run main.go --help | grep <your-command>     # Command registered
+go run main.go <your-command> --help            # Flags documented
+go run main.go <your-command> <valid-args>      # Runs without panic
+go test ./cmd/... ./internal/<domain>/...       # Tests pass
 ```
 
 ### For "Implement X SDK integration" tasks
 
-**Required deliverables:**
-1. Client wrapper: `internal/slack/client.go`
-2. Interface definition for testability
-3. Mock implementation: `internal/slack/mock_client.go`
-4. Connection/auth validation function
-5. Unit tests with mocks
+**Discovery**: Read `internal/slack/client.go` to understand the interface pattern, then read `internal/slack/mock_client.go` to see how mocking works.
 
-**Verification:**
+**Verification**:
 ```bash
-go test ./internal/slack/...
+go test ./internal/slack/...   # All tests pass with mocks
 ```
 
 ### For "Implement configuration" tasks
 
-**Required deliverables:**
-1. Config struct with JSON tags: `internal/config/config.go`
-2. Load/Save functions with proper error handling
-3. Validation function
-4. Default values
-5. Environment variable override support
-6. Tests for load/save/validate
+**Discovery**: Read `internal/config/config.go` for the struct layout and `internal/config/config_test.go` for test patterns.
 
-**Verification:**
+**Verification**:
 ```bash
-go test ./internal/config/...
+go test ./internal/config/...  # All tests pass
 ```
 
 ---
@@ -150,60 +157,29 @@ slack-cli/
 
 ## Code Conventions
 
+**DISCOVER, DON'T MEMORIZE**: Patterns evolve. Always read the actual implementation files rather than relying on examples below.
+
 ### Command Pattern (Cobra)
 
-```go
-// cmd/messages.go
-var messagesCmd = &cobra.Command{
-    Use:   "messages",
-    Short: "Message operations",
-    Long:  `Send, list, edit, and delete Slack messages.`,
-}
-
-var messagesListCmd = &cobra.Command{
-    Use:   "list",
-    Short: "List messages from a channel",
-    Long:  `Fetch message history from a Slack channel using conversations.history API.`,
-    Example: `  # Get last 20 messages
-  slack-cli messages list --channel "#general" --limit 20
-  
-  # Get messages as JSON
-  slack-cli messages list --channel "#general" --json`,
-    RunE: runMessagesList,
-}
-
-func init() {
-    rootCmd.AddCommand(messagesCmd)
-    messagesCmd.AddCommand(messagesListCmd)
-    
-    messagesListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
-    messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages to return")
-    messagesListCmd.Flags().Bool("json", false, "Output as JSON")
-    messagesListCmd.MarkFlagRequired("channel")
-}
-
-func runMessagesList(cmd *cobra.Command, args []string) error {
-    // Implementation
-}
+**Discovery command:**
+```bash
+# Read the messages command as your template
+cat cmd/messages.go
 ```
+
+Key elements to replicate:
+- `var <name>Cmd = &cobra.Command{...}` with Use, Short, Long, Example, RunE
+- `func init()` that registers command and defines flags
+- `func run<Name>(cmd *cobra.Command, args []string) error` as the handler
 
 ### Output Pattern
 
-```go
-// internal/output/output.go
-type Formatter interface {
-    Format(data interface{}) (string, error)
-}
-
-// Always support both formats
-func PrintOutput(cmd *cobra.Command, data interface{}) error {
-    jsonFlag, _ := cmd.Flags().GetBool("json")
-    if jsonFlag {
-        return printJSON(data)
-    }
-    return printHuman(data)
-}
+**Discovery command:**
+```bash
+cat internal/output/output.go
 ```
+
+All commands must support both human-readable (default) and JSON (`--json`) output via the `output.Print()` function.
 
 ### Error Handling
 
@@ -223,43 +199,27 @@ if err != nil {
 
 ### Unit Tests
 
-Every new function should have tests:
+Every new function should have tests. **Discover the pattern by reading existing tests:**
 
-```go
-// internal/config/config_test.go
-func TestLoadConfig(t *testing.T) {
-    tests := []struct {
-        name    string
-        setup   func() string  // Returns temp config path
-        want    *Config
-        wantErr bool
-    }{
-        {
-            name: "valid config",
-            setup: func() string {
-                // Create temp file with valid config
-            },
-            want: &Config{...},
-        },
-        {
-            name: "missing file returns default",
-            setup: func() string { return "/nonexistent" },
-            want: DefaultConfig(),
-        },
-    }
-    
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            // Test implementation
-        })
-    }
-}
+```bash
+# Find test files matching your domain
+ls internal/*/*.go | grep _test.go
+
+# Read a representative test file
+cat internal/config/config_test.go
+cat internal/channels/service_test.go
 ```
+
+Key patterns to follow:
+- Use table-driven tests (`tests := []struct{...}`)
+- Use `t.Run(tt.name, func(t *testing.T) {...})` for subtests
+- Use `t.TempDir()` for file system isolation
+- Use `t.Setenv()` to override environment variables
 
 ### Integration Tests (when Slack credentials available)
 
 ```go
-// +build integration
+//go:build integration
 
 func TestSlackClient_ListChannels(t *testing.T) {
     if os.Getenv("SLACK_BOT_TOKEN") == "" {

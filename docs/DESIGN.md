@@ -735,14 +735,14 @@ Error: Channel not found: #nonexistent
 ## 11. Implementation Plan
 
 ### Phase 1: Core Infrastructure
-- [ ] Project setup (Go or Node.js)
-- [ ] Config management (load/save/validate)
-- [ ] Slack SDK integration
+- [x] Project setup (Go)
+- [x] Config management (load/save/validate)
+- [x] Slack SDK integration
 - [ ] Auth test command
 
 ### Phase 2: Read Operations
-- [ ] `channels list`
-- [ ] `messages list`
+- [x] `channels list`
+- [x] `messages list`
 - [ ] `users list/info`
 - [ ] `reactions list`
 
@@ -789,9 +789,9 @@ Error: Channel not found: #nonexistent
 - Requires Node.js runtime
 - Slower startup
 
-### Recommendation: **Go**
+### Recommendation: **Go** ✓ (Implemented)
 
-For a CLI tool used by agents, single binary distribution and fast startup are critical. The slack-go library provides full API coverage.
+The CLI is built in Go using slack-go/slack. Single binary distribution and fast startup are achieved.
 
 ---
 
