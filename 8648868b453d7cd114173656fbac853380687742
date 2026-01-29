@@ -1,0 +1,41 @@
+AGENTS.md
+  fa1ae9291a326cb4 17-21,26-28,30-37,54,58,60-70,72-75,90,121
+  c7b517ce96404645 81,85,87-89,92-95,97,99-103,108,110,112,117,119,160,162,164-167,170-173,175,177-179,182,202,204-210,213-217,222
+README.md
+  fa1ae9291a326cb4 13,25-26,28,30-32,41-46
+docs/DESIGN.md
+  fa1ae9291a326cb4 738-740,744-745,792,794
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "8648868b453d7cd114173656fbac853380687742",
+  "prompts": {
+    "c7b517ce96404645": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f48f9bcfffe2H9qwFE3867qce",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 51,
+      "total_deletions": 109,
+      "accepted_lines": 51,
+      "overriden_lines": 0
+    },
+    "fa1ae9291a326cb4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4927f75ffekwLhtn8cyPCR1s",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 90,
+      "total_deletions": 67,
+      "accepted_lines": 61,
+      "overriden_lines": 0
+    }
+  }
+}
