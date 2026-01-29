@@ -80,11 +80,37 @@ var messagesSendCmd = &cobra.Command{
 	RunE: runMessagesSend,
 }
 
+var messagesEditCmd = &cobra.Command{
+	Use:   "edit",
+	Short: "Edit a message",
+	Long:  "Edit an existing message sent by the bot.",
+	Example: `  # Edit a message
+  slack-cli messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
+
+  # Edit with JSON output
+  slack-cli messages edit --channel "#general" --ts "1705312365.000100" --text "New message" --json`,
+	RunE: runMessagesEdit,
+}
+
+var messagesDeleteCmd = &cobra.Command{
+	Use:   "delete",
+	Short: "Delete a message",
+	Long:  "Delete a message sent by the bot.",
+	Example: `  # Delete a message
+  slack-cli messages delete --channel "#general" --ts "1705312365.000100"
+
+  # Delete with JSON output
+  slack-cli messages delete --channel "#general" --ts "1705312365.000100" --json`,
+	RunE: runMessagesDelete,
+}
+
 func init() {
 	rootCmd.AddCommand(messagesCmd)
 	messagesCmd.AddCommand(messagesListCmd)
 	messagesCmd.AddCommand(messagesSearchCmd)
 	messagesCmd.AddCommand(messagesSendCmd)
+	messagesCmd.AddCommand(messagesEditCmd)
+	messagesCmd.AddCommand(messagesDeleteCmd)
 
 	messagesListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
 	messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages to return")
@@ -107,6 +133,18 @@ func init() {
 	messagesSendCmd.Flags().Bool("unfurl-links", true, "Unfurl URLs in message")
 	messagesSendCmd.Flags().Bool("unfurl-media", true, "Unfurl media in message")
 	messagesSendCmd.MarkFlagRequired("channel")
+
+	messagesEditCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
+	messagesEditCmd.Flags().String("ts", "", "Message timestamp (required)")
+	messagesEditCmd.Flags().StringP("text", "t", "", "New message text (required)")
+	messagesEditCmd.MarkFlagRequired("channel")
+	messagesEditCmd.MarkFlagRequired("ts")
+	messagesEditCmd.MarkFlagRequired("text")
+
+	messagesDeleteCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
+	messagesDeleteCmd.Flags().String("ts", "", "Message timestamp (required)")
+	messagesDeleteCmd.MarkFlagRequired("channel")
+	messagesDeleteCmd.MarkFlagRequired("ts")
 }
 
 func runMessagesList(cmd *cobra.Command, args []string) error {
@@ -328,6 +366,91 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 		UnfurlLinks: unfurlLinks,
 		UnfurlMedia: unfurlMedia,
 	})
+	if err != nil {
+		return err
+	}
+
+	// Set the channel name in the result for human-readable output
+	result.Channel = channelInput
+
+	return output.Print(cmd, result)
+}
+
+func runMessagesEdit(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	channelInput, _ := cmd.Flags().GetString("channel")
+	timestamp, _ := cmd.Flags().GetString("ts")
+	text, _ := cmd.Flags().GetString("text")
+
+	// Initialize cache store
+	cacheStore, err := cache.DefaultStore()
+	if err != nil {
+		return fmt.Errorf("init cache: %w", err)
+	}
+
+	client := slack.New(cfg.BotToken)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	// Resolve channel name to ID
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	if err != nil {
+		return err
+	}
+
+	// Edit the message
+	result, err := client.EditMessage(ctx, channelID, timestamp, text)
+	if err != nil {
+		return err
+	}
+
+	// Set the channel name in the result for human-readable output
+	result.Channel = channelInput
+
+	return output.Print(cmd, result)
+}
+
+func runMessagesDelete(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	channelInput, _ := cmd.Flags().GetString("channel")
+	timestamp, _ := cmd.Flags().GetString("ts")
+
+	// Initialize cache store
+	cacheStore, err := cache.DefaultStore()
+	if err != nil {
+		return fmt.Errorf("init cache: %w", err)
+	}
+
+	client := slack.New(cfg.BotToken)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	// Resolve channel name to ID
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	if err != nil {
+		return err
+	}
+
+	// Delete the message
+	result, err := client.DeleteMessage(ctx, channelID, timestamp)
 	if err != nil {
 		return err
 	}
