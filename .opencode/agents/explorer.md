@@ -1,6 +1,7 @@
 ---
 description: Investigates slack-cli codebase - finds patterns, traces bugs, answers questions. Read-only, cannot modify files.
 mode: subagent
+model: github-copilot/claude-sonnet-4.5
 tools:
   write: false
   edit: false

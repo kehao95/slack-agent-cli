@@ -240,3 +240,144 @@ func DoWithRetry(ctx context.Context, fn func() error) error {
 	}
 	return lastErr
 }
+
+// SearchClient provides message search capabilities (requires user token).
+type SearchClient interface {
+	SearchMessages(ctx context.Context, query string, params SearchParams) (*SearchResult, error)
+}
+
+// SearchParams wraps arguments for search.messages.
+type SearchParams struct {
+	Count     int
+	Page      int
+	SortBy    string // "score" or "timestamp"
+	SortDir   string // "asc" or "desc"
+	Highlight bool
+}
+
+// SearchResult represents the search.messages API response.
+type SearchResult struct {
+	Query    string         `json:"query"`
+	Messages SearchMessages `json:"messages"`
+}
+
+// SearchMessages contains the list of matching messages.
+type SearchMessages struct {
+	Total   int           `json:"total"`
+	Matches []SearchMatch `json:"matches"`
+}
+
+// SearchMatch represents a single search result.
+type SearchMatch struct {
+	Type      string        `json:"type"`
+	Channel   SearchChannel `json:"channel"`
+	User      string        `json:"user"`
+	Username  string        `json:"username"`
+	Timestamp string        `json:"ts"`
+	Text      string        `json:"text"`
+	Permalink string        `json:"permalink"`
+}
+
+// SearchChannel contains channel metadata for a search result.
+type SearchChannel struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// UserAPIClient wraps operations requiring user token.
+type UserAPIClient struct {
+	sdk *slackapi.Client
+}
+
+// NewUserClient creates a new UserAPIClient using the provided user token.
+func NewUserClient(userToken string) *UserAPIClient {
+	return &UserAPIClient{sdk: slackapi.New(userToken)}
+}
+
+// SearchMessages searches messages across the workspace using search.messages API.
+func (c *UserAPIClient) SearchMessages(ctx context.Context, query string, params SearchParams) (*SearchResult, error) {
+	if query == "" {
+		return nil, fmt.Errorf("search query is required")
+	}
+
+	searchParams := slackapi.SearchParameters{
+		Sort:          params.SortBy,
+		SortDirection: params.SortDir,
+		Count:         params.Count,
+		Page:          params.Page,
+		Highlight:     params.Highlight,
+	}
+
+	messages, err := c.sdk.SearchMessagesContext(ctx, query, searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("search messages: %w", err)
+	}
+
+	// Map slack-go response to our internal structure
+	result := &SearchResult{
+		Query: query,
+		Messages: SearchMessages{
+			Total:   messages.Total,
+			Matches: make([]SearchMatch, len(messages.Matches)),
+		},
+	}
+
+	for i, match := range messages.Matches {
+		result.Messages.Matches[i] = SearchMatch{
+			Type: match.Type,
+			Channel: SearchChannel{
+				ID:   match.Channel.ID,
+				Name: match.Channel.Name,
+			},
+			User:      match.User,
+			Username:  match.Username,
+			Timestamp: match.Timestamp,
+			Text:      match.Text,
+			Permalink: match.Permalink,
+		}
+	}
+
+	return result, nil
+}
+
+// Lines implements the output.Printable interface for human-readable search results.
+func (r *SearchResult) Lines() []string {
+	lines := []string{
+		fmt.Sprintf("Search Results for \"%s\" (%d matches)", r.Query, r.Messages.Total),
+		"───────────────────────────────────────────────────",
+	}
+
+	if len(r.Messages.Matches) == 0 {
+		lines = append(lines, "No messages found.")
+		return lines
+	}
+
+	for _, match := range r.Messages.Matches {
+		// Format timestamp
+		ts := match.Timestamp
+		if len(ts) > 10 {
+			// Convert Slack timestamp (seconds.microseconds) to readable format
+			// For simplicity, just show the timestamp as-is
+			// In production, you'd parse this properly
+		}
+
+		channelName := match.Channel.Name
+		if channelName == "" {
+			channelName = match.Channel.ID
+		}
+
+		username := match.Username
+		if username == "" {
+			username = match.User
+		}
+
+		lines = append(lines, "")
+		lines = append(lines, fmt.Sprintf("[%s] #%s @%s:", ts, channelName, username))
+		lines = append(lines, fmt.Sprintf("  %s", match.Text))
+		if match.Permalink != "" {
+			lines = append(lines, fmt.Sprintf("  %s", match.Permalink))
+		}
+	}
+
+	return lines
+}

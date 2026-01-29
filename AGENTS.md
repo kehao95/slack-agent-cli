@@ -44,11 +44,11 @@ You are the **master agent**. You orchestrate work by delegating to specialized 
 ```
 1. User requests a feature/fix
 2. You (master) check `bd ready` for tasks or create a plan
-3. You delegate to `coder` with task ID and clear instructions
+3. You delegate to `@coder` with task ID and clear instructions
 4. Coder implements and reports back (does NOT commit)
-5. You delegate to `validator` to verify against docs/DESIGN.md
+5. You delegate to `@validator` to verify against docs/DESIGN.md
 6. If validation passes: you commit, push, and close the task
-7. If validation fails: you delegate back to coder with feedback
+7. If validation fails: you delegate back to `@coder` with feedback
 ```
 
 ### Delegation Rules

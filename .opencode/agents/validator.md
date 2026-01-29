@@ -1,6 +1,7 @@
 ---
 description: Validates that implemented commands match the design spec. Runs CLI commands and checks output format, flags, and behavior.
 mode: subagent
+model: github-copilot/claude-sonnet-4.5
 tools:
   write: false
   edit: false

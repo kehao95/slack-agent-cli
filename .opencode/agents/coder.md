@@ -1,6 +1,7 @@
 ---
 description: Implements features and fixes bugs for the slack-cli Go project. Follows discovery-first patterns and runs quality gates.
 mode: subagent
+model: github-copilot/claude-sonnet-4.5
 tools:
   write: true
   edit: true
