@@ -3,6 +3,7 @@ package messages
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -114,7 +115,9 @@ func (r Result) Lines() []string {
 
 	lines := []string{title, strings.Repeat("-", len(title))}
 	for _, msg := range r.Messages {
-		msgLine := fmt.Sprintf("[%s] @%s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), msg.Msg.Text)
+		// Resolve user mentions in the message text
+		text := r.resolveUserMentions(msg.Msg.Text)
+		msgLine := fmt.Sprintf("[%s] @%s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), text)
 
 		// Add thread indicator if message has replies (and we're not already in a thread view)
 		if msg.ReplyCount > 0 && r.ThreadTS == "" {
@@ -150,6 +153,30 @@ func (r Result) displayUser(msg slackapi.Message) string {
 	}
 
 	return userID
+}
+
+// resolveUserMentions replaces <@USERID> mentions with @username in message text.
+func (r Result) resolveUserMentions(text string) string {
+	if r.userResolver == nil || r.ctx == nil {
+		return text
+	}
+
+	// Match user mentions like <@U06D82H8QUW>
+	userMentionRegex := regexp.MustCompile(`<@([A-Z0-9]+)>`)
+
+	return userMentionRegex.ReplaceAllStringFunc(text, func(match string) string {
+		// Extract user ID from <@USERID>
+		userID := match[2 : len(match)-1] // Remove <@ and >
+
+		// Try to resolve the user ID
+		name := r.userResolver.GetDisplayName(r.ctx, userID)
+		if name != userID {
+			return "@" + name
+		}
+
+		// If resolution failed, keep the original format
+		return match
+	})
 }
 
 // formatTimestamp converts a Slack timestamp (e.g., "1769710907.130119") to human-readable format.
