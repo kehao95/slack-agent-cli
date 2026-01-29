@@ -17,6 +17,8 @@ type Client interface {
 // MessageClient provides message posting capabilities.
 type MessageClient interface {
 	PostMessage(ctx context.Context, channel string, opts PostMessageOptions) (*PostMessageResult, error)
+	EditMessage(ctx context.Context, channel, timestamp, text string) (*EditMessageResult, error)
+	DeleteMessage(ctx context.Context, channel, timestamp string) (*DeleteMessageResult, error)
 }
 
 // ChannelClient extends Client with channel operations.
@@ -66,6 +68,39 @@ func (r *PostMessageResult) Lines() []string {
 	lines := []string{
 		"Message sent successfully",
 		fmt.Sprintf("Channel: %s", r.Channel),
+		fmt.Sprintf("Timestamp: %s", r.Timestamp),
+	}
+	return lines
+}
+
+// EditMessageResult represents the result of editing a message.
+type EditMessageResult struct {
+	OK        bool   `json:"ok"`
+	Channel   string `json:"channel"`
+	Timestamp string `json:"ts"`
+	Text      string `json:"text"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *EditMessageResult) Lines() []string {
+	lines := []string{
+		fmt.Sprintf("✓ Message updated in %s", r.Channel),
+		fmt.Sprintf("Timestamp: %s", r.Timestamp),
+	}
+	return lines
+}
+
+// DeleteMessageResult represents the result of deleting a message.
+type DeleteMessageResult struct {
+	OK        bool   `json:"ok"`
+	Channel   string `json:"channel"`
+	Timestamp string `json:"ts"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *DeleteMessageResult) Lines() []string {
+	lines := []string{
+		fmt.Sprintf("✓ Message deleted from %s", r.Channel),
 		fmt.Sprintf("Timestamp: %s", r.Timestamp),
 	}
 	return lines
@@ -190,6 +225,57 @@ func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMe
 		Channel:   respChannel,
 		Timestamp: respTimestamp,
 		Text:      opts.Text,
+	}, nil
+}
+
+// EditMessage updates an existing message.
+func (c *APIClient) EditMessage(ctx context.Context, channel, timestamp, text string) (*EditMessageResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return nil, fmt.Errorf("timestamp is required")
+	}
+	if text == "" {
+		return nil, fmt.Errorf("text is required")
+	}
+
+	respChannel, respTimestamp, respText, err := c.sdk.UpdateMessageContext(
+		ctx,
+		channel,
+		timestamp,
+		slackapi.MsgOptionText(text, false),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("edit message: %w", err)
+	}
+
+	return &EditMessageResult{
+		OK:        true,
+		Channel:   respChannel,
+		Timestamp: respTimestamp,
+		Text:      respText,
+	}, nil
+}
+
+// DeleteMessage deletes a message.
+func (c *APIClient) DeleteMessage(ctx context.Context, channel, timestamp string) (*DeleteMessageResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return nil, fmt.Errorf("timestamp is required")
+	}
+
+	_, _, err := c.sdk.DeleteMessageContext(ctx, channel, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("delete message: %w", err)
+	}
+
+	return &DeleteMessageResult{
+		OK:        true,
+		Channel:   channel,
+		Timestamp: timestamp,
 	}, nil
 }
 
