@@ -10,13 +10,9 @@ import (
 	"github.com/contentsquare/slack-cli/internal/cache"
 )
 
-// CacheKeyUsers is the cache key for the user map.
-const CacheKeyUsers = "users"
-
 // UserClient defines the Slack operations needed for user lookups.
 type UserClient interface {
 	GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error)
-	GetUsers(ctx context.Context) ([]slackapi.User, error)
 }
 
 // CachedUser holds the subset of user info we persist.
@@ -44,24 +40,42 @@ func NewCachedResolver(client UserClient, store *cache.Store) *Resolver {
 	return &Resolver{client: client, cache: store}
 }
 
-// RefreshCache forces a full user list refresh.
+// RefreshCache clears the user cache.
+// Use "slack-cli cache populate users --all" to repopulate.
 func (r *Resolver) RefreshCache(ctx context.Context) error {
 	if r.cache != nil {
-		if err := r.cache.Expire(CacheKeyUsers); err != nil {
+		if err := r.cache.Expire(cache.CacheKeyUsers); err != nil {
+			return err
+		}
+		if err := r.cache.ExpirePartial(cache.CacheKeyUsers); err != nil {
 			return err
 		}
 	}
-	_, err := r.loadUsers(ctx)
-	return err
+	return nil
 }
 
 // GetDisplayName returns a human-friendly name for a user ID.
-// Falls back to the raw user ID if lookup fails.
+// Falls back to the raw user ID if lookup fails or cache is empty.
 func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
-	users, err := r.loadUsers(ctx)
-	if err != nil {
+	users, _ := r.loadUsers(ctx)
+	if users == nil {
+		// No cache - try single lookup if we have a client
+		if r.client != nil {
+			info, err := r.client.GetUserInfo(ctx, userID)
+			if err == nil {
+				cu := toCachedUser(info)
+				if cu.DisplayName != "" {
+					return cu.DisplayName
+				}
+				if cu.RealName != "" {
+					return cu.RealName
+				}
+				return cu.Name
+			}
+		}
 		return userID
 	}
+
 	if u, ok := users[userID]; ok {
 		if u.DisplayName != "" {
 			return u.DisplayName
@@ -71,24 +85,28 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 		}
 		return u.Name
 	}
-	// Not in cache, try single lookup
-	info, err := r.client.GetUserInfo(ctx, userID)
-	if err != nil {
-		return userID
+
+	// Not in cache, try single lookup and add to cache
+	if r.client != nil {
+		info, err := r.client.GetUserInfo(ctx, userID)
+		if err == nil {
+			cu := toCachedUser(info)
+			users[userID] = cu
+			// Update cache with new user
+			if r.cache != nil {
+				_ = r.cache.Save(cache.CacheKeyUsers, users)
+			}
+			if cu.DisplayName != "" {
+				return cu.DisplayName
+			}
+			if cu.RealName != "" {
+				return cu.RealName
+			}
+			return cu.Name
+		}
 	}
-	cu := toCachedUser(info)
-	// Update cache
-	users[userID] = cu
-	if r.cache != nil {
-		_ = r.cache.Save(CacheKeyUsers, users)
-	}
-	if cu.DisplayName != "" {
-		return cu.DisplayName
-	}
-	if cu.RealName != "" {
-		return cu.RealName
-	}
-	return cu.Name
+
+	return userID
 }
 
 // GetUser returns cached user info or fetches it.
@@ -97,8 +115,14 @@ func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, erro
 	if err != nil {
 		return CachedUser{}, err
 	}
+	if users == nil {
+		users = make(map[string]CachedUser)
+	}
 	if u, ok := users[userID]; ok {
 		return u, nil
+	}
+	if r.client == nil {
+		return CachedUser{}, fmt.Errorf("user %s not in cache and no client available", userID)
 	}
 	info, err := r.client.GetUserInfo(ctx, userID)
 	if err != nil {
@@ -107,39 +131,43 @@ func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, erro
 	cu := toCachedUser(info)
 	users[userID] = cu
 	if r.cache != nil {
-		_ = r.cache.Save(CacheKeyUsers, users)
+		_ = r.cache.Save(cache.CacheKeyUsers, users)
 	}
 	return cu, nil
 }
 
-// loadUsers returns the cached user map or fetches all users from the API.
+// loadUsers returns the cached user map (from complete or partial cache).
+// Does NOT auto-fetch from API.
 func (r *Resolver) loadUsers(ctx context.Context) (map[string]CachedUser, error) {
-	if r.cache != nil {
-		var cached map[string]CachedUser
-		found, err := r.cache.Load(CacheKeyUsers, &cached)
-		if err != nil {
-			return nil, err
-		}
-		if found && cached != nil {
-			return cached, nil
-		}
+	if r.cache == nil {
+		return nil, nil
 	}
 
-	// Fetch all users
-	list, err := r.client.GetUsers(ctx)
+	// Try complete cache first
+	var cached map[string]CachedUser
+	found, err := r.cache.Load(cache.CacheKeyUsers, &cached)
 	if err != nil {
-		return nil, fmt.Errorf("list users: %w", err)
+		return nil, err
+	}
+	if found && cached != nil {
+		return cached, nil
 	}
 
-	users := make(map[string]CachedUser, len(list))
-	for _, u := range list {
-		users[u.ID] = toCachedUser(&u)
+	// Try partial cache - convert from slice to map
+	var partialUsers []slackapi.User
+	state, found, err := r.cache.LoadPartial(cache.CacheKeyUsers, &partialUsers)
+	if err != nil {
+		return nil, err
+	}
+	if found && !state.Complete {
+		users := make(map[string]CachedUser, len(partialUsers))
+		for _, u := range partialUsers {
+			users[u.ID] = toCachedUser(&u)
+		}
+		return users, nil
 	}
 
-	if r.cache != nil {
-		_ = r.cache.Save(CacheKeyUsers, users)
-	}
-	return users, nil
+	return nil, nil
 }
 
 func toCachedUser(u *slackapi.User) CachedUser {

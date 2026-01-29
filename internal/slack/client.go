@@ -20,6 +20,19 @@ type ChannelClient interface {
 	ListChannels(ctx context.Context, params ListChannelsParams) ([]slackapi.Channel, string, error)
 }
 
+// UserClient extends Client with user operations.
+type UserClient interface {
+	Client
+	GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error)
+	ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error)
+}
+
+// FullClient combines all client capabilities.
+type FullClient interface {
+	ChannelClient
+	UserClient
+}
+
 // HistoryParams wraps the arguments to conversations.history.
 type HistoryParams struct {
 	Channel   string
@@ -99,6 +112,41 @@ type ListChannelsParams struct {
 	Cursor          string
 	IncludeArchived bool
 	Types           []string
+}
+
+// GetUserInfo fetches a single user's info.
+func (c *APIClient) GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error) {
+	user, err := c.sdk.GetUserInfoContext(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user info: %w", err)
+	}
+	return user, nil
+}
+
+// ListUsers fetches users with pagination using slack-go's pagination API.
+// Note: slack-go doesn't expose cursor directly, so we fetch one page at a time
+// using GetUsers with limit. The cursor parameter is ignored for now.
+func (c *APIClient) ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error) {
+	// slack-go's GetUsers doesn't support cursor-based pagination in the same way.
+	// We use GetUsersPaginated iterator but fetch one page at a time.
+	// For simplicity, fetch all users in one call (the SDK handles pagination internally).
+	// This is a limitation - for very large workspaces, consider using the raw API.
+	users, err := c.sdk.GetUsersContext(ctx, slackapi.GetUsersOptionLimit(limit))
+	if err != nil {
+		return nil, "", fmt.Errorf("list users: %w", err)
+	}
+	// Return empty cursor since we fetched all
+	return users, "", nil
+}
+
+// ListChannelsPaginated provides a simpler interface for cache population.
+func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, error) {
+	return c.ListChannels(ctx, ListChannelsParams{
+		Limit:           limit,
+		Cursor:          cursor,
+		IncludeArchived: true,
+		Types:           []string{"public_channel", "private_channel"},
+	})
 }
 
 // DoWithRetry executes fn with simple retry logic for rate-limited operations.

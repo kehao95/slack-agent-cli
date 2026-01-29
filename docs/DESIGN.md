@@ -62,6 +62,11 @@ slack-cli
 │   ├── test        # Verify credentials work
 │   └── whoami      # Show current bot/user info
 │
+├── cache           # Cache management (for name resolution)
+│   ├── populate    # Fetch and cache channels/users
+│   ├── status      # Show cache state
+│   └── clear       # Clear cached data
+│
 ├── watch           # Real-time message streaming (Socket Mode)
 │
 ├── channels        # Channel operations
@@ -280,7 +285,132 @@ Or via `SLACK_CLI_CONFIG` environment variable.
 - Any command that mutates Slack state (e.g., channel creation) must invalidate affected cache files to prevent stale reads.
 - Goal: after the first metadata fetch, commands like `messages list` in `support-bot-testing (C074S0L3MCG)` or any other workspace replay immediately by using cached channel/user lookups.
 
-### 4.4 Config Schema
+### 4.4 Cache Population Commands
+
+The `cache` command group provides explicit control over metadata caching with incremental pagination support. This design allows AI agents to:
+1. Control when API calls are made (no surprise rate limits)
+2. Resume interrupted fetches without losing progress
+3. Monitor cache state before running other commands
+
+#### `slack-cli cache populate`
+
+Fetch and cache channels or users from Slack with incremental pagination.
+
+```bash
+slack-cli cache populate <channels|users> [options]
+
+Options:
+  --all                  Fetch all pages (default: fetch one page)
+  --page-delay <dur>     Delay between pages to avoid rate limits (default: 1s)
+  --page-size <n>        Items per page (default: 200, max: 1000)
+  --json                 Output progress as JSON
+```
+
+**Incremental Behavior:**
+- Without `--all`: Fetches one page and saves progress (cursor) to partial cache
+- With `--all`: Continues fetching until complete, saving after each page
+- If interrupted, the next run resumes from the last saved cursor
+- Once complete, partial cache is promoted to main cache (7-day TTL)
+
+**Examples:**
+```bash
+# Fetch channels incrementally (one page at a time)
+slack-cli cache populate channels
+slack-cli cache populate channels  # Continues from cursor
+slack-cli cache populate channels  # Continues until done
+
+# Or fetch all at once with rate limiting
+slack-cli cache populate channels --all --page-delay 2s
+
+# Populate users cache
+slack-cli cache populate users --all
+```
+
+**Output (Human-readable):**
+```
+Fetching channels... page 1 (200 items, cursor: dXNlcl9...)
+Fetching channels... page 2 (150 items, complete)
+Cache populated: 350 channels
+```
+
+**Output (JSON):**
+```json
+{"status":"fetching","page":1,"count":200,"cursor":"dXNlcl9..."}
+{"status":"fetching","page":2,"count":150,"cursor":""}
+{"status":"complete","total":350}
+```
+
+#### `slack-cli cache status`
+
+Show current cache state.
+
+```bash
+slack-cli cache status [options]
+
+Options:
+  --json                 Output as JSON
+```
+
+**Output (Human-readable):**
+```
+Cache Status
+────────────────────────────────────────────
+channels:  350 items, fetched 2024-01-15 10:00:00 (complete)
+users:     125 items, fetched 2024-01-15 09:30:00 (partial, cursor: dXNlcl9...)
+```
+
+**Output (JSON):**
+```json
+{
+  "channels": {
+    "count": 350,
+    "fetched_at": "2024-01-15T10:00:00Z",
+    "complete": true,
+    "expires_at": "2024-01-22T10:00:00Z"
+  },
+  "users": {
+    "count": 125,
+    "fetched_at": "2024-01-15T09:30:00Z",
+    "complete": false,
+    "next_cursor": "dXNlcl9..."
+  }
+}
+```
+
+#### `slack-cli cache clear`
+
+Clear cached data.
+
+```bash
+slack-cli cache clear [channels|users]
+
+# Clear all caches
+slack-cli cache clear
+
+# Clear specific cache
+slack-cli cache clear channels
+slack-cli cache clear users
+```
+
+### 4.5 Cache and Channel Resolution
+
+Commands that accept `--channel` support two formats:
+1. **Direct ID** (`C074S0L3MCG`): Works without cache, calls API directly
+2. **Channel name** (`#general`): Requires cache to resolve name → ID
+
+When a channel name is not found in cache, the command returns an error with a hint:
+
+```
+Error: channel "#support" not found in cache
+Hint: Run 'slack-cli cache populate channels --all' to fetch channels
+```
+
+This explicit model prevents:
+- Surprise API calls and rate limits during command execution
+- Timeouts from slow pagination during message fetching
+- Lost progress when fetches are interrupted
+
+### 4.7 Config Schema
 
 ```json
 {
@@ -311,7 +441,7 @@ Or via `SLACK_CLI_CONFIG` environment variable.
 }
 ```
 
-### 4.5 Environment Variable Overrides
+### 4.8 Environment Variable Overrides
 
 | Variable | Description |
 |----------|-------------|
@@ -448,6 +578,10 @@ slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "t
 ```bash
 # Agent wants to monitor #support and respond to questions
 
+# 0. First-time setup: Populate caches (only needed once, or when stale)
+slack-cli cache populate channels --all
+slack-cli cache populate users --all
+
 # 1. Start watching (agent runs this in background or with timeout)
 slack-cli watch --channels "#support" --timeout 5m --json > /tmp/slack-events.jsonl &
 
@@ -456,7 +590,7 @@ tail -f /tmp/slack-events.jsonl | while read -r event; do
   # Agent processes each event...
 done
 
-# 3. Or use batch mode for one-shot queries
+# 3. Or use batch mode for one-shot queries (fast with cached lookups)
 slack-cli messages list --channel "#support" --since 1h --json | jq '.messages[]'
 
 # 4. Send a response
@@ -464,6 +598,26 @@ slack-cli messages send --channel "#support" --thread "$THREAD_TS" --text "Here'
 
 # 5. Add acknowledgment reaction
 slack-cli reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
+```
+
+### 6.3 Handling Large Workspaces
+
+For workspaces with thousands of channels/users, use incremental caching:
+
+```bash
+# Option A: Fetch one page at a time (predictable timing)
+slack-cli cache populate channels          # Page 1
+slack-cli cache populate channels          # Page 2 (resumes from cursor)
+# ... repeat until complete
+
+# Option B: Fetch all with longer delay (safer for rate limits)
+slack-cli cache populate channels --all --page-delay 3s
+
+# Check progress anytime
+slack-cli cache status --json
+
+# If only using channel IDs, skip cache entirely
+slack-cli messages list --channel C074S0L3MCG --limit 20
 ```
 
 ---
