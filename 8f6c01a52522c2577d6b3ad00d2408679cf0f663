@@ -1,0 +1,27 @@
+internal/watch/watcher_test.go
+  5ecfd640caf7b9b7 1-243
+internal/watch/watcher.go
+  5ecfd640caf7b9b7 11,126,143
+cmd/watch.go
+  5ecfd640caf7b9b7 1-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "8f6c01a52522c2577d6b3ad00d2408679cf0f663",
+  "prompts": {
+    "5ecfd640caf7b9b7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f3f47bdaffeqLqzQZ9OpAi0Er",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 388,
+      "total_deletions": 13,
+      "accepted_lines": 377,
+      "overriden_lines": 0
+    }
+  }
+}
