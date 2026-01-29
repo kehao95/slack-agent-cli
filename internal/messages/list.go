@@ -3,7 +3,9 @@ package messages
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	slackapi "github.com/slack-go/slack"
 
@@ -105,7 +107,7 @@ func (r Result) Lines() []string {
 	title := fmt.Sprintf("#%s - %d messages", strings.TrimPrefix(channelDisplay, "#"), len(r.Messages))
 	lines := []string{title, strings.Repeat("-", len(title))}
 	for _, msg := range r.Messages {
-		lines = append(lines, fmt.Sprintf("[%s] @%s: %s", msg.Msg.Timestamp, r.displayUser(msg), msg.Msg.Text))
+		lines = append(lines, fmt.Sprintf("[%s] @%s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), msg.Msg.Text))
 	}
 	if r.NextCursor != "" {
 		lines = append(lines, fmt.Sprintf("Next cursor: %s", r.NextCursor))
@@ -133,4 +135,34 @@ func (r Result) displayUser(msg slackapi.Message) string {
 	}
 
 	return userID
+}
+
+// formatTimestamp converts a Slack timestamp (e.g., "1769710907.130119") to human-readable format.
+func formatTimestamp(ts string) string {
+	// Slack timestamps are Unix epoch seconds with microseconds after the dot
+	parts := strings.Split(ts, ".")
+	if len(parts) == 0 {
+		return ts
+	}
+
+	secs, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return ts
+	}
+
+	t := time.Unix(secs, 0)
+	now := time.Now()
+
+	// If same day, show only time
+	if t.Year() == now.Year() && t.YearDay() == now.YearDay() {
+		return t.Format("15:04")
+	}
+
+	// If same year, show month/day and time
+	if t.Year() == now.Year() {
+		return t.Format("Jan 02 15:04")
+	}
+
+	// Otherwise show full date
+	return t.Format("2006-01-02 15:04")
 }
