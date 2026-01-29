@@ -40,9 +40,28 @@ var messagesListCmd = &cobra.Command{
 	RunE: runMessagesList,
 }
 
+var messagesSearchCmd = &cobra.Command{
+	Use:   "search",
+	Short: "Search messages",
+	Long:  "Search messages across the workspace (requires user token).",
+	Example: `  # Basic search
+  slack-cli messages search --query "deployment failed"
+
+  # Search with advanced syntax
+  slack-cli messages search --query "from:@alice in:#general"
+
+  # Search and sort by timestamp
+  slack-cli messages search --query "error" --sort timestamp --limit 20
+
+  # Search and get JSON output
+  slack-cli messages search --query "bug" --json`,
+	RunE: runMessagesSearch,
+}
+
 func init() {
 	rootCmd.AddCommand(messagesCmd)
 	messagesCmd.AddCommand(messagesListCmd)
+	messagesCmd.AddCommand(messagesSearchCmd)
 
 	messagesListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
 	messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages to return")
@@ -51,6 +70,12 @@ func init() {
 	messagesListCmd.Flags().String("thread", "", "Thread timestamp to fetch replies")
 	messagesListCmd.Flags().Bool("refresh-cache", false, "Force refresh of cached channel/user metadata")
 	messagesListCmd.MarkFlagRequired("channel")
+
+	messagesSearchCmd.Flags().StringP("query", "q", "", "Search query (required)")
+	messagesSearchCmd.Flags().IntP("limit", "l", 20, "Maximum results to return")
+	messagesSearchCmd.Flags().String("sort", "timestamp", "Sort by 'score' or 'timestamp'")
+	messagesSearchCmd.Flags().String("sort-dir", "desc", "Sort direction 'asc' or 'desc'")
+	messagesSearchCmd.MarkFlagRequired("query")
 }
 
 func runMessagesList(cmd *cobra.Command, args []string) error {
@@ -118,6 +143,51 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	result.ChannelName = channelInput
 	result.SetUserResolver(ctx, userResolver)
 	result.SetUserGroupResolver(ctx, userGroupResolver)
+
+	return output.Print(cmd, result)
+}
+
+func runMessagesSearch(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	// Check for user token
+	if cfg.UserToken == "" {
+		return fmt.Errorf("messages search requires user token (set SLACK_USER_TOKEN or add user_token to config)")
+	}
+
+	query, _ := cmd.Flags().GetString("query")
+	limit, _ := cmd.Flags().GetInt("limit")
+	sortBy, _ := cmd.Flags().GetString("sort")
+	sortDir, _ := cmd.Flags().GetString("sort-dir")
+
+	// Validate sort parameters
+	if sortBy != "score" && sortBy != "timestamp" {
+		return fmt.Errorf("invalid sort value '%s': must be 'score' or 'timestamp'", sortBy)
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		return fmt.Errorf("invalid sort-dir value '%s': must be 'asc' or 'desc'", sortDir)
+	}
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	userClient := slack.NewUserClient(cfg.UserToken)
+	result, err := userClient.SearchMessages(ctx, query, slack.SearchParams{
+		Count:     limit,
+		Page:      1,
+		SortBy:    sortBy,
+		SortDir:   sortDir,
+		Highlight: false,
+	})
+	if err != nil {
+		return fmt.Errorf("search messages: %w", err)
+	}
 
 	return output.Print(cmd, result)
 }
