@@ -10,7 +10,7 @@ Existing Slack CLI tools lack real-time capabilities. `slack-cli` is the first C
 
 ## Features
 
-- **Socket Mode** - Real-time message streaming
+- **Socket Mode** - Real-time message streaming (planned)
 - **Bidirectional** - Read and write messages
 - **Smart Caching** - Fast channel/user resolution
 - **JSON Output** - Machine-readable responses
@@ -22,14 +22,14 @@ Existing Slack CLI tools lack real-time capabilities. `slack-cli` is the first C
 # Initialize configuration
 slack-cli config init
 
-# Watch for messages in real-time
-slack-cli watch --channels "#general" --json
+# List channels
+slack-cli channels list --json
 
-# Send a message
-slack-cli messages send --channel "#general" --text "Hello!"
-
-# List recent messages
+# List recent messages  
 slack-cli messages list --channel "#general" --limit 10 --json
+
+# Watch for messages in real-time (coming soon)
+slack-cli watch --channels "#general" --json
 ```
 
 ## Installation
@@ -38,7 +38,12 @@ slack-cli messages list --channel "#general" --limit 10 --json
 go install github.com/yourusername/slack-cli@latest
 ```
 
-Or download from [releases](https://github.com/yourusername/slack-cli/releases).
+Or build from source:
+```bash
+git clone https://github.com/yourusername/slack-cli
+cd slack-cli
+go build ./...
+```
 
 ## Configuration
 

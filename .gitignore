@@ -45,3 +45,4 @@ build/
 
 # Internal documentation (not for public repo)
 .internal/
+slack-cli
