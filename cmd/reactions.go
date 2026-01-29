@@ -1,0 +1,162 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/contentsquare/slack-cli/internal/cache"
+	"github.com/contentsquare/slack-cli/internal/channels"
+	"github.com/contentsquare/slack-cli/internal/config"
+	"github.com/contentsquare/slack-cli/internal/output"
+	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/spf13/cobra"
+)
+
+var reactionsCmd = &cobra.Command{
+	Use:   "reactions",
+	Short: "Reaction operations",
+	Long:  "Add, remove, and list emoji reactions on messages.",
+}
+
+var reactionsAddCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add reaction to message",
+	Long:  "Add an emoji reaction to a Slack message.",
+	Example: `  # Add thumbsup reaction
+  slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+
+  # Add custom emoji
+  slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
+	RunE: runReactionsAdd,
+}
+
+var reactionsRemoveCmd = &cobra.Command{
+	Use:   "remove",
+	Short: "Remove reaction from message",
+	Long:  "Remove an emoji reaction from a Slack message.",
+	Example: `  # Remove thumbsup reaction
+  slack-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+
+  # Remove custom emoji
+  slack-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
+	RunE: runReactionsRemove,
+}
+
+func init() {
+	rootCmd.AddCommand(reactionsCmd)
+	reactionsCmd.AddCommand(reactionsAddCmd)
+	reactionsCmd.AddCommand(reactionsRemoveCmd)
+
+	// Flags for add command
+	reactionsAddCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
+	reactionsAddCmd.Flags().String("ts", "", "Message timestamp (required)")
+	reactionsAddCmd.Flags().StringP("emoji", "e", "", "Emoji name without colons (required)")
+	reactionsAddCmd.MarkFlagRequired("channel")
+	reactionsAddCmd.MarkFlagRequired("ts")
+	reactionsAddCmd.MarkFlagRequired("emoji")
+
+	// Flags for remove command
+	reactionsRemoveCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
+	reactionsRemoveCmd.Flags().String("ts", "", "Message timestamp (required)")
+	reactionsRemoveCmd.Flags().StringP("emoji", "e", "", "Emoji name without colons (required)")
+	reactionsRemoveCmd.MarkFlagRequired("channel")
+	reactionsRemoveCmd.MarkFlagRequired("ts")
+	reactionsRemoveCmd.MarkFlagRequired("emoji")
+}
+
+func runReactionsAdd(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	channelInput, _ := cmd.Flags().GetString("channel")
+	timestamp, _ := cmd.Flags().GetString("ts")
+	emoji, _ := cmd.Flags().GetString("emoji")
+
+	// Initialize cache store
+	cacheStore, err := cache.DefaultStore()
+	if err != nil {
+		return fmt.Errorf("init cache: %w", err)
+	}
+
+	client := slack.New(cfg.BotToken)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	// Resolve channel name to ID
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	if err != nil {
+		return err
+	}
+
+	// Add the reaction
+	if err := client.AddReaction(ctx, channelID, timestamp, emoji); err != nil {
+		return fmt.Errorf("add reaction: %w", err)
+	}
+
+	result := &slack.ReactionResult{
+		OK:        true,
+		Action:    "add",
+		Channel:   channelInput,
+		ChannelID: channelID,
+		Timestamp: timestamp,
+		Emoji:     emoji,
+	}
+
+	return output.Print(cmd, result)
+}
+
+func runReactionsRemove(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	channelInput, _ := cmd.Flags().GetString("channel")
+	timestamp, _ := cmd.Flags().GetString("ts")
+	emoji, _ := cmd.Flags().GetString("emoji")
+
+	// Initialize cache store
+	cacheStore, err := cache.DefaultStore()
+	if err != nil {
+		return fmt.Errorf("init cache: %w", err)
+	}
+
+	client := slack.New(cfg.BotToken)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	// Resolve channel name to ID
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	if err != nil {
+		return err
+	}
+
+	// Remove the reaction
+	if err := client.RemoveReaction(ctx, channelID, timestamp, emoji); err != nil {
+		return fmt.Errorf("remove reaction: %w", err)
+	}
+
+	result := &slack.ReactionResult{
+		OK:        true,
+		Action:    "remove",
+		Channel:   channelInput,
+		ChannelID: channelID,
+		Timestamp: timestamp,
+		Emoji:     emoji,
+	}
+
+	return output.Print(cmd, result)
+}

@@ -14,6 +14,11 @@ type Client interface {
 	ListThreadReplies(ctx context.Context, params ThreadParams) ([]slackapi.Message, bool, string, error)
 }
 
+// MessageClient provides message posting capabilities.
+type MessageClient interface {
+	PostMessage(ctx context.Context, channel string, opts PostMessageOptions) (*PostMessageResult, error)
+}
+
 // ChannelClient extends Client with channel operations.
 type ChannelClient interface {
 	Client
@@ -27,10 +32,64 @@ type UserClient interface {
 	ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error)
 }
 
+// ReactionClient provides reaction capabilities.
+type ReactionClient interface {
+	AddReaction(ctx context.Context, channel, timestamp, emoji string) error
+	RemoveReaction(ctx context.Context, channel, timestamp, emoji string) error
+}
+
 // FullClient combines all client capabilities.
 type FullClient interface {
 	ChannelClient
 	UserClient
+}
+
+// PostMessageOptions wraps arguments for posting a message.
+type PostMessageOptions struct {
+	Text        string
+	ThreadTS    string
+	Blocks      []slackapi.Block
+	UnfurlLinks bool
+	UnfurlMedia bool
+}
+
+// PostMessageResult represents the result of posting a message.
+type PostMessageResult struct {
+	OK        bool   `json:"ok"`
+	Channel   string `json:"channel"`
+	Timestamp string `json:"ts"`
+	Text      string `json:"text,omitempty"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *PostMessageResult) Lines() []string {
+	lines := []string{
+		"Message sent successfully",
+		fmt.Sprintf("Channel: %s", r.Channel),
+		fmt.Sprintf("Timestamp: %s", r.Timestamp),
+	}
+	return lines
+}
+
+// ReactionResult represents the result of adding or removing a reaction.
+type ReactionResult struct {
+	OK        bool   `json:"ok"`
+	Action    string `json:"action"`
+	Channel   string `json:"channel"`
+	ChannelID string `json:"channel_id"`
+	Timestamp string `json:"ts"`
+	Emoji     string `json:"emoji"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *ReactionResult) Lines() []string {
+	var actionText string
+	if r.Action == "add" {
+		actionText = fmt.Sprintf("✓ Added :%s: to message in %s", r.Emoji, r.Channel)
+	} else {
+		actionText = fmt.Sprintf("✓ Removed :%s: from message in %s", r.Emoji, r.Channel)
+	}
+	return []string{actionText}
 }
 
 // HistoryParams wraps the arguments to conversations.history.
@@ -90,6 +149,88 @@ func (c *APIClient) ListThreadReplies(ctx context.Context, params ThreadParams) 
 	opts.Oldest = params.Oldest
 	msgs, hasMore, nextCursor, err := c.sdk.GetConversationRepliesContext(ctx, opts)
 	return msgs, hasMore, nextCursor, err
+}
+
+// PostMessage sends a message to a channel.
+func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMessageOptions) (*PostMessageResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if opts.Text == "" && len(opts.Blocks) == 0 {
+		return nil, fmt.Errorf("either text or blocks is required")
+	}
+
+	msgOpts := []slackapi.MsgOption{
+		slackapi.MsgOptionText(opts.Text, false),
+	}
+
+	if opts.ThreadTS != "" {
+		msgOpts = append(msgOpts, slackapi.MsgOptionTS(opts.ThreadTS))
+	}
+
+	if len(opts.Blocks) > 0 {
+		msgOpts = append(msgOpts, slackapi.MsgOptionBlocks(opts.Blocks...))
+	}
+
+	// Only add disable options if unfurl is explicitly false
+	if !opts.UnfurlLinks {
+		msgOpts = append(msgOpts, slackapi.MsgOptionDisableLinkUnfurl())
+	}
+	if !opts.UnfurlMedia {
+		msgOpts = append(msgOpts, slackapi.MsgOptionDisableMediaUnfurl())
+	}
+
+	respChannel, respTimestamp, err := c.sdk.PostMessageContext(ctx, channel, msgOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("post message: %w", err)
+	}
+
+	return &PostMessageResult{
+		OK:        true,
+		Channel:   respChannel,
+		Timestamp: respTimestamp,
+		Text:      opts.Text,
+	}, nil
+}
+
+// AddReaction adds an emoji reaction to a message.
+func (c *APIClient) AddReaction(ctx context.Context, channel, timestamp, emoji string) error {
+	if channel == "" {
+		return fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return fmt.Errorf("timestamp is required")
+	}
+	if emoji == "" {
+		return fmt.Errorf("emoji is required")
+	}
+
+	itemRef := slackapi.ItemRef{
+		Channel:   channel,
+		Timestamp: timestamp,
+	}
+
+	return c.sdk.AddReactionContext(ctx, emoji, itemRef)
+}
+
+// RemoveReaction removes an emoji reaction from a message.
+func (c *APIClient) RemoveReaction(ctx context.Context, channel, timestamp, emoji string) error {
+	if channel == "" {
+		return fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return fmt.Errorf("timestamp is required")
+	}
+	if emoji == "" {
+		return fmt.Errorf("emoji is required")
+	}
+
+	itemRef := slackapi.ItemRef{
+		Channel:   channel,
+		Timestamp: timestamp,
+	}
+
+	return c.sdk.RemoveReactionContext(ctx, emoji, itemRef)
 }
 
 // ListChannels fetches channel metadata.

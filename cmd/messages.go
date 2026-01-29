@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/contentsquare/slack-cli/internal/cache"
@@ -13,6 +16,7 @@ import (
 	"github.com/contentsquare/slack-cli/internal/slack"
 	"github.com/contentsquare/slack-cli/internal/usergroups"
 	"github.com/contentsquare/slack-cli/internal/users"
+	slackapi "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -58,10 +62,29 @@ var messagesSearchCmd = &cobra.Command{
 	RunE: runMessagesSearch,
 }
 
+var messagesSendCmd = &cobra.Command{
+	Use:   "send",
+	Short: "Send a message",
+	Long:  "Send a message to a channel or user.",
+	Example: `  # Simple message
+  slack-cli messages send --channel "#general" --text "Hello from CLI!"
+
+  # Reply in thread
+  slack-cli messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
+
+  # Pipe message content
+  echo "Multi-line\nmessage" | slack-cli messages send --channel "#general"
+
+  # Send to user DM
+  slack-cli messages send --channel "@alice" --text "Private message"`,
+	RunE: runMessagesSend,
+}
+
 func init() {
 	rootCmd.AddCommand(messagesCmd)
 	messagesCmd.AddCommand(messagesListCmd)
 	messagesCmd.AddCommand(messagesSearchCmd)
+	messagesCmd.AddCommand(messagesSendCmd)
 
 	messagesListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
 	messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages to return")
@@ -76,6 +99,14 @@ func init() {
 	messagesSearchCmd.Flags().String("sort", "timestamp", "Sort by 'score' or 'timestamp'")
 	messagesSearchCmd.Flags().String("sort-dir", "desc", "Sort direction 'asc' or 'desc'")
 	messagesSearchCmd.MarkFlagRequired("query")
+
+	messagesSendCmd.Flags().StringP("channel", "c", "", "Target channel or @user (required)")
+	messagesSendCmd.Flags().StringP("text", "t", "", "Message text")
+	messagesSendCmd.Flags().String("thread", "", "Thread timestamp to reply in")
+	messagesSendCmd.Flags().String("blocks", "", "Block Kit JSON")
+	messagesSendCmd.Flags().Bool("unfurl-links", true, "Unfurl URLs in message")
+	messagesSendCmd.Flags().Bool("unfurl-media", true, "Unfurl media in message")
+	messagesSendCmd.MarkFlagRequired("channel")
 }
 
 func runMessagesList(cmd *cobra.Command, args []string) error {
@@ -188,6 +219,121 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("search messages: %w", err)
 	}
+
+	return output.Print(cmd, result)
+}
+
+func runMessagesSend(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	channelInput, _ := cmd.Flags().GetString("channel")
+	text, _ := cmd.Flags().GetString("text")
+	thread, _ := cmd.Flags().GetString("thread")
+	blocksJSON, _ := cmd.Flags().GetString("blocks")
+	unfurlLinks, _ := cmd.Flags().GetBool("unfurl-links")
+	unfurlMedia, _ := cmd.Flags().GetBool("unfurl-media")
+
+	// If no text flag, try reading from stdin
+	if text == "" {
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) == 0 {
+			// Data is being piped
+			data, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("read stdin: %w", err)
+			}
+			text = string(data)
+		}
+	}
+
+	// Parse blocks if provided
+	var blocks []slackapi.Block
+	if blocksJSON != "" {
+		// Parse Block Kit JSON
+		var rawBlocks []json.RawMessage
+		if err := json.Unmarshal([]byte(blocksJSON), &rawBlocks); err != nil {
+			return fmt.Errorf("invalid blocks JSON: %w", err)
+		}
+
+		for _, raw := range rawBlocks {
+			var blockType struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal(raw, &blockType); err != nil {
+				return fmt.Errorf("parse block type: %w", err)
+			}
+
+			// Unmarshal each block based on type
+			var block slackapi.Block
+			switch blockType.Type {
+			case "section":
+				var b slackapi.SectionBlock
+				if err := json.Unmarshal(raw, &b); err != nil {
+					return fmt.Errorf("parse section block: %w", err)
+				}
+				block = &b
+			case "divider":
+				var b slackapi.DividerBlock
+				if err := json.Unmarshal(raw, &b); err != nil {
+					return fmt.Errorf("parse divider block: %w", err)
+				}
+				block = &b
+			case "header":
+				var b slackapi.HeaderBlock
+				if err := json.Unmarshal(raw, &b); err != nil {
+					return fmt.Errorf("parse header block: %w", err)
+				}
+				block = &b
+			default:
+				return fmt.Errorf("unsupported block type: %s", blockType.Type)
+			}
+			blocks = append(blocks, block)
+		}
+	}
+
+	// Validate we have either text or blocks
+	if text == "" && len(blocks) == 0 {
+		return fmt.Errorf("message text is required (use --text, --blocks, or pipe via stdin)")
+	}
+
+	// Initialize cache store
+	cacheStore, err := cache.DefaultStore()
+	if err != nil {
+		return fmt.Errorf("init cache: %w", err)
+	}
+
+	client := slack.New(cfg.BotToken)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	// Resolve channel name to ID
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	if err != nil {
+		return err
+	}
+
+	// Send the message
+	result, err := client.PostMessage(ctx, channelID, slack.PostMessageOptions{
+		Text:        text,
+		ThreadTS:    thread,
+		Blocks:      blocks,
+		UnfurlLinks: unfurlLinks,
+		UnfurlMedia: unfurlMedia,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set the channel name in the result for human-readable output
+	result.Channel = channelInput
 
 	return output.Print(cmd, result)
 }
