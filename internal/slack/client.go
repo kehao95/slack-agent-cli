@@ -40,6 +40,13 @@ type ReactionClient interface {
 	RemoveReaction(ctx context.Context, channel, timestamp, emoji string) error
 }
 
+// PinClient provides pin capabilities.
+type PinClient interface {
+	AddPin(ctx context.Context, channel, timestamp string) error
+	RemovePin(ctx context.Context, channel, timestamp string) error
+	ListPins(ctx context.Context, channel string) (*PinListResult, error)
+}
+
 // FullClient combines all client capabilities.
 type FullClient interface {
 	ChannelClient
@@ -125,6 +132,86 @@ func (r *ReactionResult) Lines() []string {
 		actionText = fmt.Sprintf("✓ Removed :%s: from message in %s", r.Emoji, r.Channel)
 	}
 	return []string{actionText}
+}
+
+// PinResult represents the result of adding or removing a pin.
+type PinResult struct {
+	OK        bool   `json:"ok"`
+	Action    string `json:"action"`
+	Channel   string `json:"channel"`
+	ChannelID string `json:"channel_id"`
+	Timestamp string `json:"ts"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *PinResult) Lines() []string {
+	var actionText string
+	if r.Action == "add" {
+		actionText = fmt.Sprintf("✓ Pinned message in %s", r.Channel)
+	} else {
+		actionText = fmt.Sprintf("✓ Unpinned message from %s", r.Channel)
+	}
+	return []string{
+		actionText,
+		fmt.Sprintf("Timestamp: %s", r.Timestamp),
+	}
+}
+
+// PinListResult represents the result of listing pins.
+type PinListResult struct {
+	OK      bool         `json:"ok"`
+	Channel string       `json:"channel"`
+	Items   []PinnedItem `json:"items"`
+}
+
+// PinnedItem represents a pinned item in a channel.
+type PinnedItem struct {
+	Type      string   `json:"type"`
+	Channel   string   `json:"channel,omitempty"`
+	Message   *Message `json:"message,omitempty"`
+	CreatedBy string   `json:"created_by"`
+	Created   int64    `json:"created"`
+}
+
+// Message represents a simplified Slack message for pin display.
+type Message struct {
+	Timestamp string `json:"ts"`
+	Text      string `json:"text"`
+	User      string `json:"user"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *PinListResult) Lines() []string {
+	lines := []string{
+		fmt.Sprintf("Pinned Messages in %s (%d)", r.Channel, len(r.Items)),
+		"───────────────────────────────",
+	}
+
+	if len(r.Items) == 0 {
+		lines = append(lines, "No pinned messages.")
+		return lines
+	}
+
+	for _, item := range r.Items {
+		if item.Type == "message" && item.Message != nil {
+			msg := item.Message
+			// Format: [timestamp] @user: text
+			userDisplay := msg.User
+			if userDisplay == "" {
+				userDisplay = "unknown"
+			}
+			text := msg.Text
+			if len(text) > 100 {
+				text = text[:97] + "..."
+			}
+			lines = append(lines, fmt.Sprintf("[%s] @%s: %s", msg.Timestamp, userDisplay, text))
+		} else {
+			// Non-message pins (files, etc.)
+			lines = append(lines, fmt.Sprintf("[%s] %s item", item.Type, item.Type))
+		}
+	}
+
+	return lines
 }
 
 // HistoryParams wraps the arguments to conversations.history.
@@ -607,4 +694,76 @@ func (r *SearchResult) Lines() []string {
 	}
 
 	return lines
+}
+
+// AddPin pins a message to a channel.
+func (c *APIClient) AddPin(ctx context.Context, channel, timestamp string) error {
+	if channel == "" {
+		return fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return fmt.Errorf("timestamp is required")
+	}
+
+	itemRef := slackapi.ItemRef{
+		Channel:   channel,
+		Timestamp: timestamp,
+	}
+
+	return c.sdk.AddPinContext(ctx, channel, itemRef)
+}
+
+// RemovePin removes a pin from a message.
+func (c *APIClient) RemovePin(ctx context.Context, channel, timestamp string) error {
+	if channel == "" {
+		return fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return fmt.Errorf("timestamp is required")
+	}
+
+	itemRef := slackapi.ItemRef{
+		Channel:   channel,
+		Timestamp: timestamp,
+	}
+
+	return c.sdk.RemovePinContext(ctx, channel, itemRef)
+}
+
+// ListPins lists all pinned items in a channel.
+func (c *APIClient) ListPins(ctx context.Context, channel string) (*PinListResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+
+	items, _, err := c.sdk.ListPinsContext(ctx, channel)
+	if err != nil {
+		return nil, fmt.Errorf("list pins: %w", err)
+	}
+
+	// Convert slack-go Items to our PinnedItem structure
+	pinnedItems := make([]PinnedItem, 0, len(items))
+	for _, item := range items {
+		pinnedItem := PinnedItem{
+			Type:    item.Type,
+			Channel: item.Channel,
+		}
+
+		// If it's a message, convert the message data
+		if item.Message != nil {
+			pinnedItem.Message = &Message{
+				Timestamp: item.Message.Timestamp,
+				Text:      item.Message.Text,
+				User:      item.Message.User,
+			}
+		}
+
+		pinnedItems = append(pinnedItems, pinnedItem)
+	}
+
+	return &PinListResult{
+		OK:      true,
+		Channel: channel,
+		Items:   pinnedItems,
+	}, nil
 }
