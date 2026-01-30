@@ -1,0 +1,23 @@
+homebrew/slk.rb
+  2f9c5190d7750af1 1-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "aa6f2d8bf43f5eb3eb256048c35bee275909cae7",
+  "prompts": {
+    "2f9c5190d7750af1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_restored_1769810036",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "goreleaserbot <bot@goreleaser.com>",
+      "messages": [],
+      "total_additions": 52,
+      "total_deletions": 0,
+      "accepted_lines": 52,
+      "overriden_lines": 0
+    }
+  }
+}
