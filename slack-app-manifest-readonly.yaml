@@ -2,10 +2,6 @@ display_information:
   name: slack-agent-cli (Read-Only)
   description: Slack for Non-Humans™ - Read-only mode for viewing and searching
   background_color: "#2c2d30"
-features:
-  bot_user:
-    display_name: slack-agent-cli
-    always_online: false
 oauth_config:
   scopes:
     user:
