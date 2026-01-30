@@ -45,5 +45,5 @@ build/
 
 # Internal documentation (not for public repo)
 .internal/
-slack-clislack-agent-cli
+slack-agent-cli
 dist/
