@@ -47,8 +47,37 @@ resumes from where it left off.`,
 var cacheStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show cache status",
-	Long:  "Display information about cached channels and users.",
-	RunE:  runCacheStatus,
+	Long: `Display information about cached channels and users.
+
+Output (JSON):
+  {
+    "items": [
+      {
+        "key": "channels",
+        "cached": true,
+        "count": 42,
+        "complete": true,
+        "fetched_at": "2024-01-15T10:00:00Z",
+        "expires_at": "2024-01-22T10:00:00Z"
+      },
+      {
+        "key": "users",
+        "cached": true,
+        "count": 125,
+        "complete": false,
+        "fetched_at": "2024-01-15T09:30:00Z",
+        "next_cursor": "dXNlcl9pZDo..."
+      }
+    ]
+  }
+
+Cache TTL: 7 days (automatically refreshed when stale)`,
+	Example: `  # Check cache status
+  slack-agent-cli cache status
+
+  # Check before bulk operations
+  slack-agent-cli cache status && slack-agent-cli messages list --channel "#general"`,
+	RunE: runCacheStatus,
 }
 
 var cacheClearCmd = &cobra.Command{

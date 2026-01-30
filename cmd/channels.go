@@ -17,8 +17,45 @@ var channelsCmd = &cobra.Command{
 var channelsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List channels",
-	Long:  "List public and private channels the user has access to via conversations.list.",
-	RunE:  runChannelsList,
+	Long: `List public and private channels the user has access to via conversations.list.
+
+Output (JSON):
+  {
+    "channels": [
+      {
+        "id": "C123ABC",
+        "name": "general",
+        "is_private": false,
+        "is_archived": false,
+        "is_member": true,
+        "num_members": 42,
+        "topic": {"value": "...", "creator": "U123", "last_set": 1705312365},
+        "purpose": {"value": "...", "creator": "U123", "last_set": 1705312365}
+      }
+    ],
+    "next_cursor": "dXNlcl9pZDo..."
+  }
+
+Required Scopes:
+  - channels:read for public_channel
+  - groups:read for private_channel
+  - im:read for direct messages (im)
+  - mpim:read for group direct messages (mpim)`,
+	Example: `  # List public channels
+  slack-agent-cli channels list
+
+  # List all channels including archived
+  slack-agent-cli channels list --include-archived
+
+  # List private channels (requires groups:read scope)
+  slack-agent-cli channels list --types private_channel
+
+  # List multiple types
+  slack-agent-cli channels list --types public_channel,private_channel
+
+  # Paginate through results
+  slack-agent-cli channels list --cursor "dXNlcl9pZDo..."`,
+	RunE: runChannelsList,
 }
 
 var channelsJoinCmd = &cobra.Command{

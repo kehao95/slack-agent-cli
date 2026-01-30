@@ -18,7 +18,32 @@ var messagesCmd = &cobra.Command{
 var messagesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List messages from a channel",
-	Long:  "Fetch message history from a Slack channel using conversations.history API.",
+	Long: `Fetch message history from a Slack channel using conversations.history API.
+
+Output (JSON):
+  {
+    "channel": "channel_id",
+    "channel_name": "#general",
+    "messages": [
+      {
+        "type": "message",
+        "user": "U123ABC",
+        "text": "message text",
+        "ts": "1705312365.000100",
+        "thread_ts": "1705312365.000100",  // Present if in thread
+        "edited": {"user": "U123ABC", "ts": "..."},  // Present if edited
+        "reactions": [{"name": "thumbsup", "count": 2, "users": ["U123"]}],
+        "reply_count": 5  // Number of replies in thread
+      }
+    ],
+    "has_more": true,
+    "next_cursor": "bmV4dF90czox..."
+  }
+
+Channel Resolution:
+  - Channel IDs (C123ABC) work directly without cache lookup
+  - Channel names (#general) use cache, fallback to API if not found
+  - Use 'cache populate channels' to pre-warm cache and avoid API calls`,
 	Example: `  # Get last 20 messages
   slack-agent-cli messages list --channel "#general" --limit 20
 
@@ -29,14 +54,41 @@ var messagesListCmd = &cobra.Command{
   slack-agent-cli messages list --channel "#general" --thread "1705312365.000100"
   
   # Force refresh cached channel/user metadata
-  slack-agent-cli messages list --channel "#general" --refresh-cache`,
+  slack-agent-cli messages list --channel "#general" --refresh-cache
+
+  # Continue pagination with cursor
+  slack-agent-cli messages list --channel "#general" --cursor "bmV4dF90czox..."`,
 	RunE: runMessagesList,
 }
 
 var messagesSearchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Search messages",
-	Long:  "Search messages across the workspace.",
+	Long: `Search messages across the workspace.
+
+Output (JSON):
+  {
+    "query": "search terms",
+    "total": 42,
+    "matches": [
+      {
+        "type": "message",
+        "user": "U123ABC",
+        "username": "alice",
+        "text": "message text",
+        "ts": "1705312365.000100",
+        "channel": {"id": "C123", "name": "general"},
+        "permalink": "https://workspace.slack.com/archives/..."
+      }
+    ],
+    "pagination": {"total_count": 42, "page": 1, "page_count": 3}
+  }
+
+Search Syntax:
+  - Basic: "error logs"
+  - From user: "from:@alice deployment"
+  - In channel: "in:#general bug"
+  - Combined: "from:@alice in:#general error"`,
 	Example: `  # Basic search
   slack-agent-cli messages search --query "deployment failed"
 
@@ -46,15 +98,33 @@ var messagesSearchCmd = &cobra.Command{
   # Search and sort by timestamp
   slack-agent-cli messages search --query "error" --sort timestamp --limit 20
 
-  # Search with human-readable output
-  slack-agent-cli messages search --query "bug" --human`,
+  # Search and sort by relevance
+  slack-agent-cli messages search --query "bug" --sort score`,
 	RunE: runMessagesSearch,
 }
 
 var messagesSendCmd = &cobra.Command{
 	Use:   "send",
 	Short: "Send a message",
-	Long:  "Send a message to a channel or user.",
+	Long: `Send a message to a channel or user.
+
+Output (JSON):
+  {
+    "ok": true,
+    "channel": "#general",
+    "ts": "1705312365.000100",
+    "message": {
+      "type": "message",
+      "user": "U123ABC",
+      "text": "message text",
+      "ts": "1705312365.000100"
+    }
+  }
+
+Text Input:
+  - Use --text flag for simple messages
+  - Pipe from stdin for multi-line or dynamic content
+  - Use --blocks for rich formatting (Block Kit JSON)`,
 	Example: `  # Simple message
   slack-agent-cli messages send --channel "#general" --text "Hello from CLI!"
 
@@ -72,24 +142,49 @@ var messagesSendCmd = &cobra.Command{
 var messagesEditCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit a message",
-	Long:  "Edit an existing message sent by you.",
+	Long: `Edit an existing message sent by you.
+
+Output (JSON):
+  {
+    "ok": true,
+    "channel": "#general",
+    "ts": "1705312365.000100",
+    "text": "updated text"
+  }
+
+Timestamp Format:
+  Slack message timestamps are in format "1705312365.000100"
+  - Obtain from 'messages list' output or message permalink
+  - Copy from the 'ts' field in JSON output`,
 	Example: `  # Edit a message
   slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
 
-  # Edit with human-readable output
-  slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "New message" --human`,
+  # Edit with JSON output
+  slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "New message"`,
 	RunE: runMessagesEdit,
 }
 
 var messagesDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a message",
-	Long:  "Delete a message sent by you.",
+	Long: `Delete a message sent by you.
+
+Output (JSON):
+  {
+    "ok": true,
+    "channel": "#general",
+    "ts": "1705312365.000100"
+  }
+
+Timestamp Format:
+  Slack message timestamps are in format "1705312365.000100"
+  - Obtain from 'messages list' output or message permalink
+  - Copy from the 'ts' field in JSON output`,
 	Example: `  # Delete a message
   slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100"
 
-  # Delete with human-readable output
-  slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100" --human`,
+  # Delete with JSON output
+  slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100"`,
 	RunE: runMessagesDelete,
 }
 

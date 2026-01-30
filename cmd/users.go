@@ -21,21 +21,76 @@ var usersCmd = &cobra.Command{
 var usersListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List workspace members",
-	Long:  "List all workspace members with pagination support.",
-	Example: `  slack-agent-cli users list
-  slack-agent-cli users list --limit 50
-  slack-agent-cli users list --include-bots
-  slack-agent-cli users list --human`,
+	Long: `List all workspace members with pagination support.
+
+Output (JSON):
+  {
+    "ok": true,
+    "users": [
+      {
+        "id": "U123ABC",
+        "name": "alice",
+        "real_name": "Alice Smith",
+        "display_name": "alice",
+        "is_bot": false,
+        "is_deleted": false,
+        "profile": {
+          "email": "alice@example.com",
+          "status_text": "In a meeting",
+          "status_emoji": ":calendar:"
+        }
+      }
+    ]
+  }
+
+Note: Set --include-bots to include bot users in results.`,
+	Example: `  # List all users
+  slack-agent-cli users list
+
+  # List with pagination
+  slack-agent-cli users list --limit 50 --cursor "dXNlcl9pZDo..."
+
+  # Include bot users
+  slack-agent-cli users list --include-bots`,
 	RunE: runUsersList,
 }
 
 var usersInfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Get user details",
-	Long:  "Get detailed information about a specific user.",
-	Example: `  slack-agent-cli users info --user U123ABC
-  slack-agent-cli users info --user @alice
-  slack-agent-cli users info --user U123ABC --human`,
+	Long: `Get detailed information about a specific user.
+
+Output (JSON):
+  {
+    "ok": true,
+    "user": {
+      "id": "U123ABC",
+      "name": "alice",
+      "real_name": "Alice Smith",
+      "display_name": "alice",
+      "is_bot": false,
+      "is_deleted": false,
+      "profile": {
+        "email": "alice@example.com",
+        "phone": "+1234567890",
+        "title": "Engineer",
+        "status_text": "In a meeting",
+        "status_emoji": ":calendar:",
+        "avatar_hash": "abc123"
+      },
+      "tz": "America/New_York",
+      "tz_label": "Eastern Standard Time"
+    }
+  }
+
+User Identifier:
+  - User ID: U123ABC (direct lookup)
+  - Username: @alice (resolved via user list)`,
+	Example: `  # Get user info by ID
+  slack-agent-cli users info --user U123ABC
+
+  # Get user info by username
+  slack-agent-cli users info --user @alice`,
 	RunE: runUsersInfo,
 }
 
