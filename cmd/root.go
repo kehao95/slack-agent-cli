@@ -15,7 +15,36 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "slack-agent-cli",
 		Short: "Slack for Non-Humans™",
-		Long:  `Slack for Non-Humans™ - Machine-first CLI for Slack. JSON by default.`,
+		Long: `Slack for Non-Humans™ - Machine-first CLI for Slack. JSON by default.
+
+Quick Start:
+  1. Verify authentication:
+     slack-agent-cli auth test
+
+  2. Pre-warm cache (optional but recommended):
+     slack-agent-cli cache populate channels --all
+     slack-agent-cli cache populate users --all
+
+  3. List recent messages:
+     slack-agent-cli messages list --channel "#general" --limit 10
+
+  4. Send a message:
+     slack-agent-cli messages send --channel "#general" --text "Hello!"
+
+Exit Codes:
+  0 - Success
+  1 - General error
+  2 - Configuration error (missing config, invalid tokens)
+  3 - Authentication error (invalid/expired tokens)
+  4 - Rate limit exceeded
+  5 - Network error
+  6 - Permission denied (missing OAuth scopes)
+  7 - Resource not found (channel, user, message)
+
+Environment Variables:
+  SLACK_USER_TOKEN     Override user token from config
+  SLACK_CLI_CONFIG     Custom config file path
+  SLACK_CLI_FORMAT     Default output format (json or human)`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Easter egg: Warn biological users about JSON output
 			if term.IsTerminal(int(os.Stdout.Fd())) {
