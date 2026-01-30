@@ -1,52 +1,52 @@
 .beads/issues.jsonl
-  219e268fd6406161 1-43
+  8f654205bc58f555 1-43
 .gitignore
-  219e268fd6406161 1-50
+  8f654205bc58f555 1-50
 .goreleaser.yaml
-  219e268fd6406161 1-146
+  8f654205bc58f555 1-146
 AGENTS.md
-  219e268fd6406161 1-410
+  8f654205bc58f555 1-410
 README.md
-  219e268fd6406161 1-116
+  8f654205bc58f555 1-116
 SLACK_SETUP.md
-  219e268fd6406161 1-173
+  8f654205bc58f555 1-173
 cmd/auth.go
-  219e268fd6406161 1-59
+  8f654205bc58f555 1-59
 cmd/cache.go
-  219e268fd6406161 1-347
+  8f654205bc58f555 1-347
 cmd/channels.go
-  219e268fd6406161 1-192
+  8f654205bc58f555 1-192
 cmd/emoji.go
-  219e268fd6406161 1-47
+  8f654205bc58f555 1-47
 cmd/messages.go
-  219e268fd6406161 1-436
+  8f654205bc58f555 1-436
 cmd/pins.go
-  219e268fd6406161 1-165
+  8f654205bc58f555 1-165
 cmd/reactions.go
-  219e268fd6406161 1-176
+  8f654205bc58f555 1-176
 cmd/root.go
-  219e268fd6406161 1-83
+  8f654205bc58f555 1-83
 cmd/users.go
-  219e268fd6406161 1-229
+  8f654205bc58f555 1-229
 docs/DESIGN.md
-  219e268fd6406161 1-724
+  8f654205bc58f555 1-724
 homebrew/README.md
-  219e268fd6406161 1-17
+  8f654205bc58f555 1-17
 homebrew/slk.rb
-  219e268fd6406161 1-52
+  8f654205bc58f555 1-52
 internal/errors/errors.go
-  219e268fd6406161 1-234
+  8f654205bc58f555 1-234
 internal/testutil/testutil.go
-  219e268fd6406161 1-174
+  8f654205bc58f555 1-174
 main.go
-  219e268fd6406161 1-14
+  8f654205bc58f555 1-14
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "fede9aef06b912811b5d021aab8d8d6b7b31cf4b",
   "prompts": {
-    "219e268fd6406161": {
+    "8f654205bc58f555": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_fede9ae",
