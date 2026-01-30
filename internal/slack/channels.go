@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	slackapi "github.com/slack-go/slack"
 )
@@ -26,20 +27,42 @@ func (c *APIClient) ListChannels(ctx context.Context, params ListChannelsParams)
 }
 
 // ListChannelsPaginated provides a simpler interface for cache population.
-// Returns public channels the user is a member of (uses users.conversations API).
-// Note: Only fetches public_channel type to work with channels:read scope.
+// Returns channels the user is a member of (uses users.conversations API).
+// Automatically includes private_channel type if groups:read scope is available.
 func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, int, error) {
+	// Try to fetch both public and private channels
+	// If groups:read scope is missing, fall back to public only
 	channels, nextCursor, err := c.ListChannels(ctx, ListChannelsParams{
 		Limit:           limit,
 		Cursor:          cursor,
 		IncludeArchived: false,
-		Types:           []string{"public_channel"},
+		Types:           []string{"public_channel", "private_channel"},
 	})
+
+	// If we get a missing_scope error, retry with public channels only
+	if err != nil && isMissingScopeError(err) {
+		channels, nextCursor, err = c.ListChannels(ctx, ListChannelsParams{
+			Limit:           limit,
+			Cursor:          cursor,
+			IncludeArchived: false,
+			Types:           []string{"public_channel"},
+		})
+	}
+
 	if err != nil {
 		return nil, "", 0, err
 	}
 
 	return channels, nextCursor, len(channels), nil
+}
+
+// isMissingScopeError checks if the error is due to missing OAuth scopes
+func isMissingScopeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "missing_scope") || strings.Contains(errStr, "not_allowed")
 }
 
 // JoinChannel joins a channel by ID.
