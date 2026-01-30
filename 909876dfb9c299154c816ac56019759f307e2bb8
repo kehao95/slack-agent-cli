@@ -1,0 +1,50 @@
+internal/errors/errors_test.go
+  78de52e906c9d76f 1-361
+internal/errors/errors.go
+  34eda32302848e7a 176
+internal/channels/resolver_test.go
+  78de52e906c9d76f 6,202-205
+cmd/root.go
+  78de52e906c9d76f 7,68,70
+cmd/context.go
+  78de52e906c9d76f 10,40,43,48
+internal/users/resolver.go
+  78de52e906c9d76f 11,108
+internal/channels/resolver.go
+  78de52e906c9d76f 11,83
+cmd/users.go
+  78de52e906c9d76f 9,224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "909876dfb9c299154c816ac56019759f307e2bb8",
+  "prompts": {
+    "34eda32302848e7a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f316ab35ffecOIgPcJgGB40kg",
+        "model": "github-copilot/gpt-5-mini"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "78de52e906c9d76f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f32d81e0ffeisAhM8lRSFDAyy",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 379,
+      "total_deletions": 14,
+      "accepted_lines": 379,
+      "overriden_lines": 0
+    }
+  }
+}
