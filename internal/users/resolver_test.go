@@ -7,7 +7,7 @@ import (
 
 	slackapi "github.com/slack-go/slack"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
 )
 
 type mockUserClient struct {

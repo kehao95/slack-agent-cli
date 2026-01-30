@@ -1,4 +1,4 @@
-module github.com/contentsquare/slack-cli
+module github.com/kehao95/slack-agent-cli
 
 go 1.25.6
 

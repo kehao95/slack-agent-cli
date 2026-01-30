@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
-	"github.com/contentsquare/slack-cli/internal/channels"
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/channels"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -31,10 +31,10 @@ var channelsJoinCmd = &cobra.Command{
 	Short: "Join a channel",
 	Long:  "Join a public Slack channel.",
 	Example: `  # Join a channel by name
-  slack-cli channels join --channel "#general"
+  slack-agent-cli channels join --channel "#general"
 
   # Join a channel by ID
-  slack-cli channels join --channel "CBMCT6HTN"`,
+  slack-agent-cli channels join --channel "CBMCT6HTN"`,
 	RunE: runChannelsJoin,
 }
 
@@ -43,10 +43,10 @@ var channelsLeaveCmd = &cobra.Command{
 	Short: "Leave a channel",
 	Long:  "Leave a Slack channel.",
 	Example: `  # Leave a channel by name
-  slack-cli channels leave --channel "#general"
+  slack-agent-cli channels leave --channel "#general"
 
   # Leave a channel by ID
-  slack-cli channels leave --channel "CBMCT6HTN"`,
+  slack-agent-cli channels leave --channel "CBMCT6HTN"`,
 	RunE: runChannelsLeave,
 }
 

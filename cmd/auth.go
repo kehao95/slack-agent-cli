@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +21,8 @@ var authTestCmd = &cobra.Command{
 	Use:   "test",
 	Short: "Verify credentials work",
 	Long:  "Test that the configured Slack tokens are valid by making an auth.test API call.",
-	Example: `  slack-cli auth test
-  slack-cli auth test --json`,
+	Example: `  slack-agent-cli auth test
+  slack-agent-cli auth test --human`,
 	RunE: runAuthTest,
 }
 
@@ -30,8 +30,8 @@ var authWhoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Show current user identity",
 	Long:  "Display information about the currently authenticated user.",
-	Example: `  slack-cli auth whoami
-  slack-cli auth whoami --json`,
+	Example: `  slack-agent-cli auth whoami
+  slack-agent-cli auth whoami --human`,
 	RunE: runAuthWhoami,
 }
 

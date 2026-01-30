@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
-	"github.com/contentsquare/slack-cli/internal/channels"
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/channels"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -24,10 +24,10 @@ var pinsAddCmd = &cobra.Command{
 	Short: "Pin a message",
 	Long:  "Pin a message to a Slack channel.",
 	Example: `  # Pin a message
-  slack-cli pins add --channel "#general" --ts "1705312365.000100"
+  slack-agent-cli pins add --channel "#general" --ts "1705312365.000100"
 
-  # Pin with JSON output
-  slack-cli pins add --channel "#general" --ts "1705312365.000100" --json`,
+  # Pin with human-readable output
+  slack-agent-cli pins add --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runPinsAdd,
 }
 
@@ -36,10 +36,10 @@ var pinsRemoveCmd = &cobra.Command{
 	Short: "Unpin a message",
 	Long:  "Remove a pinned message from a Slack channel.",
 	Example: `  # Unpin a message
-  slack-cli pins remove --channel "#general" --ts "1705312365.000100"
+  slack-agent-cli pins remove --channel "#general" --ts "1705312365.000100"
 
-  # Unpin with JSON output
-  slack-cli pins remove --channel "#general" --ts "1705312365.000100" --json`,
+  # Unpin with human-readable output
+  slack-agent-cli pins remove --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runPinsRemove,
 }
 
@@ -48,10 +48,10 @@ var pinsListCmd = &cobra.Command{
 	Short: "List pinned messages",
 	Long:  "List all pinned messages in a Slack channel.",
 	Example: `  # List pinned messages
-  slack-cli pins list --channel "#general"
+  slack-agent-cli pins list --channel "#general"
 
-  # List with JSON output
-  slack-cli pins list --channel "#general" --json`,
+  # List with human-readable output
+  slack-agent-cli pins list --channel "#general" --human`,
 	RunE: runPinsList,
 }
 

@@ -10,7 +10,7 @@ import (
 
 	slackapi "github.com/slack-go/slack"
 
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 )
 
 // Service coordinates message list operations.

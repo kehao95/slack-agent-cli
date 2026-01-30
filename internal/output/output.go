@@ -13,13 +13,14 @@ type Printable interface {
 	Lines() []string
 }
 
-// Print writes output in the desired format based on --json flag.
+// Print writes output in the desired format based on --human flag.
+// Default is JSON (machine-first). Use --human for human-readable output.
 func Print(cmd *cobra.Command, data interface{}) error {
-	jsonFlag, _ := cmd.Flags().GetBool("json")
-	if jsonFlag {
-		return printJSON(data)
+	humanFlag, _ := cmd.Flags().GetBool("human")
+	if humanFlag {
+		return printHuman(data)
 	}
-	return printHuman(data)
+	return printJSON(data)
 }
 
 func printJSON(data interface{}) error {

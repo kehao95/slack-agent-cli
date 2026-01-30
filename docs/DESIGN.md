@@ -1,15 +1,23 @@
-# Slack CLI Design Document
+# Slack Agent CLI Design Document
+
+## Slack for Non-Humans™
 
 ## 1. Executive Summary
 
-A command-line interface for interacting with Slack workspaces as an authenticated user. The CLI exposes all Slack operations as shell commands, enabling users (including AI coding agents like Claude Code and OpenCode) to read messages, send replies, manage reactions, and more.
+A **machine-first** command-line interface for Slack. Designed for scripts, cron jobs, and AI agents. Humans are supported as second-class citizens.
+
+**Core Philosophy:**
+- **JSON First**: Default output is JSON. Human-readable output requires `--human` flag.
+- **Pipe Friendly**: stdout contains only data. No progress messages, no "Success!", no spinners.
+- **Stderr for Status**: All warnings, progress, and status messages go to stderr.
+- **Non-Interactive**: No prompts, no confirmations. Fail fast with clear error codes.
 
 **Key Design Decisions:**
 - **User Token authentication** for acting as yourself in Slack
 - **Batch operations** via `messages list` for history and `messages search` for queries
 - **Single workspace** per configuration
-- **Config file** for auth storage (`~/.config/slack-cli/config.json`)
-- **Both output formats**: Human-readable default, `--json` flag for structured output
+- **Config file** for auth storage (`~/.config/slack-agent-cli/config.json`)
+- **JSON default output**, `--human/-H` flag for human-readable tables
 
 ---
 
@@ -24,7 +32,7 @@ A command-line interface for interacting with Slack workspaces as an authenticat
                               │ Subprocess / Shell exec
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                         slack-cli                               │
+│                         slack-agent-cli                               │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐   │
 │  │ messages │  │ channels │  │reactions │  │    pins      │   │
 │  │  (list)  │  │  (list)  │  │          │  │              │   │
@@ -52,7 +60,7 @@ A command-line interface for interacting with Slack workspaces as an authenticat
 ### 3.1 Top-Level Commands
 
 ```
-slack-cli
+slack-agent-cli
 ├── config          # Configuration management
 │   ├── init        # Interactive setup wizard
 │   ├── show        # Display current config
@@ -109,12 +117,12 @@ slack-cli
 
 ### 3.2 Command Details
 
-#### `slack-cli config init`
+#### `slack-agent-cli config init`
 
 Interactive setup wizard to configure the CLI.
 
 ```bash
-$ slack-cli config init
+$ slack-agent-cli config init
 
 Slack CLI Configuration
 =======================
@@ -129,17 +137,17 @@ Testing connection... ✓
 User: alice
 Workspace: My Workspace
 
-Configuration saved to ~/.config/slack-cli/config.json
+Configuration saved to ~/.config/slack-agent-cli/config.json
 ```
 
 ---
 
-#### `slack-cli messages list`
+#### `slack-agent-cli messages list`
 
 Fetch message history using Slack's conversations.history API.
 
 ```bash
-slack-cli messages list [options]
+slack-agent-cli messages list [options]
 
 Options:
   --channel <name|id>    Channel to fetch from (required)
@@ -155,25 +163,25 @@ Options:
 **Example:**
 ```bash
 # Get last 20 messages from #general
-slack-cli messages list --channel "#general" --limit 20
+slack-agent-cli messages list --channel "#general" --limit 20
 
 # Get messages from the last hour
-slack-cli messages list --channel "#general" --since 1h --json
+slack-agent-cli messages list --channel "#general" --since 1h --json
 
 # Get thread replies
-slack-cli messages list --channel "#general" --thread "1705312365.000100"
+slack-agent-cli messages list --channel "#general" --thread "1705312365.000100"
 ```
 
 After the first invocation warms the cache, subsequent `messages list` commands reuse the stored channel and user maps so resolution becomes effectively instantaneous unless `--refresh-cache` is specified.
 
 ---
 
-#### `slack-cli messages send`
+#### `slack-agent-cli messages send`
 
 Send a message to a channel or user.
 
 ```bash
-slack-cli messages send [options]
+slack-agent-cli messages send [options]
 
 Options:
   --channel <name|id>    Target channel (use @user for DM)
@@ -188,26 +196,26 @@ Options:
 **Examples:**
 ```bash
 # Simple message
-slack-cli messages send --channel "#general" --text "Hello from CLI!"
+slack-agent-cli messages send --channel "#general" --text "Hello from CLI!"
 
 # Reply in thread
-slack-cli messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
+slack-agent-cli messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
 
 # Pipe message content
-echo "Multi-line\nmessage" | slack-cli messages send --channel "#general"
+echo "Multi-line\nmessage" | slack-agent-cli messages send --channel "#general"
 
 # Send to user DM
-slack-cli messages send --channel "@alice" --text "Private message"
+slack-agent-cli messages send --channel "@alice" --text "Private message"
 ```
 
 ---
 
-#### `slack-cli messages search`
+#### `slack-agent-cli messages search`
 
 Search messages across the workspace.
 
 ```bash
-slack-cli messages search [options]
+slack-agent-cli messages search [options]
 
 Options:
   --query <text>         Search query (required)
@@ -220,30 +228,30 @@ Options:
 **Examples:**
 ```bash
 # Basic search
-slack-cli messages search --query "deployment failed"
+slack-agent-cli messages search --query "deployment failed"
 
 # Search with advanced syntax
-slack-cli messages search --query "from:@alice in:#general"
+slack-agent-cli messages search --query "from:@alice in:#general"
 
 # Search and sort by relevance
-slack-cli messages search --query "error" --sort score --limit 20
+slack-agent-cli messages search --query "error" --sort score --limit 20
 ```
 
 ---
 
-#### `slack-cli reactions add/remove/list`
+#### `slack-agent-cli reactions add/remove/list`
 
 Manage emoji reactions.
 
 ```bash
 # Add reaction
-slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+slack-agent-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 
 # Remove reaction
-slack-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+slack-agent-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 
 # List reactions on a message
-slack-cli reactions list --channel "#general" --ts "1705312365.000100" --json
+slack-agent-cli reactions list --channel "#general" --ts "1705312365.000100" --json
 ```
 
 ---
@@ -253,7 +261,7 @@ slack-cli reactions list --channel "#general" --ts "1705312365.000100" --json
 ### 4.1 Config File Location
 
 ```
-~/.config/slack-cli/config.json
+~/.config/slack-agent-cli/config.json
 ```
 
 Or via `SLACK_CLI_CONFIG` environment variable.
@@ -261,7 +269,7 @@ Or via `SLACK_CLI_CONFIG` environment variable.
 ### 4.2 Persistent Cache Location
 
 ```
-~/.config/slack-cli/cache/
+~/.config/slack-agent-cli/cache/
 ```
 
 - Separate JSON files per domain (e.g., `channels.json`, `users.json`).
@@ -277,12 +285,12 @@ The `cache` command group provides explicit control over metadata caching with i
 2. Resume interrupted fetches without losing progress
 3. Monitor cache state before running other commands
 
-#### `slack-cli cache populate`
+#### `slack-agent-cli cache populate`
 
 Fetch and cache channels or users from Slack with incremental pagination.
 
 ```bash
-slack-cli cache populate <channels|users> [options]
+slack-agent-cli cache populate <channels|users> [options]
 
 Options:
   --all                  Fetch all pages (default: fetch one page)
@@ -300,15 +308,15 @@ Options:
 **Examples:**
 ```bash
 # Fetch channels incrementally (one page at a time)
-slack-cli cache populate channels
-slack-cli cache populate channels  # Continues from cursor
-slack-cli cache populate channels  # Continues until done
+slack-agent-cli cache populate channels
+slack-agent-cli cache populate channels  # Continues from cursor
+slack-agent-cli cache populate channels  # Continues until done
 
 # Or fetch all at once with rate limiting
-slack-cli cache populate channels --all --page-delay 2s
+slack-agent-cli cache populate channels --all --page-delay 2s
 
 # Populate users cache
-slack-cli cache populate users --all
+slack-agent-cli cache populate users --all
 ```
 
 **Output (Human-readable):**
@@ -325,12 +333,12 @@ Cache populated: 350 channels
 {"status":"complete","total":350}
 ```
 
-#### `slack-cli cache status`
+#### `slack-agent-cli cache status`
 
 Show current cache state.
 
 ```bash
-slack-cli cache status [options]
+slack-agent-cli cache status [options]
 
 Options:
   --json                 Output as JSON
@@ -362,19 +370,19 @@ users:     125 items, fetched 2024-01-15 09:30:00 (partial, cursor: dXNlcl9...)
 }
 ```
 
-#### `slack-cli cache clear`
+#### `slack-agent-cli cache clear`
 
 Clear cached data.
 
 ```bash
-slack-cli cache clear [channels|users]
+slack-agent-cli cache clear [channels|users]
 
 # Clear all caches
-slack-cli cache clear
+slack-agent-cli cache clear
 
 # Clear specific cache
-slack-cli cache clear channels
-slack-cli cache clear users
+slack-agent-cli cache clear channels
+slack-agent-cli cache clear users
 ```
 
 ### 4.4 Cache and Channel Resolution
@@ -398,9 +406,9 @@ This means:
 **Pre-warming the cache (optional):**
 ```bash
 # Fetch a few pages to cache common channels
-slack-cli cache populate channels
-slack-cli cache populate channels
-slack-cli cache populate channels
+slack-agent-cli cache populate channels
+slack-agent-cli cache populate channels
+slack-agent-cli cache populate channels
 ```
 
 ### 4.5 Config Schema
@@ -443,7 +451,7 @@ slack-cli cache populate channels
 Designed for quick visual inspection:
 
 ```
-$ slack-cli messages list --channel "#general" --limit 3
+$ slack-agent-cli messages list --channel "#general" --limit 3
 
 #general - Last 3 messages
 ──────────────────────────────────────────────────
@@ -463,7 +471,7 @@ $ slack-cli messages list --channel "#general" --limit 3
 For agent parsing:
 
 ```bash
-$ slack-cli messages list --channel "#general" --limit 3 --json
+$ slack-agent-cli messages list --channel "#general" --limit 3 --json
 ```
 
 ```json
@@ -516,34 +524,34 @@ $ slack-cli messages list --channel "#general" --limit 3 --json
 ### 6.1 Claude Code / OpenCode Tool Definition
 
 ```markdown
-## slack-cli
+## slack-agent-cli
 
 A command-line tool for interacting with Slack as yourself.
 
 ### Reading message history
 ```bash
 # Get last 20 messages from a channel
-slack-cli messages list --channel "#general" --limit 20 --json
+slack-agent-cli messages list --channel "#general" --limit 20 --json
 ```
 
 ### Searching messages
 ```bash
 # Search for specific content
-slack-cli messages search --query "deployment failed" --json
+slack-agent-cli messages search --query "deployment failed" --json
 ```
 
 ### Sending messages
 ```bash
 # Send a message
-slack-cli messages send --channel "#general" --text "Hello!"
+slack-agent-cli messages send --channel "#general" --text "Hello!"
 
 # Reply in a thread
-slack-cli messages send --channel "#general" --thread "1705312365.000100" --text "Reply"
+slack-agent-cli messages send --channel "#general" --thread "1705312365.000100" --text "Reply"
 ```
 
 ### Reacting to messages
 ```bash
-slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+slack-agent-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 ```
 ```
 
@@ -553,16 +561,16 @@ slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "t
 # Agent wants to check #support and respond to questions
 
 # 1. Check recent messages
-slack-cli messages list --channel "#support" --since 1h --json | jq '.messages[]'
+slack-agent-cli messages list --channel "#support" --since 1h --json | jq '.messages[]'
 
 # 2. Search for specific issues
-slack-cli messages search --query "error in:#support" --json
+slack-agent-cli messages search --query "error in:#support" --json
 
 # 3. Send a response
-slack-cli messages send --channel "#support" --thread "$THREAD_TS" --text "Here's the answer..."
+slack-agent-cli messages send --channel "#support" --thread "$THREAD_TS" --text "Here's the answer..."
 
 # 4. Add acknowledgment reaction
-slack-cli reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
+slack-agent-cli reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
 ```
 
 ### 6.3 Using Channel IDs for Speed
@@ -571,10 +579,10 @@ For maximum speed, use channel IDs directly (no cache lookup needed):
 
 ```bash
 # Direct channel ID - always instant
-slack-cli messages list --channel C074S0L3MCG --limit 20
+slack-agent-cli messages list --channel C074S0L3MCG --limit 20
 
 # Channel name - may fetch pages on first use, then cached
-slack-cli messages list --channel "#support-bot-testing" --limit 20
+slack-agent-cli messages list --channel "#support-bot-testing" --limit 20
 ```
 
 ---
