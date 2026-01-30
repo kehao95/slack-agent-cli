@@ -52,7 +52,7 @@ slack-agent-cli messages list --channel "#general" --limit 10 --human
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install kehao95/tap/slack-agent-cli
+brew install kehao95/slack-agent-cli/slack-agent-cli
 ```
 
 ### Go Install
