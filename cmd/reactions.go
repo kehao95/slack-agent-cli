@@ -43,10 +43,23 @@ var reactionsRemoveCmd = &cobra.Command{
 	RunE: runReactionsRemove,
 }
 
+var reactionsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List reactions on a message",
+	Long:  "List all emoji reactions on a Slack message.",
+	Example: `  # List reactions on a message
+  slack-cli reactions list --channel "#general" --ts "1705312365.000100"
+
+  # List with JSON output
+  slack-cli reactions list --channel "#general" --ts "1705312365.000100" --json`,
+	RunE: runReactionsList,
+}
+
 func init() {
 	rootCmd.AddCommand(reactionsCmd)
 	reactionsCmd.AddCommand(reactionsAddCmd)
 	reactionsCmd.AddCommand(reactionsRemoveCmd)
+	reactionsCmd.AddCommand(reactionsListCmd)
 
 	// Flags for add command
 	reactionsAddCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
@@ -63,6 +76,12 @@ func init() {
 	reactionsRemoveCmd.MarkFlagRequired("channel")
 	reactionsRemoveCmd.MarkFlagRequired("ts")
 	reactionsRemoveCmd.MarkFlagRequired("emoji")
+
+	// Flags for list command
+	reactionsListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
+	reactionsListCmd.Flags().String("ts", "", "Message timestamp (required)")
+	reactionsListCmd.MarkFlagRequired("channel")
+	reactionsListCmd.MarkFlagRequired("ts")
 }
 
 func runReactionsAdd(cmd *cobra.Command, args []string) error {
@@ -157,6 +176,48 @@ func runReactionsRemove(cmd *cobra.Command, args []string) error {
 		Timestamp: timestamp,
 		Emoji:     emoji,
 	}
+
+	return output.Print(cmd, result)
+}
+
+func runReactionsList(cmd *cobra.Command, args []string) error {
+	cfg, path, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config (%s): %w", path, err)
+	}
+
+	channelInput, _ := cmd.Flags().GetString("channel")
+	timestamp, _ := cmd.Flags().GetString("ts")
+
+	// Initialize cache store
+	cacheStore, err := cache.DefaultStore()
+	if err != nil {
+		return fmt.Errorf("init cache: %w", err)
+	}
+
+	client := slack.New(cfg.UserToken)
+	channelResolver := channels.NewCachedResolver(client, cacheStore)
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+
+	// Resolve channel name to ID
+	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	if err != nil {
+		return err
+	}
+
+	// Get reactions
+	result, err := client.GetReactions(ctx, channelID, timestamp)
+	if err != nil {
+		return fmt.Errorf("get reactions: %w", err)
+	}
+
+	// Set the channel name in the result for human-readable output
+	result.Channel = channelInput
 
 	return output.Print(cmd, result)
 }
