@@ -1,28 +1,28 @@
 .beads/issues.jsonl
-  4dd64487514e4ebc 1-43
+  48f35a127b0a13ae 1-43
 cmd/context.go
-  4dd64487514e4ebc 1-78
+  48f35a127b0a13ae 1-78
 cmd/root.go
-  4dd64487514e4ebc 1-77
+  48f35a127b0a13ae 1-77
 cmd/users.go
-  4dd64487514e4ebc 1-229
+  48f35a127b0a13ae 1-229
 internal/channels/resolver.go
-  4dd64487514e4ebc 1-178
+  48f35a127b0a13ae 1-178
 internal/channels/resolver_test.go
-  4dd64487514e4ebc 1-260
+  48f35a127b0a13ae 1-260
 internal/errors/errors.go
-  4dd64487514e4ebc 1-234
+  48f35a127b0a13ae 1-234
 internal/errors/errors_test.go
-  4dd64487514e4ebc 1-361
+  48f35a127b0a13ae 1-361
 internal/users/resolver.go
-  4dd64487514e4ebc 1-226
+  48f35a127b0a13ae 1-226
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "9a580ae4425f0f54d4fe3b176fe76479d9ced543",
   "prompts": {
-    "4dd64487514e4ebc": {
+    "48f35a127b0a13ae": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_9a580ae",
