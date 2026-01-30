@@ -6,7 +6,7 @@ import (
 
 	slackapi "github.com/slack-go/slack"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
 )
 
 // UserGroupClient defines the Slack operations needed for usergroup lookups.

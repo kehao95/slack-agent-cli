@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -22,10 +22,10 @@ var emojiListCmd = &cobra.Command{
 	Short: "List custom emoji",
 	Long:  "List all custom emoji in the Slack workspace.",
 	Example: `  # List custom emoji
-  slack-cli emoji list
+  slack-agent-cli emoji list
 
-  # List with JSON output
-  slack-cli emoji list --json`,
+  # List with human-readable output
+  slack-agent-cli emoji list --human`,
 	RunE: runEmojiList,
 }
 

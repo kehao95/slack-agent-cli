@@ -12,9 +12,14 @@ var (
 	cfgFile string
 
 	rootCmd = &cobra.Command{
-		Use:   "slack-cli",
-		Short: "CLI for interacting with Slack workspaces",
-		Long:  "slack-cli enables AI coding agents to interact with Slack via shell commands.",
+		Use:   "slack-agent-cli",
+		Short: "Slack for Non-Humans™",
+		Long: `Slack for Non-Humans™
+
+A machine-first CLI for Slack. Designed for scripts, cron jobs, and AI agents.
+Humans are supported as second-class citizens via --human flag.
+
+Output is JSON by default. All status messages go to stderr.`,
 	}
 )
 
@@ -27,7 +32,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/slack-cli/config.json)")
-	rootCmd.PersistentFlags().Bool("json", false, "output as JSON")
-	viper.BindPFlag("output.json", rootCmd.PersistentFlags().Lookup("json"))
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/slack-agent-cli/config.json)")
+	rootCmd.PersistentFlags().BoolP("human", "H", false, "human-readable output with tables and colors")
+	viper.BindPFlag("output.human", rootCmd.PersistentFlags().Lookup("human"))
 }

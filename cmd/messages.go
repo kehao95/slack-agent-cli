@@ -8,14 +8,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
-	"github.com/contentsquare/slack-cli/internal/channels"
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/messages"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
-	"github.com/contentsquare/slack-cli/internal/usergroups"
-	"github.com/contentsquare/slack-cli/internal/users"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/channels"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/messages"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/usergroups"
+	"github.com/kehao95/slack-agent-cli/internal/users"
 	slackapi "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -31,16 +31,16 @@ var messagesListCmd = &cobra.Command{
 	Short: "List messages from a channel",
 	Long:  "Fetch message history from a Slack channel using conversations.history API.",
 	Example: `  # Get last 20 messages
-  slack-cli messages list --channel "#general" --limit 20
+  slack-agent-cli messages list --channel "#general" --limit 20
 
   # Get messages from the last hour
-  slack-cli messages list --channel "#general" --since 1h --json
+  slack-agent-cli messages list --channel "#general" --since 1h
 
   # Get thread replies
-  slack-cli messages list --channel "#general" --thread "1705312365.000100"
+  slack-agent-cli messages list --channel "#general" --thread "1705312365.000100"
   
   # Force refresh cached channel/user metadata
-  slack-cli messages list --channel "#general" --refresh-cache`,
+  slack-agent-cli messages list --channel "#general" --refresh-cache`,
 	RunE: runMessagesList,
 }
 
@@ -49,16 +49,16 @@ var messagesSearchCmd = &cobra.Command{
 	Short: "Search messages",
 	Long:  "Search messages across the workspace.",
 	Example: `  # Basic search
-  slack-cli messages search --query "deployment failed"
+  slack-agent-cli messages search --query "deployment failed"
 
   # Search with advanced syntax
-  slack-cli messages search --query "from:@alice in:#general"
+  slack-agent-cli messages search --query "from:@alice in:#general"
 
   # Search and sort by timestamp
-  slack-cli messages search --query "error" --sort timestamp --limit 20
+  slack-agent-cli messages search --query "error" --sort timestamp --limit 20
 
-  # Search and get JSON output
-  slack-cli messages search --query "bug" --json`,
+  # Search with human-readable output
+  slack-agent-cli messages search --query "bug" --human`,
 	RunE: runMessagesSearch,
 }
 
@@ -67,16 +67,16 @@ var messagesSendCmd = &cobra.Command{
 	Short: "Send a message",
 	Long:  "Send a message to a channel or user.",
 	Example: `  # Simple message
-  slack-cli messages send --channel "#general" --text "Hello from CLI!"
+  slack-agent-cli messages send --channel "#general" --text "Hello from CLI!"
 
   # Reply in thread
-  slack-cli messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
+  slack-agent-cli messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
 
   # Pipe message content
-  echo "Multi-line\nmessage" | slack-cli messages send --channel "#general"
+  echo "Multi-line\nmessage" | slack-agent-cli messages send --channel "#general"
 
   # Send to user DM
-  slack-cli messages send --channel "@alice" --text "Private message"`,
+  slack-agent-cli messages send --channel "@alice" --text "Private message"`,
 	RunE: runMessagesSend,
 }
 
@@ -85,10 +85,10 @@ var messagesEditCmd = &cobra.Command{
 	Short: "Edit a message",
 	Long:  "Edit an existing message sent by you.",
 	Example: `  # Edit a message
-  slack-cli messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
+  slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
 
-  # Edit with JSON output
-  slack-cli messages edit --channel "#general" --ts "1705312365.000100" --text "New message" --json`,
+  # Edit with human-readable output
+  slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "New message" --human`,
 	RunE: runMessagesEdit,
 }
 
@@ -97,10 +97,10 @@ var messagesDeleteCmd = &cobra.Command{
 	Short: "Delete a message",
 	Long:  "Delete a message sent by you.",
 	Example: `  # Delete a message
-  slack-cli messages delete --channel "#general" --ts "1705312365.000100"
+  slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100"
 
-  # Delete with JSON output
-  slack-cli messages delete --channel "#general" --ts "1705312365.000100" --json`,
+  # Delete with human-readable output
+  slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runMessagesDelete,
 }
 

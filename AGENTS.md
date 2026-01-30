@@ -1,4 +1,4 @@
-# slack-cli
+# slack-agent-cli
 
 A CLI tool for AI coding agents to interact with Slack workspaces via command line.
 
@@ -9,7 +9,7 @@ A CLI tool for AI coding agents to interact with Slack workspaces via command li
 | Language | Go |
 | CLI Framework | Cobra + Viper |
 | Slack SDK | slack-go/slack |
-| Config Location | `~/.config/slack-cli/config.json` |
+| Config Location | `~/.config/slack-agent-cli/config.json` |
 
 ## Quick Reference
 
@@ -175,7 +175,7 @@ go test ./internal/config/...  # All tests pass
 ## Project Structure
 
 ```
-slack-cli/
+slack-agent-cli/
 ├── cmd/                    # Cobra commands
 │   ├── root.go             # Root command, global flags
 │   ├── config.go           # config subcommands
@@ -295,7 +295,7 @@ require (
 ### Installing Dependencies
 
 ```bash
-go mod init github.com/user/slack-cli
+go mod init github.com/user/slack-agent-cli
 go get github.com/spf13/cobra@latest
 go get github.com/spf13/viper@latest
 go get github.com/slack-go/slack@latest
@@ -390,7 +390,7 @@ Go is not installed or not in PATH. Install from https://go.dev/dl/
 Run `go mod tidy` to sync dependencies.
 
 ### "Slack API error: not_authed"
-Config file missing or tokens invalid. Run `slack-cli config init`.
+Config file missing or tokens invalid. Run `slack-agent-cli config init`.
 
 ### Tests fail with "no test files"
 Create `*_test.go` files in the package directory.

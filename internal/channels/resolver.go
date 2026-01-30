@@ -7,8 +7,8 @@ import (
 
 	slackapi "github.com/slack-go/slack"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 )
 
 // Resolver resolves channel names to IDs using disk-cached lookups.

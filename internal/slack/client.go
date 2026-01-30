@@ -231,7 +231,7 @@ func (r *EmojiListResult) Lines() []string {
 	}
 
 	if len(names) > 50 {
-		lines = append(lines, fmt.Sprintf("\n... and %d more (use --json to see all)", len(names)-50))
+		lines = append(lines, fmt.Sprintf("\n... and %d more (default output is JSON with all items)", len(names)-50))
 	}
 
 	return lines

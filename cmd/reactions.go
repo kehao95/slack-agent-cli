@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
-	"github.com/contentsquare/slack-cli/internal/channels"
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/channels"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -24,10 +24,10 @@ var reactionsAddCmd = &cobra.Command{
 	Short: "Add reaction to message",
 	Long:  "Add an emoji reaction to a Slack message.",
 	Example: `  # Add thumbsup reaction
-  slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+  slack-agent-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 
   # Add custom emoji
-  slack-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
+  slack-agent-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
 	RunE: runReactionsAdd,
 }
 
@@ -36,10 +36,10 @@ var reactionsRemoveCmd = &cobra.Command{
 	Short: "Remove reaction from message",
 	Long:  "Remove an emoji reaction from a Slack message.",
 	Example: `  # Remove thumbsup reaction
-  slack-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+  slack-agent-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 
   # Remove custom emoji
-  slack-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
+  slack-agent-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
 	RunE: runReactionsRemove,
 }
 
@@ -48,10 +48,10 @@ var reactionsListCmd = &cobra.Command{
 	Short: "List reactions on a message",
 	Long:  "List all emoji reactions on a Slack message.",
 	Example: `  # List reactions on a message
-  slack-cli reactions list --channel "#general" --ts "1705312365.000100"
+  slack-agent-cli reactions list --channel "#general" --ts "1705312365.000100"
 
-  # List with JSON output
-  slack-cli reactions list --channel "#general" --ts "1705312365.000100" --json`,
+  # List with human-readable output
+  slack-agent-cli reactions list --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runReactionsList,
 }
 

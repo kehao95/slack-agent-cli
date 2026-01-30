@@ -2,15 +2,17 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
 	slackapi "github.com/slack-go/slack"
 
-	"github.com/contentsquare/slack-cli/internal/cache"
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -29,16 +31,16 @@ By default, fetches one page at a time and saves progress. Use --all to
 fetch everything (with rate limiting). If interrupted, the next run
 resumes from where it left off.`,
 	Example: `  # Fetch one page of channels (200 items)
-  slack-cli cache populate channels
+  slack-agent-cli cache populate channels
 
   # Fetch all channels with progress output
-  slack-cli cache populate channels --all
+  slack-agent-cli cache populate channels --all
 
   # Fetch all users
-  slack-cli cache populate users --all
+  slack-agent-cli cache populate users --all
 
   # Custom page size and delay
-  slack-cli cache populate channels --all --page-size 100 --page-delay 2s`,
+  slack-agent-cli cache populate channels --all --page-size 100 --page-delay 2s`,
 	Args: cobra.ExactArgs(1),
 	RunE: runCachePopulate,
 }
@@ -120,7 +122,7 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 		FetchAll:  fetchAll,
 	}
 	if !quiet {
-		popCfg.Output = os.Stdout
+		popCfg.Output = os.Stderr
 	}
 
 	// Use longer timeout for --all mode
@@ -135,10 +137,10 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 
 	switch target {
 	case "channels":
-		fmt.Fprintf(os.Stdout, "Populating channels cache...\n")
+		fmt.Fprintf(os.Stderr, "Populating channels cache...\n")
 		result, err = cacheStore.PopulateChannels(ctx, &channelFetcherAdapter{client}, popCfg)
 	case "users":
-		fmt.Fprintf(os.Stdout, "Populating users cache...\n")
+		fmt.Fprintf(os.Stderr, "Populating users cache...\n")
 		result, err = cacheStore.PopulateUsers(ctx, &userFetcherAdapter{client}, popCfg)
 	}
 
@@ -151,16 +153,71 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 	if result.Complete {
 		status = "complete"
 	}
-	fmt.Fprintf(os.Stdout, "\nResult: %d %s cached (%s)\n", result.Count, target, status)
+	fmt.Fprintf(os.Stderr, "\nResult: %d %s cached (%s)\n", result.Count, target, status)
 	if !result.Complete && result.NextCursor != "" {
-		fmt.Fprintf(os.Stdout, "Run again to continue fetching.\n")
+		fmt.Fprintf(os.Stderr, "Run again to continue fetching.\n")
 	}
 
 	if err == context.DeadlineExceeded {
-		fmt.Fprintf(os.Stdout, "Timeout reached. Progress saved. Run again to continue.\n")
+		fmt.Fprintf(os.Stderr, "Timeout reached. Progress saved. Run again to continue.\n")
 	}
 
 	return nil
+}
+
+// cacheStatusItem represents a single cache entry status
+type cacheStatusItem struct {
+	Key        string    `json:"key"`
+	Cached     bool      `json:"cached"`
+	Count      int       `json:"count,omitempty"`
+	Complete   bool      `json:"complete,omitempty"`
+	Expired    bool      `json:"expired,omitempty"`
+	FetchedAt  time.Time `json:"fetched_at,omitempty"`
+	NextCursor string    `json:"next_cursor,omitempty"`
+}
+
+// cacheStatusResponse is the response structure for cache status
+type cacheStatusResponse struct {
+	Items []cacheStatusItem `json:"items"`
+}
+
+// cacheStatusPrintable implements output.Printable for human-readable cache status
+type cacheStatusPrintable struct {
+	data cacheStatusResponse
+}
+
+func (c *cacheStatusPrintable) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.data)
+}
+
+func (c *cacheStatusPrintable) Lines() []string {
+	lines := []string{
+		"Cache Status",
+		"============",
+	}
+
+	for _, item := range c.data.Items {
+		if !item.Cached {
+			lines = append(lines, fmt.Sprintf("  %s: not cached", item.Key))
+			continue
+		}
+
+		state := "complete"
+		if !item.Complete {
+			state = "partial"
+		}
+		if item.Expired {
+			state += " (expired)"
+		}
+
+		age := time.Since(item.FetchedAt).Round(time.Minute)
+		lines = append(lines, fmt.Sprintf("  %s: %d items (%s, fetched %v ago)", item.Key, item.Count, state, age))
+		if !item.Complete && item.NextCursor != "" {
+			lines = append(lines, fmt.Sprintf("    next_cursor: %s...", truncateCursor(item.NextCursor)))
+		}
+	}
+
+	return lines
 }
 
 func runCacheStatus(cmd *cobra.Command, args []string) error {
@@ -169,32 +226,63 @@ func runCacheStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("init cache: %w", err)
 	}
 
-	fmt.Println("Cache Status")
-	fmt.Println("============")
+	response := cacheStatusResponse{
+		Items: make([]cacheStatusItem, 0),
+	}
 
 	for _, key := range []string{cache.CacheKeyChannels, cache.CacheKeyUsers} {
 		status, found := cacheStore.GetStatus(key)
 		if !found {
-			fmt.Printf("  %s: not cached\n", key)
+			response.Items = append(response.Items, cacheStatusItem{
+				Key:    key,
+				Cached: false,
+			})
 			continue
 		}
 
-		state := "complete"
-		if !status.Complete {
-			state = "partial"
+		item := cacheStatusItem{
+			Key:        key,
+			Cached:     true,
+			Count:      status.Count,
+			Complete:   status.Complete,
+			Expired:    status.Expired,
+			FetchedAt:  status.FetchedAt,
+			NextCursor: status.NextCursor,
 		}
-		if status.Expired {
-			state += " (expired)"
-		}
-
-		age := time.Since(status.FetchedAt).Round(time.Minute)
-		fmt.Printf("  %s: %d items (%s, fetched %v ago)\n", key, status.Count, state, age)
-		if !status.Complete && status.NextCursor != "" {
-			fmt.Printf("    next_cursor: %s...\n", truncateCursor(status.NextCursor))
-		}
+		response.Items = append(response.Items, item)
 	}
 
-	return nil
+	return output.Print(cmd, &cacheStatusPrintable{data: response})
+}
+
+// cacheClearResult represents a single cache clear operation result
+type cacheClearResult struct {
+	Key     string `json:"key"`
+	Cleared bool   `json:"cleared"`
+}
+
+// cacheClearResponse is the response structure for cache clear
+type cacheClearResponse struct {
+	Results []cacheClearResult `json:"results"`
+}
+
+// cacheClearPrintable implements output.Printable for cache clear results
+type cacheClearPrintable struct {
+	data cacheClearResponse
+}
+
+func (c *cacheClearPrintable) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.data)
+}
+
+func (c *cacheClearPrintable) Lines() []string {
+	lines := make([]string, 0)
+	for _, result := range c.data.Results {
+		if result.Cleared {
+			lines = append(lines, fmt.Sprintf("Cleared %s cache", result.Key))
+		}
+	}
+	return lines
 }
 
 func runCacheClear(cmd *cobra.Command, args []string) error {
@@ -214,6 +302,10 @@ func runCacheClear(cmd *cobra.Command, args []string) error {
 		targets = []string{target}
 	}
 
+	response := cacheClearResponse{
+		Results: make([]cacheClearResult, 0),
+	}
+
 	for _, key := range targets {
 		if err := cacheStore.Expire(key); err != nil {
 			return fmt.Errorf("clear %s: %w", key, err)
@@ -221,10 +313,13 @@ func runCacheClear(cmd *cobra.Command, args []string) error {
 		if err := cacheStore.ExpirePartial(key); err != nil {
 			return fmt.Errorf("clear %s partial: %w", key, err)
 		}
-		fmt.Printf("Cleared %s cache\n", key)
+		response.Results = append(response.Results, cacheClearResult{
+			Key:     key,
+			Cleared: true,
+		})
 	}
 
-	return nil
+	return output.Print(cmd, &cacheClearPrintable{data: response})
 }
 
 func truncateCursor(s string) string {

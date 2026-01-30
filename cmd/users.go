@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/contentsquare/slack-cli/internal/config"
-	"github.com/contentsquare/slack-cli/internal/output"
-	"github.com/contentsquare/slack-cli/internal/slack"
-	"github.com/contentsquare/slack-cli/internal/users"
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/users"
 	"github.com/spf13/cobra"
 )
 
@@ -23,10 +23,10 @@ var usersListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List workspace members",
 	Long:  "List all workspace members with pagination support.",
-	Example: `  slack-cli users list
-  slack-cli users list --limit 50
-  slack-cli users list --include-bots
-  slack-cli users list --json`,
+	Example: `  slack-agent-cli users list
+  slack-agent-cli users list --limit 50
+  slack-agent-cli users list --include-bots
+  slack-agent-cli users list --human`,
 	RunE: runUsersList,
 }
 
@@ -34,9 +34,9 @@ var usersInfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Get user details",
 	Long:  "Get detailed information about a specific user.",
-	Example: `  slack-cli users info --user U123ABC
-  slack-cli users info --user @alice
-  slack-cli users info --user U123ABC --json`,
+	Example: `  slack-agent-cli users info --user U123ABC
+  slack-agent-cli users info --user @alice
+  slack-agent-cli users info --user U123ABC --human`,
 	RunE: runUsersInfo,
 }
 
@@ -44,9 +44,9 @@ var usersPresenceCmd = &cobra.Command{
 	Use:   "presence",
 	Short: "Check user presence",
 	Long:  "Check the presence status of a specific user.",
-	Example: `  slack-cli users presence --user U123ABC
-  slack-cli users presence --user @alice
-  slack-cli users presence --user U123ABC --json`,
+	Example: `  slack-agent-cli users presence --user U123ABC
+  slack-agent-cli users presence --user @alice
+  slack-agent-cli users presence --user U123ABC --human`,
 	RunE: runUsersPresence,
 }
 
