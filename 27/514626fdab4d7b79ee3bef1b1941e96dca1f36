@@ -1,0 +1,31 @@
+cmd/cache.go
+  26168895f68df044 50-79
+cmd/users.go
+  26168895f68df044 24-54,61-93
+cmd/root.go
+  26168895f68df044 18-47
+cmd/channels.go
+  26168895f68df044 20-57
+cmd/messages.go
+  26168895f68df044 21-46,58-60,67-91,101-102,109-127,145-158,162,170-182,186-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "27514626fdab4d7b79ee3bef1b1941e96dca1f36",
+  "prompts": {
+    "26168895f68df044": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f347795efferlQgr9qX1KJBrw",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 275,
+      "total_deletions": 30,
+      "accepted_lines": 267,
+      "overriden_lines": 0
+    }
+  }
+}
