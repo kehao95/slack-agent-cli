@@ -1,43 +1,32 @@
+.beads/issues.jsonl
+  8d5e6d408a785341 1-30
 cmd/auth.go
-  cb8200396bcab2b1 1-69
+  8d5e6d408a785341 1-69
 cmd/users.go
-  09225ff5984b5867 1-178
-internal/users/service.go
-  09225ff5984b5867 1-190
-internal/users/service_test.go
-  09225ff5984b5867 1-291
+  8d5e6d408a785341 1-178
 internal/slack/client.go
-  cb8200396bcab2b1 167-218
+  8d5e6d408a785341 1-242
+internal/users/service.go
+  8d5e6d408a785341 1-190
+internal/users/service_test.go
+  8d5e6d408a785341 1-291
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "5ff6e6a55a90b31dd21e00dfabab2565a693308d",
   "prompts": {
-    "09225ff5984b5867": {
+    "8d5e6d408a785341": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f436de2dffeFM5nNakKt1DMEI",
+        "id": "ses_restored_5ff6e6a",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 704,
-      "total_deletions": 45,
-      "accepted_lines": 659,
-      "overriden_lines": 0
-    },
-    "cb8200396bcab2b1": {
-      "agent_id": {
-        "tool": "opencode",
-        "id": "ses_3f439f71dffeIaswUzB33yBU1Y",
-        "model": "github-copilot/claude-sonnet-4.5"
-      },
-      "human_author": "Hao Ke <hao.ke@heap.io>",
-      "messages": [],
-      "total_additions": 121,
+      "total_additions": 1000,
       "total_deletions": 0,
-      "accepted_lines": 121,
+      "accepted_lines": 1000,
       "overriden_lines": 0
     }
   }
