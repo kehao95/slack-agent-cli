@@ -1,22 +1,22 @@
 .beads/issues.jsonl
-  11f33a489a1dd68e 1-38
+  e25b72af01863508 1-38
 cmd/cache.go
-  11f33a489a1dd68e 1-347
+  e25b72af01863508 1-347
 cmd/channels.go
-  11f33a489a1dd68e 1-192
+  e25b72af01863508 1-192
 cmd/messages.go
-  11f33a489a1dd68e 1-436
+  e25b72af01863508 1-436
 cmd/root.go
-  11f33a489a1dd68e 1-79
+  e25b72af01863508 1-79
 cmd/users.go
-  11f33a489a1dd68e 1-212
+  e25b72af01863508 1-212
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "27514626fdab4d7b79ee3bef1b1941e96dca1f36",
   "prompts": {
-    "11f33a489a1dd68e": {
+    "e25b72af01863508": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_2751462",
