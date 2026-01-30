@@ -1,0 +1,33 @@
+internal/users/resolver_test.go
+  78de52e906c9d76f 17,20,50-61
+internal/users/service.go
+  78de52e906c9d76f 7,54-64,105-122,208-243
+internal/users/service_test.go
+  78de52e906c9d76f 292-442
+cmd/users.go
+  78de52e906c9d76f 181-188,194-202,205
+internal/users/resolver.go
+  78de52e906c9d76f 17
+internal/slack/users.go
+  78de52e906c9d76f 43-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "3ad94596c35c8b908ccdb56d35ea69436e4fe776",
+  "prompts": {
+    "78de52e906c9d76f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f32d81e0ffeisAhM8lRSFDAyy",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 263,
+      "total_deletions": 4,
+      "accepted_lines": 263,
+      "overriden_lines": 0
+    }
+  }
+}
