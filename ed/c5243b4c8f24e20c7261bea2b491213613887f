@@ -1,20 +1,24 @@
+cmd/pins.go
+  e0eaa97cafa51596 1-212
+internal/slack/client.go
+  e0eaa97cafa51596 43-49,137-216
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "edc5243b4c8f24e20c7261bea2b491213613887f",
   "prompts": {
-    "048b10a06c1e0eb2": {
+    "e0eaa97cafa51596": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f35b5355ffeXPjXY64qVflvHb",
+        "id": "ses_3f3f0e10cffeg7YBEO0V8p2Ips",
         "model": "github-copilot/claude-sonnet-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 0,
-      "total_deletions": 1,
-      "accepted_lines": 0,
+      "total_additions": 763,
+      "total_deletions": 464,
+      "accepted_lines": 307,
       "overriden_lines": 0
     }
   }
