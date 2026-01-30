@@ -1,15 +1,15 @@
 homebrew/slack-agent-cli.rb
-  7733dd950dd5200f 1-52
+  0e8860424fabb961 1-52
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "a36c0e848df1a522e246e55bc09043a581aa30d5",
   "prompts": {
-    "7733dd950dd5200f": {
+    "0e8860424fabb961": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_restored_1769810037",
+        "id": "ses_restored_a36c0e8",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "goreleaserbot <bot@goreleaser.com>",
