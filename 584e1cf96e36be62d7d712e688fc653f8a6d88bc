@@ -1,0 +1,41 @@
+internal/slack/reactions.go
+  61b1c1c69059d6e2 1-90
+internal/slack/search.go
+  61b1c1c69059d6e2 1-64
+internal/slack/pins.go
+  61b1c1c69059d6e2 1-80
+internal/slack/emoji.go
+  61b1c1c69059d6e2 1-20
+internal/slack/types.go
+  61b1c1c69059d6e2 1-434
+internal/slack/channels.go
+  61b1c1c69059d6e2 1-84
+internal/slack/helpers.go
+  61b1c1c69059d6e2 1-51
+internal/slack/users.go
+  61b1c1c69059d6e2 1-42
+internal/slack/messages.go
+  61b1c1c69059d6e2 75-196
+internal/slack/interfaces.go
+  61b1c1c69059d6e2 1-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "584e1cf96e36be62d7d712e688fc653f8a6d88bc",
+  "prompts": {
+    "61b1c1c69059d6e2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f352b468ffetPaYkEMuTuJrtK",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 1054,
+      "total_deletions": 989,
+      "accepted_lines": 1052,
+      "overriden_lines": 0
+    }
+  }
+}
