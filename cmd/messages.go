@@ -1,15 +1,11 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/kehao95/slack-agent-cli/internal/messages"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
-	slackapi "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -239,60 +235,17 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 
 	// If no text flag, try reading from stdin
 	if text == "" {
-		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			// Data is being piped
-			data, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("read stdin: %w", err)
-			}
-			text = string(data)
+		stdinText, err := readStdinIfPiped()
+		if err != nil {
+			return err
 		}
+		text = stdinText
 	}
 
 	// Parse blocks if provided
-	var blocks []slackapi.Block
-	if blocksJSON != "" {
-		// Parse Block Kit JSON
-		var rawBlocks []json.RawMessage
-		if err := json.Unmarshal([]byte(blocksJSON), &rawBlocks); err != nil {
-			return fmt.Errorf("invalid blocks JSON: %w", err)
-		}
-
-		for _, raw := range rawBlocks {
-			var blockType struct {
-				Type string `json:"type"`
-			}
-			if err := json.Unmarshal(raw, &blockType); err != nil {
-				return fmt.Errorf("parse block type: %w", err)
-			}
-
-			// Unmarshal each block based on type
-			var block slackapi.Block
-			switch blockType.Type {
-			case "section":
-				var b slackapi.SectionBlock
-				if err := json.Unmarshal(raw, &b); err != nil {
-					return fmt.Errorf("parse section block: %w", err)
-				}
-				block = &b
-			case "divider":
-				var b slackapi.DividerBlock
-				if err := json.Unmarshal(raw, &b); err != nil {
-					return fmt.Errorf("parse divider block: %w", err)
-				}
-				block = &b
-			case "header":
-				var b slackapi.HeaderBlock
-				if err := json.Unmarshal(raw, &b); err != nil {
-					return fmt.Errorf("parse header block: %w", err)
-				}
-				block = &b
-			default:
-				return fmt.Errorf("unsupported block type: %s", blockType.Type)
-			}
-			blocks = append(blocks, block)
-		}
+	blocks, err := parseBlocksJSON(blocksJSON)
+	if err != nil {
+		return err
 	}
 
 	// Validate we have either text or blocks
