@@ -1,26 +1,36 @@
+.beads/issues.jsonl
+  8dadbd3de5e9d5e5 1-30
+.opencode/agents/coder.md
+  8dadbd3de5e9d5e5 1-120
+.opencode/agents/explorer.md
+  8dadbd3de5e9d5e5 1-111
+.opencode/agents/validator.md
+  8dadbd3de5e9d5e5 1-194
+AGENTS.md
+  8dadbd3de5e9d5e5 1-409
 cmd/messages.go
-  6a8889f0d3551ad6 43-60,64,73-78,149-193
-internal/slack/client_test.go
-  6a8889f0d3551ad6 45-189
+  8dadbd3de5e9d5e5 1-193
 internal/slack/client.go
-  6a8889f0d3551ad6 243-383
+  8dadbd3de5e9d5e5 1-383
+internal/slack/client_test.go
+  8dadbd3de5e9d5e5 1-189
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "b9b699a3e1b2b7bef2bf3925182bf3a019874414",
   "prompts": {
-    "6a8889f0d3551ad6": {
+    "8dadbd3de5e9d5e5": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f404da8bffeZVBywJh7W2wtjd",
+        "id": "ses_restored_b9b699a",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 357,
-      "total_deletions": 1,
-      "accepted_lines": 356,
+      "total_additions": 1629,
+      "total_deletions": 0,
+      "accepted_lines": 1629,
       "overriden_lines": 0
     }
   }
