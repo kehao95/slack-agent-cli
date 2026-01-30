@@ -15,12 +15,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "slack-agent-cli",
 		Short: "Slack for Non-Humans™",
-		Long: `Slack for Non-Humans™
-
-A machine-first CLI for Slack. Designed for scripts, cron jobs, and AI agents.
-Humans are supported as second-class citizens via --human flag.
-
-Output is JSON by default. All status messages go to stderr.`,
+		Long:  `Slack for Non-Humans™ - Machine-first CLI for Slack. JSON by default.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Easter egg: Warn biological users about JSON output
 			if term.IsTerminal(int(os.Stdout.Fd())) {
