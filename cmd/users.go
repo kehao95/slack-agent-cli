@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/kehao95/slack-agent-cli/internal/users"
@@ -71,25 +70,19 @@ func init() {
 }
 
 func runUsersList(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
-	client := slack.New(cfg.UserToken)
-	service := users.NewService(client)
+	service := users.NewService(cmdCtx.Client)
 
 	limit, _ := cmd.Flags().GetInt("limit")
 	cursor, _ := cmd.Flags().GetString("cursor")
 	includeBots, _ := cmd.Flags().GetBool("include-bots")
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
-	result, err := service.List(ctx, users.ListParams{
+	result, err := service.List(cmdCtx.Ctx, users.ListParams{
 		Limit:       limit,
 		Cursor:      cursor,
 		IncludeBots: includeBots,
@@ -102,16 +95,13 @@ func runUsersList(cmd *cobra.Command, args []string) error {
 }
 
 func runUsersInfo(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 10*time.Second)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
-	client := slack.New(cfg.UserToken)
-	service := users.NewService(client)
+	service := users.NewService(cmdCtx.Client)
 
 	userInput, _ := cmd.Flags().GetString("user")
 	if userInput == "" {
@@ -119,15 +109,12 @@ func runUsersInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Resolve user ID from @username or user ID
-	userID, err := resolveUserID(cmd.Context(), client, userInput)
+	userID, err := resolveUserID(cmd.Context(), cmdCtx.Client, userInput)
 	if err != nil {
 		return fmt.Errorf("resolve user: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
-	defer cancel()
-
-	result, err := service.GetInfo(ctx, userID)
+	result, err := service.GetInfo(cmdCtx.Ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -136,14 +123,6 @@ func runUsersInfo(cmd *cobra.Command, args []string) error {
 }
 
 func runUsersPresence(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
-
 	userInput, _ := cmd.Flags().GetString("user")
 	if userInput == "" {
 		return fmt.Errorf("--user flag is required")

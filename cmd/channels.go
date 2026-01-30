@@ -1,15 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/cache"
 	"github.com/kehao95/slack-agent-cli/internal/channels"
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
-	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -72,25 +67,13 @@ func init() {
 }
 
 func runChannelsList(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	service := channels.NewService(client)
-
-	// Create resolver to manage cache for channel metadata
-	resolver := channels.NewCachedResolver(client, cacheStore)
+	service := channels.NewService(cmdCtx.Client)
 
 	includeArchived, _ := cmd.Flags().GetBool("include-archived")
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -98,17 +81,14 @@ func runChannelsList(cmd *cobra.Command, args []string) error {
 	types, _ := cmd.Flags().GetStringSlice("types")
 	refreshCache, _ := cmd.Flags().GetBool("refresh-cache")
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Handle cache refresh - this will also pre-populate the cache
 	if refreshCache {
-		if err := resolver.RefreshCache(ctx); err != nil {
+		if err := cmdCtx.ChannelResolver.RefreshCache(cmdCtx.Ctx); err != nil {
 			return fmt.Errorf("refresh cache: %w", err)
 		}
 	}
 
-	result, err := service.List(ctx, channels.ListParams{
+	result, err := service.List(cmdCtx.Ctx, channels.ListParams{
 		Limit:           limit,
 		Cursor:          cursor,
 		IncludeArchived: includeArchived,
@@ -121,36 +101,22 @@ func runChannelsList(cmd *cobra.Command, args []string) error {
 }
 
 func runChannelsJoin(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Join the channel
-	result, err := client.JoinChannel(ctx, channelID)
+	result, err := cmdCtx.Client.JoinChannel(cmdCtx.Ctx, channelID)
 	if err != nil {
 		return fmt.Errorf("join channel: %w", err)
 	}
@@ -162,36 +128,22 @@ func runChannelsJoin(cmd *cobra.Command, args []string) error {
 }
 
 func runChannelsLeave(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Leave the channel
-	result, err := client.LeaveChannel(ctx, channelID)
+	result, err := cmdCtx.Client.LeaveChannel(cmdCtx.Ctx, channelID)
 	if err != nil {
 		return fmt.Errorf("leave channel: %w", err)
 	}

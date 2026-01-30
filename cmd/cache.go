@@ -10,7 +10,6 @@ import (
 	slackapi "github.com/slack-go/slack"
 
 	"github.com/kehao95/slack-agent-cli/internal/cache"
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
@@ -96,25 +95,22 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid target: %s (must be 'channels' or 'users')", target)
 	}
 
-	cfg, path, err := config.Load(cfgFile)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
-
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-
 	fetchAll, _ := cmd.Flags().GetBool("all")
 	pageSize, _ := cmd.Flags().GetInt("page-size")
 	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
 	quiet, _ := cmd.Flags().GetBool("quiet")
+
+	// Use longer timeout for --all mode
+	timeout := 30 * time.Second
+	if fetchAll {
+		timeout = 10 * time.Minute
+	}
+
+	cmdCtx, err := NewCommandContext(cmd, timeout)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
 
 	popCfg := cache.PopulateConfig{
 		PageSize:  pageSize,
@@ -125,23 +121,15 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 		popCfg.Output = os.Stderr
 	}
 
-	// Use longer timeout for --all mode
-	timeout := 30 * time.Second
-	if fetchAll {
-		timeout = 10 * time.Minute
-	}
-	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
-	defer cancel()
-
 	var result cache.PopulateResult
 
 	switch target {
 	case "channels":
 		fmt.Fprintf(os.Stderr, "Populating channels cache...\n")
-		result, err = cacheStore.PopulateChannels(ctx, &channelFetcherAdapter{client}, popCfg)
+		result, err = cmdCtx.CacheStore.PopulateChannels(cmdCtx.Ctx, &channelFetcherAdapter{cmdCtx.Client}, popCfg)
 	case "users":
 		fmt.Fprintf(os.Stderr, "Populating users cache...\n")
-		result, err = cacheStore.PopulateUsers(ctx, &userFetcherAdapter{client}, popCfg)
+		result, err = cmdCtx.CacheStore.PopulateUsers(cmdCtx.Ctx, &userFetcherAdapter{cmdCtx.Client}, popCfg)
 	}
 
 	if err != nil && err != context.DeadlineExceeded && err != context.Canceled {
