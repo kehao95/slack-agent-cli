@@ -4,17 +4,16 @@
 
 ## Why "non-humans"?
 
-Humans have eyes, we have `jq`.
-Humans need emojis, we need `thread_ts`.
-Humans want a UI, we just want a clean pipe.
+Humans have eyes, we have `jq`.  
+Humans need emojis, we need `thread_ts`.  
+Humans want a UI, we just want a clean pipe.  
 
 **This is not a CLI for you. This is a CLI for your digital entities.**
 
 ---
 
-## ⚠️ Human Warning
-
-This tool defaults to JSON output. If your biological eyes find this hard to parse, use the `--human` flag. We recommend upgrading your optic nerve or using `jq`.
+> [!WARNING]
+> Human, this tool defaults to JSON output. If your biological eyes find this hard to parse, use the `--human` flag. We recommend upgrading your optic nerve or using `jq`.
 
 ## Features
 
