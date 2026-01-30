@@ -1,12 +1,10 @@
-(multiple files)
-  b1234567890abcde (entire commit)
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "54445e6e14b7599b046a5d8753dc468875cb283b",
   "prompts": {
-    "b1234567890abcde": {
+    "test12345678abcd": {
       "agent_id": {
         "tool": "opencode",
         "id": "restored",
