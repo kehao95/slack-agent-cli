@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/kehao95/slack-agent-cli/internal/cache"
 	"github.com/kehao95/slack-agent-cli/internal/channels"
 	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/kehao95/slack-agent-cli/internal/usergroups"
 	"github.com/kehao95/slack-agent-cli/internal/users"
@@ -37,15 +37,15 @@ func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandConte
 
 	cfg, path, err := config.Load(cfgFile)
 	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
+		return nil, errors.ConfigError("failed to load config: %w", err)
 	}
 	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid config (%s): %w", path, err)
+		return nil, errors.ConfigError("invalid config (%s): %w", path, err)
 	}
 
 	cacheStore, err := cache.DefaultStore()
 	if err != nil {
-		return nil, fmt.Errorf("init cache: %w", err)
+		return nil, errors.ConfigError("failed to initialize cache: %w", err)
 	}
 
 	client := slack.New(cfg.UserToken)

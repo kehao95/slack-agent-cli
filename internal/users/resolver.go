@@ -8,6 +8,7 @@ import (
 	slackapi "github.com/slack-go/slack"
 
 	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/errors"
 )
 
 // UserClient defines the Slack operations needed for user lookups.
@@ -104,7 +105,7 @@ func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, erro
 		return u, nil
 	}
 	if r.client == nil {
-		return CachedUser{}, fmt.Errorf("user %s not in cache and no client available", userID)
+		return CachedUser{}, errors.UserNotFoundError(userID)
 	}
 	info, err := r.client.GetUserInfo(ctx, userID)
 	if err != nil {

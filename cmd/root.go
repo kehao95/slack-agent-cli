@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
@@ -64,12 +65,9 @@ Environment Variables:
 	}
 )
 
-// Execute runs the root command.
+// Execute runs the root command with proper exit code handling.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	errors.Execute(rootCmd)
 }
 
 func init() {
