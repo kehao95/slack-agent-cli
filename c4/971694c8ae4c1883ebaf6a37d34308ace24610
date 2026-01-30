@@ -1,20 +1,43 @@
+.opencode/agents/explorer.md
+  9e984c92eb069ead 66-110
+  c7b517ce96404645 1-65
+.opencode/agents/coder.md
+  9e984c92eb069ead 79-112,115-119
+  c7b517ce96404645 1-78,113-114
+AGENTS.md
+  9e984c92eb069ead 28,30-78,86
+.opencode/agents/validator.md
+  9e984c92eb069ead 1-193
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "c4971694c8ae4c1883ebaf6a37d34308ace24610",
   "prompts": {
-    "e0eaa97cafa51596": {
+    "9e984c92eb069ead": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f3f0e10cffeg7YBEO0V8p2Ips",
-        "model": "github-copilot/claude-sonnet-4.5"
+        "id": "ses_3f44a3c8fffeAFzfUtM9npK58d",
+        "model": "github-copilot/gpt-5-mini"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 80,
+      "total_additions": 410,
+      "total_deletions": 96,
+      "accepted_lines": 329,
+      "overriden_lines": 0
+    },
+    "c7b517ce96404645": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f48f9bcfffe2H9qwFE3867qce",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 157,
       "total_deletions": 0,
-      "accepted_lines": 80,
+      "accepted_lines": 145,
       "overriden_lines": 0
     }
   }
