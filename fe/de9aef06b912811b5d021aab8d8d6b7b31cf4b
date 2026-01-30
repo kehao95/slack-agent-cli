@@ -1,76 +1,62 @@
-cmd/pins.go
-  b54fc09e4d5e37cf 22,25,34,37,46,49
-cmd/root.go
-  09b57b7881fa9d6a 68-73
-  b54fc09e4d5e37cf 17,23,26-27,30,33,80
-cmd/messages.go
-  b54fc09e4d5e37cf 48,51,54,57,60,93,96,99,102,129,132,135,138,160,163,184,187
-cmd/auth.go
-  b54fc09e4d5e37cf 21-22,30-31
-cmd/users.go
-  b54fc09e4d5e37cf 49,52,55,91,94,102-104
-homebrew/slk.rb
-  b54fc09e4d5e37cf 17,25
-main.go
-  09b57b7881fa9d6a 5-10,12
-cmd/channels.go
-  b54fc09e4d5e37cf 45,48,51,54,57,66,69,78,81
-cmd/cache.go
-  b54fc09e4d5e37cf 33,36,39,42,76,79
-internal/testutil/testutil.go
-  b54fc09e4d5e37cf 70
-cmd/reactions.go
-  b54fc09e4d5e37cf 22,25,34,37,46,49
-cmd/emoji.go
-  b54fc09e4d5e37cf 21,24
-internal/errors/errors.go
-  b54fc09e4d5e37cf 181,187
+.beads/issues.jsonl
+  4224e5de24db79ce 1-43
+.gitignore
+  4224e5de24db79ce 1-50
 .goreleaser.yaml
-  b54fc09e4d5e37cf 15,17,79,120,133
-  78de52e906c9d76f 1,6
+  4224e5de24db79ce 1-146
+AGENTS.md
+  4224e5de24db79ce 1-410
+README.md
+  4224e5de24db79ce 1-116
+SLACK_SETUP.md
+  4224e5de24db79ce 1-173
+cmd/auth.go
+  4224e5de24db79ce 1-59
+cmd/cache.go
+  4224e5de24db79ce 1-347
+cmd/channels.go
+  4224e5de24db79ce 1-192
+cmd/emoji.go
+  4224e5de24db79ce 1-47
+cmd/messages.go
+  4224e5de24db79ce 1-436
+cmd/pins.go
+  4224e5de24db79ce 1-165
+cmd/reactions.go
+  4224e5de24db79ce 1-176
+cmd/root.go
+  4224e5de24db79ce 1-83
+cmd/users.go
+  4224e5de24db79ce 1-229
+docs/DESIGN.md
+  4224e5de24db79ce 1-724
+homebrew/README.md
+  4224e5de24db79ce 1-17
+homebrew/slk.rb
+  4224e5de24db79ce 1-52
+internal/errors/errors.go
+  4224e5de24db79ce 1-234
+internal/testutil/testutil.go
+  4224e5de24db79ce 1-174
+main.go
+  4224e5de24db79ce 1-14
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "fede9aef06b912811b5d021aab8d8d6b7b31cf4b",
   "prompts": {
-    "09b57b7881fa9d6a": {
+    "4224e5de24db79ce": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f2ebd43effeZHd1O5a8si5oz0",
+        "id": "ses_restored_fede9ae",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 13,
+      "total_additions": 3887,
       "total_deletions": 0,
-      "accepted_lines": 13,
-      "overriden_lines": 0
-    },
-    "78de52e906c9d76f": {
-      "agent_id": {
-        "tool": "opencode",
-        "id": "ses_3f32d81e0ffeisAhM8lRSFDAyy",
-        "model": "github-copilot/gpt-5-mini"
-      },
-      "human_author": "Hao Ke <hao.ke@heap.io>",
-      "messages": [],
-      "total_additions": 2,
-      "total_deletions": 2,
-      "accepted_lines": 2,
-      "overriden_lines": 0
-    },
-    "b54fc09e4d5e37cf": {
-      "agent_id": {
-        "tool": "opencode",
-        "id": "ses_3f2efef9effeX8yf77HE1LtjZ4",
-        "model": "github-copilot/claude-sonnet-4.5"
-      },
-      "human_author": "Hao Ke <hao.ke@heap.io>",
-      "messages": [],
-      "total_additions": 77,
-      "total_deletions": 77,
-      "accepted_lines": 75,
+      "accepted_lines": 3887,
       "overriden_lines": 0
     }
   }
