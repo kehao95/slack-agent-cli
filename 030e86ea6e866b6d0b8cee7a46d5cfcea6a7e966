@@ -1,5 +1,3 @@
-(multiple files)
-  9576049170c19516 (entire commit)
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -9,7 +7,7 @@
     "9576049170c19516": {
       "agent_id": {
         "tool": "opencode",
-        "id": "restored",
+        "id": "ses_3f6106e3effeBireGdGHA3pRl4",
         "model": "amazon-bedrock/anthropic.claude-opus-4-5-20251101-v1:0"
       },
       "human_author": "Hao Ke",
