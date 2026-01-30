@@ -1,24 +1,26 @@
+.beads/issues.jsonl
+  a2289680d7445532 1-38
 cmd/context.go
-  145e3a3e19942dc9 1-78
+  a2289680d7445532 1-78
 cmd/context_test.go
-  145e3a3e19942dc9 1-266
+  a2289680d7445532 1-266
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "a728bd23ccb98919951e49a52cfefe83caffcf33",
   "prompts": {
-    "145e3a3e19942dc9": {
+    "a2289680d7445532": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f35e1cd6ffe3Hz8Pas7J3AfUD",
+        "id": "ses_restored_a728bd2",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 350,
-      "total_deletions": 6,
-      "accepted_lines": 344,
+      "total_additions": 382,
+      "total_deletions": 0,
+      "accepted_lines": 382,
       "overriden_lines": 0
     }
   }
