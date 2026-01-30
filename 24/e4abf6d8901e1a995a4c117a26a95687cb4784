@@ -1,18 +1,18 @@
 .beads/issues.jsonl
-  44223b08c505f4ff 1-38
+  21cdeb5a6a5cdccb 1-38
 cmd/smoke_test.go
-  44223b08c505f4ff 1-257
+  21cdeb5a6a5cdccb 1-257
 docs/AGENT_TESTING.md
-  44223b08c505f4ff 1-428
+  21cdeb5a6a5cdccb 1-428
 internal/testutil/testutil.go
-  44223b08c505f4ff 1-174
+  21cdeb5a6a5cdccb 1-174
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "24e4abf6d8901e1a995a4c117a26a95687cb4784",
   "prompts": {
-    "44223b08c505f4ff": {
+    "21cdeb5a6a5cdccb": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_24e4abf",
