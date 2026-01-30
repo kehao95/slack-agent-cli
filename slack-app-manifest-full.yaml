@@ -1,0 +1,52 @@
+display_information:
+  name: slack-agent-cli (Full Access)
+  description: Slack for Non-Humans™ - Full read/write access
+  background_color: "#2c2d30"
+features:
+  bot_user:
+    display_name: slack-agent-cli
+    always_online: false
+oauth_config:
+  scopes:
+    user:
+      # Identity
+      - identify
+      
+      # Channel access (read + join/leave)
+      - channels:read
+      - channels:history
+      - channels:write
+      - groups:read
+      - groups:history
+      - im:read
+      - im:history
+      - mpim:read
+      - mpim:history
+      
+      # Messaging (send/edit/delete)
+      - chat:write
+      
+      # Search
+      - search:read
+      
+      # Users
+      - users:read
+      
+      # Reactions (add/remove)
+      - reactions:read
+      - reactions:write
+      
+      # Pins (pin/unpin)
+      - pins:read
+      - pins:write
+      
+      # Files (upload/download)
+      - files:read
+      - files:write
+      
+      # Emoji
+      - emoji:read
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

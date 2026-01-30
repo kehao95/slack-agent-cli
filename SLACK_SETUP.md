@@ -1,6 +1,24 @@
 # Slack Setup Guide for slack-agent-cli
 
-This guide walks you through setting up a Slack App with all the necessary permissions for `slack-agent-cli`.
+This guide walks you through setting up a Slack App with the necessary permissions for `slack-agent-cli`.
+
+## Choose Your Mode
+
+**Read-Only Mode** - For viewing and searching only (recommended for most users)
+- ✅ List channels, messages, users
+- ✅ Search messages
+- ✅ View reactions, pins, files
+- ❌ Can't send messages or modify anything
+
+**Full Access Mode** - For automation and writing
+- ✅ Everything from read-only mode
+- ✅ Send, edit, delete messages
+- ✅ Add/remove reactions
+- ✅ Pin/unpin messages
+- ✅ Upload files
+- ✅ Join/leave channels
+
+---
 
 ## Quick Setup (Recommended)
 
@@ -11,7 +29,9 @@ This guide walks you through setting up a Slack App with all the necessary permi
 3. Select **"From an app manifest"**
 4. Choose your workspace
 5. Select **YAML** tab
-6. Copy and paste the contents of [`slack-app-manifest.yaml`](./slack-app-manifest.yaml) from this repository
+6. Copy and paste the appropriate manifest:
+   - **Read-Only:** [`slack-app-manifest-readonly.yaml`](./slack-app-manifest-readonly.yaml)
+   - **Full Access:** [`slack-app-manifest-full.yaml`](./slack-app-manifest-full.yaml)
 7. Click **"Next"** → Review → **"Create"**
 
 ### Step 2: Install the App
@@ -50,31 +70,35 @@ If you prefer to configure scopes manually:
 
 ### 2. Add User Token Scopes
 
+#### For Read-Only Mode
+
 Go to **"OAuth & Permissions"** → **"User Token Scopes"** and add:
 
-**Core Scopes (Required):**
 - `identify` - Verify user identity
 - `channels:read` - List public channels
 - `channels:history` - Read public channel messages
-- `search:read` - Search messages
-
-**Additional Scopes (Full Functionality):**
-- `channels:write` - Join/leave channels
 - `groups:read` - List private channels
 - `groups:history` - Read private channel messages
 - `im:read` - List DMs
 - `im:history` - Read DMs
 - `mpim:read` - List group DMs
 - `mpim:history` - Read group DMs
-- `chat:write` - Send messages
+- `search:read` - Search messages
 - `users:read` - List users
 - `reactions:read` - View reactions
-- `reactions:write` - Add/remove reactions
 - `pins:read` - View pinned messages
-- `pins:write` - Pin/unpin messages
 - `files:read` - View files
-- `files:write` - Upload files
 - `emoji:read` - List custom emoji
+
+#### For Full Access Mode (adds to read-only)
+
+Add these additional scopes:
+
+- `channels:write` - Join/leave channels
+- `chat:write` - Send/edit/delete messages
+- `reactions:write` - Add/remove reactions
+- `pins:write` - Pin/unpin messages
+- `files:write` - Upload files
 
 ### 3. Install and Get Token
 

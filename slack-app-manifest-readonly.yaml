@@ -1,6 +1,6 @@
 display_information:
-  name: slack-agent-cli
-  description: Slack for Non-Humans™ - Machine-first CLI for Slack
+  name: slack-agent-cli (Read-Only)
+  description: Slack for Non-Humans™ - Read-only mode for viewing and searching
   background_color: "#2c2d30"
 features:
   bot_user:
@@ -9,31 +9,34 @@ features:
 oauth_config:
   scopes:
     user:
-      # Core functionality
+      # Identity
       - identify
+      
+      # Channel access (read-only)
       - channels:read
       - channels:history
-      - channels:write
       - groups:read
       - groups:history
       - im:read
       - im:history
       - mpim:read
       - mpim:history
-      # Messaging
-      - chat:write
+      
+      # Search
       - search:read
+      
       # Users
       - users:read
-      # Reactions
+      
+      # Reactions (read-only)
       - reactions:read
-      - reactions:write
-      # Pins
+      
+      # Pins (read-only)
       - pins:read
-      - pins:write
-      # Files
+      
+      # Files (read-only)
       - files:read
-      - files:write
+      
       # Emoji
       - emoji:read
 settings:
