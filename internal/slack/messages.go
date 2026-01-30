@@ -72,3 +72,125 @@ func parseTimeInput(value string) (time.Time, error) {
 func formatSlackTimestamp(t time.Time) string {
 	return fmt.Sprintf("%d.%06d", t.Unix(), t.Nanosecond()/1000)
 }
+
+// ListConversationsHistory retrieves channel history.
+func (c *APIClient) ListConversationsHistory(ctx context.Context, params HistoryParams) (*slackapi.GetConversationHistoryResponse, error) {
+	if params.Channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	options := &slackapi.GetConversationHistoryParameters{ChannelID: params.Channel}
+	options.Cursor = params.Cursor
+	options.Limit = params.Limit
+	options.Latest = params.Latest
+	options.Oldest = params.Oldest
+	options.Inclusive = params.Inclusive
+
+	return c.sdk.GetConversationHistoryContext(ctx, options)
+}
+
+// ListThreadReplies fetches messages in a thread.
+func (c *APIClient) ListThreadReplies(ctx context.Context, params ThreadParams) ([]slackapi.Message, bool, string, error) {
+	if params.Channel == "" || params.Thread == "" {
+		return nil, false, "", fmt.Errorf("channel and thread are required")
+	}
+	opts := &slackapi.GetConversationRepliesParameters{ChannelID: params.Channel, Timestamp: params.Thread}
+	opts.Cursor = params.Cursor
+	opts.Limit = params.Limit
+	opts.Latest = params.Latest
+	opts.Oldest = params.Oldest
+	msgs, hasMore, nextCursor, err := c.sdk.GetConversationRepliesContext(ctx, opts)
+	return msgs, hasMore, nextCursor, err
+}
+
+// PostMessage sends a message to a channel.
+func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMessageOptions) (*PostMessageResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if opts.Text == "" && len(opts.Blocks) == 0 {
+		return nil, fmt.Errorf("either text or blocks is required")
+	}
+
+	msgOpts := []slackapi.MsgOption{
+		slackapi.MsgOptionText(opts.Text, false),
+	}
+
+	if opts.ThreadTS != "" {
+		msgOpts = append(msgOpts, slackapi.MsgOptionTS(opts.ThreadTS))
+	}
+
+	if len(opts.Blocks) > 0 {
+		msgOpts = append(msgOpts, slackapi.MsgOptionBlocks(opts.Blocks...))
+	}
+
+	// Only add disable options if unfurl is explicitly false
+	if !opts.UnfurlLinks {
+		msgOpts = append(msgOpts, slackapi.MsgOptionDisableLinkUnfurl())
+	}
+	if !opts.UnfurlMedia {
+		msgOpts = append(msgOpts, slackapi.MsgOptionDisableMediaUnfurl())
+	}
+
+	respChannel, respTimestamp, err := c.sdk.PostMessageContext(ctx, channel, msgOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("post message: %w", err)
+	}
+
+	return &PostMessageResult{
+		OK:        true,
+		Channel:   respChannel,
+		Timestamp: respTimestamp,
+		Text:      opts.Text,
+	}, nil
+}
+
+// EditMessage updates an existing message.
+func (c *APIClient) EditMessage(ctx context.Context, channel, timestamp, text string) (*EditMessageResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return nil, fmt.Errorf("timestamp is required")
+	}
+	if text == "" {
+		return nil, fmt.Errorf("text is required")
+	}
+
+	respChannel, respTimestamp, respText, err := c.sdk.UpdateMessageContext(
+		ctx,
+		channel,
+		timestamp,
+		slackapi.MsgOptionText(text, false),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("edit message: %w", err)
+	}
+
+	return &EditMessageResult{
+		OK:        true,
+		Channel:   respChannel,
+		Timestamp: respTimestamp,
+		Text:      respText,
+	}, nil
+}
+
+// DeleteMessage deletes a message.
+func (c *APIClient) DeleteMessage(ctx context.Context, channel, timestamp string) (*DeleteMessageResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return nil, fmt.Errorf("timestamp is required")
+	}
+
+	_, _, err := c.sdk.DeleteMessageContext(ctx, channel, timestamp)
+	if err != nil {
+		return nil, fmt.Errorf("delete message: %w", err)
+	}
+
+	return &DeleteMessageResult{
+		OK:        true,
+		Channel:   channel,
+		Timestamp: timestamp,
+	}, nil
+}
