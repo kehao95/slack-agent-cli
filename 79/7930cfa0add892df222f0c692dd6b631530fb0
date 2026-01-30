@@ -1,15 +1,15 @@
 README.md
-  9b6b200cf9449688 1-97
+  d028b2b559844439 1-97
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "797930cfa0add892df222f0c692dd6b631530fb0",
   "prompts": {
-    "9b6b200cf9449688": {
+    "d028b2b559844439": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_restored_1769810036",
+        "id": "ses_restored_797930c",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <kehao95@gmail.com>",
