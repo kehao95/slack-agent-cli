@@ -1,0 +1,33 @@
+internal/channels/resolver_test.go
+  2a9c8a8ac2570abc 45-52
+cmd/reactions.go
+  2a9c8a8ac2570abc 46-57,62,79-84,182-223
+internal/slack/client.go
+  2a9c8a8ac2570abc 28-29,43,53-57,145-267,540-581,948-1002
+cmd/emoji.go
+  2a9c8a8ac2570abc 1-58
+cmd/channels.go
+  2a9c8a8ac2570abc 29-52,56-57,64-71,122-203
+internal/channels/service_test.go
+  2a9c8a8ac2570abc 29-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "f386a85c6dae1cc1a293c65f51df2642b9f5ed0f",
+  "prompts": {
+    "2a9c8a8ac2570abc": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f3b5a748ffeZFs1wXMEWxYGXS",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 479,
+      "total_deletions": 0,
+      "accepted_lines": 479,
+      "overriden_lines": 0
+    }
+  }
+}
