@@ -1,18 +1,18 @@
 cmd/messages.go
-  a129b361c826328b 1-117
+  3e7891d34e19aab5 1-117
 internal/messages/list.go
-  a129b361c826328b 1-136
+  3e7891d34e19aab5 1-136
 internal/users/resolver.go
-  a129b361c826328b 1-224
+  3e7891d34e19aab5 1-224
 internal/users/resolver_test.go
-  a129b361c826328b 1-262
+  3e7891d34e19aab5 1-262
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "c11a4812ad537f1bc24218398b8f366f94111286",
   "prompts": {
-    "a129b361c826328b": {
+    "3e7891d34e19aab5": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_c11a481",
