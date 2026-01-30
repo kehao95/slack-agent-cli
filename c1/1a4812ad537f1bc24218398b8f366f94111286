@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "c11a4812ad537f1bc24218398b8f366f94111286",
+  "prompts": {
+    "fa1ae9291a326cb4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4927f75ffekwLhtn8cyPCR1s",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 8,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}
