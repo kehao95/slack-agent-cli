@@ -1,20 +1,28 @@
+LICENSE
+  475dc20373c60e24 1-21
+README.md
+  475dc20373c60e24 3,5,7-30,34-35,37-88,90-91,93-116,120-143,145-146,149-174,176-187,189-191,193,195-211,213,215-218,221,223,225-229,231,235-257,259-266,270-278,280
+CONTRIBUTING.md
+  475dc20373c60e24 1-191
+.gitignore
+  475dc20373c60e24 1-44
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "9d71333cc5540ff11f34419a6eac126f3e5a8b13",
   "prompts": {
-    "c873022ac8f48f08": {
+    "475dc20373c60e24": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f3fa1fd7ffeXSrqxIOqRkZvyW",
+        "id": "ses_3f4acf08cffe0uyajMZk6V3Rii",
         "model": "github-copilot/claude-sonnet-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 133,
-      "total_deletions": 0,
-      "accepted_lines": 133,
+      "total_additions": 510,
+      "total_deletions": 24,
+      "accepted_lines": 510,
       "overriden_lines": 0
     }
   }
