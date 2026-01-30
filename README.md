@@ -70,12 +70,14 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
 ### Quick Setup (1 minute)
 
 1. **Create Slack App:** Go to https://api.slack.com/apps → **"Create New App"** → **"From an app manifest"**
-2. **Use our manifest:** Copy [`slack-app-manifest.yaml`](./slack-app-manifest.yaml) and paste it (includes all required scopes)
+2. **Choose mode & use manifest:**
+   - **Read-Only** (recommended): [`slack-app-manifest-readonly.yaml`](./slack-app-manifest-readonly.yaml)
+   - **Full Access:** [`slack-app-manifest-full.yaml`](./slack-app-manifest-full.yaml)
 3. **Install to workspace:** Click "Install to Workspace" and authorize
 4. **Copy token:** Copy the **User OAuth Token** (starts with `xoxp-`)
 5. **Initialize CLI:** Run `slack-agent-cli config init` and paste your token
 
-**See [SLACK_SETUP.md](./SLACK_SETUP.md) for detailed setup instructions.**
+**See [SLACK_SETUP.md](./SLACK_SETUP.md) for detailed setup instructions and mode comparison.**
 
 ## Use Cases
 
