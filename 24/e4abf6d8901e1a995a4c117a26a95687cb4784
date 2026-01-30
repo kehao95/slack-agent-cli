@@ -1,0 +1,25 @@
+cmd/smoke_test.go
+  a21eaa42d983d686 1-257
+docs/AGENT_TESTING.md
+  a21eaa42d983d686 1-428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "24e4abf6d8901e1a995a4c117a26a95687cb4784",
+  "prompts": {
+    "a21eaa42d983d686": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f366f659ffe8B5xWLH8pJ6zcb",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 968,
+      "total_deletions": 93,
+      "accepted_lines": 875,
+      "overriden_lines": 0
+    }
+  }
+}
