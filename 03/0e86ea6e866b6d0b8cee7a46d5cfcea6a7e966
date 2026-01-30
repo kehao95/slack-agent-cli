@@ -1,25 +1,71 @@
-internal/channels/resolver.go
-  109cfcd8af01c1e4 10,14-17,20,23,26-42,51,56-63,67-85,96,98,104-113
-internal/users/resolver.go
-  109cfcd8af01c1e4 1-153
-cmd/messages.go
-  109cfcd8af01c1e4 8,35-37,50,63-68,72,79,83-90
-internal/cache/store_test.go
-  109cfcd8af01c1e4 1-158
-README.md
-  9576049170c19516 1-14,16-31,33-50
+.beads/.gitignore
+  109cfcd8af01c1e4 1-45
+.beads/README.md
+  109cfcd8af01c1e4 1-82
+.beads/config.yaml
+  109cfcd8af01c1e4 1-63
+.beads/interactions.jsonl
+  109cfcd8af01c1e4 1-1
+.beads/issues.jsonl
+  109cfcd8af01c1e4 1-31
+.beads/metadata.json
+  109cfcd8af01c1e4 1-4
+.gitattributes
+  109cfcd8af01c1e4 1-4
 AGENTS.md
-  9576049170c19516 1-44,51-226,228-321,326,328,330-343,347-351,353-400
-internal/channels/resolver_test.go
-  109cfcd8af01c1e4 10,69-142
+  109cfcd8af01c1e4 1-401
+README.md
+  109cfcd8af01c1e4 1-51
 cmd/channels.go
-  109cfcd8af01c1e4 8,37,49-54,57-60,65,69-76
-internal/users/resolver_test.go
-  109cfcd8af01c1e4 1-119
+  109cfcd8af01c1e4 1-88
+cmd/messages.go
+  109cfcd8af01c1e4 1-108
+cmd/root.go
+  109cfcd8af01c1e4 1-34
+docs/DESIGN.md
+  109cfcd8af01c1e4 1-663
+go.mod
+  109cfcd8af01c1e4 1-31
+go.sum
+  109cfcd8af01c1e4 1-67
 internal/cache/populate.go
-  109cfcd8af01c1e4 1-279
+  109cfcd8af01c1e4 1-280
 internal/cache/store.go
-  109cfcd8af01c1e4 1-319
+  109cfcd8af01c1e4 1-320
+internal/cache/store_test.go
+  109cfcd8af01c1e4 1-159
+internal/channels/resolver.go
+  109cfcd8af01c1e4 1-115
+internal/channels/resolver_test.go
+  109cfcd8af01c1e4 1-143
+internal/channels/service.go
+  109cfcd8af01c1e4 1-77
+internal/channels/service_test.go
+  109cfcd8af01c1e4 1-79
+internal/config/config.go
+  109cfcd8af01c1e4 1-157
+internal/config/config_test.go
+  109cfcd8af01c1e4 1-88
+internal/messages/list.go
+  109cfcd8af01c1e4 1-105
+internal/messages/list_test.go
+  109cfcd8af01c1e4 1-93
+internal/output/output.go
+  109cfcd8af01c1e4 1-65
+internal/slack/client.go
+  109cfcd8af01c1e4 1-128
+internal/slack/client_test.go
+  109cfcd8af01c1e4 1-45
+internal/slack/messages.go
+  109cfcd8af01c1e4 1-75
+internal/slack/mock_client.go
+  109cfcd8af01c1e4 1-28
+internal/users/resolver.go
+  109cfcd8af01c1e4 1-154
+internal/users/resolver_test.go
+  109cfcd8af01c1e4 1-120
+main.go
+  109cfcd8af01c1e4 1-8
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -30,27 +76,14 @@ internal/cache/store.go
       "agent_id": {
         "tool": "opencode",
         "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
-        "model": "github-copilot/claude-opus-4.5"
+        "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 1213,
-      "total_deletions": 11,
-      "accepted_lines": 1209,
+      "total_additions": 3912,
+      "total_deletions": 0,
+      "accepted_lines": 3912,
       "overriden_lines": 0
-    },
-    "9576049170c19516": {
-      "agent_id": {
-        "tool": "opencode",
-        "id": "ses_3f6106e3effeBireGdGHA3pRl4",
-        "model": "amazon-bedrock/anthropic.claude-opus-4-5-20251101-v1:0"
-      },
-      "human_author": "Hao Ke <hao.ke@heap.io>",
-      "messages": [],
-      "total_additions": 755,
-      "total_deletions": 23,
-      "accepted_lines": 746,
-      "overriden_lines": 1
     }
   }
 }
