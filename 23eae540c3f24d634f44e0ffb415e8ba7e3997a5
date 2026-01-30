@@ -1,0 +1,29 @@
+slack-app-manifest-full.yaml
+  3c382045cf335928 1-52
+SLACK_SETUP.md
+  3c382045cf335928 5-21,32-34,73-74,86,93-101
+README.md
+  3c382045cf335928 73-75,80
+slack-app-manifest-readonly.yaml
+  3c382045cf335928 1-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "23eae540c3f24d634f44e0ffb415e8ba7e3997a5",
+  "prompts": {
+    "3c382045cf335928": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f39981e9ffeNxgV11fD6m46bv",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 136,
+      "total_deletions": 13,
+      "accepted_lines": 135,
+      "overriden_lines": 0
+    }
+  }
+}
