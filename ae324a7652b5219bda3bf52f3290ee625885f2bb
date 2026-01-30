@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "ae324a7652b5219bda3bf52f3290ee625885f2bb",
+  "prompts": {
+    "3c382045cf335928": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f39981e9ffeNxgV11fD6m46bv",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 2,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
