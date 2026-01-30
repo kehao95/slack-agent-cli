@@ -1,22 +1,22 @@
 internal/channels/resolver.go
-  897f0363dfb60c67 129,134
+  639e6d28d6f236f3 1-177
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "dd8f9adffe931232527a66531a5fc6d98a8447f1",
   "prompts": {
-    "897f0363dfb60c67": {
+    "639e6d28d6f236f3": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f4442caaffeYv00DTMTdvQQsP",
-        "model": "github-copilot/claude-opus-4.5"
+        "id": "ses_restored_dd8f9ad",
+        "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 2,
-      "total_deletions": 1,
-      "accepted_lines": 2,
+      "total_additions": 177,
+      "total_deletions": 0,
+      "accepted_lines": 177,
       "overriden_lines": 0
     }
   }
