@@ -42,19 +42,19 @@ Required Scopes:
   - im:read for direct messages (im)
   - mpim:read for group direct messages (mpim)`,
 	Example: `  # List public channels
-  slack-agent-cli channels list
+  slk channels list
 
   # List all channels including archived
-  slack-agent-cli channels list --include-archived
+  slk channels list --include-archived
 
   # List private channels (requires groups:read scope)
-  slack-agent-cli channels list --types private_channel
+  slk channels list --types private_channel
 
   # List multiple types
-  slack-agent-cli channels list --types public_channel,private_channel
+  slk channels list --types public_channel,private_channel
 
   # Paginate through results
-  slack-agent-cli channels list --cursor "dXNlcl9pZDo..."`,
+  slk channels list --cursor "dXNlcl9pZDo..."`,
 	RunE: runChannelsList,
 }
 
@@ -63,10 +63,10 @@ var channelsJoinCmd = &cobra.Command{
 	Short: "Join a channel",
 	Long:  "Join a public Slack channel.",
 	Example: `  # Join a channel by name
-  slack-agent-cli channels join --channel "#general"
+  slk channels join --channel "#general"
 
   # Join a channel by ID
-  slack-agent-cli channels join --channel "CBMCT6HTN"`,
+  slk channels join --channel "CBMCT6HTN"`,
 	RunE: runChannelsJoin,
 }
 
@@ -75,10 +75,10 @@ var channelsLeaveCmd = &cobra.Command{
 	Short: "Leave a channel",
 	Long:  "Leave a Slack channel.",
 	Example: `  # Leave a channel by name
-  slack-agent-cli channels leave --channel "#general"
+  slk channels leave --channel "#general"
 
   # Leave a channel by ID
-  slack-agent-cli channels leave --channel "CBMCT6HTN"`,
+  slk channels leave --channel "CBMCT6HTN"`,
 	RunE: runChannelsLeave,
 }
 

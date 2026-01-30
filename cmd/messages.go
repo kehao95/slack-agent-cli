@@ -45,19 +45,19 @@ Channel Resolution:
   - Channel names (#general) use cache, fallback to API if not found
   - Use 'cache populate channels' to pre-warm cache and avoid API calls`,
 	Example: `  # Get last 20 messages
-  slack-agent-cli messages list --channel "#general" --limit 20
+  slk messages list --channel "#general" --limit 20
 
   # Get messages from the last hour
-  slack-agent-cli messages list --channel "#general" --since 1h
+  slk messages list --channel "#general" --since 1h
 
   # Get thread replies
-  slack-agent-cli messages list --channel "#general" --thread "1705312365.000100"
+  slk messages list --channel "#general" --thread "1705312365.000100"
   
   # Force refresh cached channel/user metadata
-  slack-agent-cli messages list --channel "#general" --refresh-cache
+  slk messages list --channel "#general" --refresh-cache
 
   # Continue pagination with cursor
-  slack-agent-cli messages list --channel "#general" --cursor "bmV4dF90czox..."`,
+  slk messages list --channel "#general" --cursor "bmV4dF90czox..."`,
 	RunE: runMessagesList,
 }
 
@@ -90,16 +90,16 @@ Search Syntax:
   - In channel: "in:#general bug"
   - Combined: "from:@alice in:#general error"`,
 	Example: `  # Basic search
-  slack-agent-cli messages search --query "deployment failed"
+  slk messages search --query "deployment failed"
 
   # Search with advanced syntax
-  slack-agent-cli messages search --query "from:@alice in:#general"
+  slk messages search --query "from:@alice in:#general"
 
   # Search and sort by timestamp
-  slack-agent-cli messages search --query "error" --sort timestamp --limit 20
+  slk messages search --query "error" --sort timestamp --limit 20
 
   # Search and sort by relevance
-  slack-agent-cli messages search --query "bug" --sort score`,
+  slk messages search --query "bug" --sort score`,
 	RunE: runMessagesSearch,
 }
 
@@ -126,16 +126,16 @@ Text Input:
   - Pipe from stdin for multi-line or dynamic content
   - Use --blocks for rich formatting (Block Kit JSON)`,
 	Example: `  # Simple message
-  slack-agent-cli messages send --channel "#general" --text "Hello from CLI!"
+  slk messages send --channel "#general" --text "Hello from CLI!"
 
   # Reply in thread
-  slack-agent-cli messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
+  slk messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
 
   # Pipe message content
-  echo "Multi-line\nmessage" | slack-agent-cli messages send --channel "#general"
+  echo "Multi-line\nmessage" | slk messages send --channel "#general"
 
   # Send to user DM
-  slack-agent-cli messages send --channel "@alice" --text "Private message"`,
+  slk messages send --channel "@alice" --text "Private message"`,
 	RunE: runMessagesSend,
 }
 
@@ -157,10 +157,10 @@ Timestamp Format:
   - Obtain from 'messages list' output or message permalink
   - Copy from the 'ts' field in JSON output`,
 	Example: `  # Edit a message
-  slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
+  slk messages edit --channel "#general" --ts "1705312365.000100" --text "Updated text"
 
   # Edit with JSON output
-  slack-agent-cli messages edit --channel "#general" --ts "1705312365.000100" --text "New message"`,
+  slk messages edit --channel "#general" --ts "1705312365.000100" --text "New message"`,
 	RunE: runMessagesEdit,
 }
 
@@ -181,10 +181,10 @@ Timestamp Format:
   - Obtain from 'messages list' output or message permalink
   - Copy from the 'ts' field in JSON output`,
 	Example: `  # Delete a message
-  slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100"
+  slk messages delete --channel "#general" --ts "1705312365.000100"
 
   # Delete with JSON output
-  slack-agent-cli messages delete --channel "#general" --ts "1705312365.000100"`,
+  slk messages delete --channel "#general" --ts "1705312365.000100"`,
 	RunE: runMessagesDelete,
 }
 

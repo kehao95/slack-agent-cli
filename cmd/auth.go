@@ -18,8 +18,8 @@ var authTestCmd = &cobra.Command{
 	Use:   "test",
 	Short: "Verify credentials work",
 	Long:  "Test that the configured Slack tokens are valid by making an auth.test API call.",
-	Example: `  slack-agent-cli auth test
-  slack-agent-cli auth test --human`,
+	Example: `  slk auth test
+  slk auth test --human`,
 	RunE: runAuthTest,
 }
 
@@ -27,8 +27,8 @@ var authWhoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Show current user identity",
 	Long:  "Display information about the currently authenticated user.",
-	Example: `  slack-agent-cli auth whoami
-  slack-agent-cli auth whoami --human`,
+	Example: `  slk auth whoami
+  slk auth whoami --human`,
 	RunE: runAuthWhoami,
 }
 

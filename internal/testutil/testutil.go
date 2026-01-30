@@ -67,7 +67,7 @@ func ValidateJSONArray(t *testing.T, data string) []interface{} {
 // Example:
 //
 //	configPath := MockConfig(t, "xoxp-test-token")
-//	cmd := exec.Command("slack-agent-cli", "auth", "test", "--config", configPath)
+//	cmd := exec.Command("slk", "auth", "test", "--config", configPath)
 func MockConfig(t *testing.T, token string) string {
 	t.Helper()
 

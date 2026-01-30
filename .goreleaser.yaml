@@ -1,9 +1,9 @@
-# GoReleaser configuration for slack-agent-cli
+# GoReleaser configuration for slk
 # Documentation: https://goreleaser.com
 
 version: 1
 
-project_name: slack-agent-cli
+project_name: slk
 
 before:
   hooks:
@@ -12,9 +12,9 @@ before:
     - go test ./...
 
 builds:
-  - id: slack-agent-cli
+  - id: slk
     main: ./main.go
-    binary: slack-agent-cli
+    binary: slk
     env:
       - CGO_ENABLED=0
     goos:
@@ -76,7 +76,7 @@ changelog:
 
 # Homebrew Formula (stored in this repo)
 brews:
-  - name: slack-agent-cli
+  - name: slk
     
     # Store formula in this repository under homebrew/ directory
     repository:
@@ -117,7 +117,7 @@ release:
   prerelease: auto
   
   # Release name
-  name_template: "{{.ProjectName}} v{{.Version}}"
+  name_template: "slk v{{.Version}}"
   
   # Header and footer for the release notes
   header: |
@@ -130,7 +130,7 @@ release:
     
     ### Homebrew (macOS/Linux)
     ```bash
-    brew install kehao95/slack-agent-cli/slack-agent-cli
+    brew install kehao95/slack-agent-cli/slk
     ```
     
     ### Go Install

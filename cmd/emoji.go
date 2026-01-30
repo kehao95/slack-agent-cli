@@ -18,10 +18,10 @@ var emojiListCmd = &cobra.Command{
 	Short: "List custom emoji",
 	Long:  "List all custom emoji in the Slack workspace.",
 	Example: `  # List custom emoji
-  slack-agent-cli emoji list
+  slk emoji list
 
   # List with human-readable output
-  slack-agent-cli emoji list --human`,
+  slk emoji list --human`,
 	RunE: runEmojiList,
 }
 

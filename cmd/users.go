@@ -46,13 +46,13 @@ Output (JSON):
 
 Note: Set --include-bots to include bot users in results.`,
 	Example: `  # List all users
-  slack-agent-cli users list
+  slk users list
 
   # List with pagination
-  slack-agent-cli users list --limit 50 --cursor "dXNlcl9pZDo..."
+  slk users list --limit 50 --cursor "dXNlcl9pZDo..."
 
   # Include bot users
-  slack-agent-cli users list --include-bots`,
+  slk users list --include-bots`,
 	RunE: runUsersList,
 }
 
@@ -88,10 +88,10 @@ User Identifier:
   - User ID: U123ABC (direct lookup)
   - Username: @alice (resolved via user list)`,
 	Example: `  # Get user info by ID
-  slack-agent-cli users info --user U123ABC
+  slk users info --user U123ABC
 
   # Get user info by username
-  slack-agent-cli users info --user @alice`,
+  slk users info --user @alice`,
 	RunE: runUsersInfo,
 }
 
@@ -99,9 +99,9 @@ var usersPresenceCmd = &cobra.Command{
 	Use:   "presence",
 	Short: "Check user presence",
 	Long:  "Check the presence status of a specific user.",
-	Example: `  slack-agent-cli users presence --user U123ABC
-  slack-agent-cli users presence --user @alice
-  slack-agent-cli users presence --user U123ABC --human`,
+	Example: `  slk users presence --user U123ABC
+  slk users presence --user @alice
+  slk users presence --user U123ABC --human`,
 	RunE: runUsersPresence,
 }
 
