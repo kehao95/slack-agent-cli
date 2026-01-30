@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  0f4dcb890d863269 1-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "a03409a0ad87053991d4fb966666441b54148f4f",
+  "prompts": {
+    "0f4dcb890d863269": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_restored_1769810035",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 80,
+      "total_deletions": 0,
+      "accepted_lines": 80,
+      "overriden_lines": 0
+    }
+  }
+}
