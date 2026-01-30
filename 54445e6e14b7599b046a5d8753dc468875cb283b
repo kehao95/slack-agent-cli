@@ -4,10 +4,10 @@
   "git_ai_version": "1.0.40",
   "base_commit_sha": "54445e6e14b7599b046a5d8753dc468875cb283b",
   "prompts": {
-    "test12345678abcd": {
+    "109cfcd8af01c1e4": {
       "agent_id": {
         "tool": "opencode",
-        "id": "restored",
+        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke",
