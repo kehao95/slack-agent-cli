@@ -1,42 +1,44 @@
+.beads/issues.jsonl
+  1fbcc511bb8ea15d 1-30
 cmd/auth.go
-  897f0363dfb60c67 31-32,53
-cmd/pins.go
-  897f0363dfb60c67 99,145,190
-docs/DESIGN.md
-  897f0363dfb60c67 5,8-9,20-21,29-30,37,41,63,82,123-124,126,129,205-229,253,261,273,380,406,429,521,529-532,553,555,558-561,564,582,584,590,611,613,626,646,652,657,661-667,673,675,687,697
-cmd/channels.go
-  897f0363dfb60c67 19,25,55
-internal/config/config_test.go
-  897f0363dfb60c67 20-21,31,46-47,69,71
+  1fbcc511bb8ea15d 1-69
 cmd/cache.go
-  897f0363dfb60c67 110
-internal/config/config.go
-  897f0363dfb60c67 19,103-104
-internal/slack/client.go
-  897f0363dfb60c67 242-244,516
-cmd/users.go
-  897f0363dfb60c67 82,113
+  1fbcc511bb8ea15d 1-235
+cmd/channels.go
+  1fbcc511bb8ea15d 1-87
 cmd/messages.go
-  897f0363dfb60c67 50,86,98,165,344,393,435
+  1fbcc511bb8ea15d 1-457
+cmd/pins.go
+  1fbcc511bb8ea15d 1-212
 cmd/reactions.go
-  897f0363dfb60c67 87,135
+  1fbcc511bb8ea15d 1-162
+cmd/users.go
+  1fbcc511bb8ea15d 1-178
+docs/DESIGN.md
+  1fbcc511bb8ea15d 1-701
+internal/config/config.go
+  1fbcc511bb8ea15d 1-138
+internal/config/config_test.go
+  1fbcc511bb8ea15d 1-75
+internal/slack/client.go
+  1fbcc511bb8ea15d 1-769
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "ed7ff20f8a3cb39c665902c4520dccefea3ed047",
   "prompts": {
-    "897f0363dfb60c67": {
+    "1fbcc511bb8ea15d": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f4442caaffeYv00DTMTdvQQsP",
-        "model": "github-copilot/claude-opus-4.5"
+        "id": "ses_restored_ed7ff20",
+        "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 119,
-      "total_deletions": 266,
-      "accepted_lines": 119,
+      "total_additions": 3113,
+      "total_deletions": 0,
+      "accepted_lines": 3113,
       "overriden_lines": 0
     }
   }
