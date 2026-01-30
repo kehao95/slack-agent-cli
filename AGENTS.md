@@ -178,22 +178,23 @@ go test ./internal/config/...  # All tests pass
 slack-agent-cli/
 ├── cmd/                    # Cobra commands
 │   ├── root.go             # Root command, global flags
-│   ├── config.go           # config subcommands
 │   ├── auth.go             # auth subcommands
-│   ├── watch.go            # watch command
+│   ├── cache.go            # cache subcommands
 │   ├── messages.go         # messages subcommands
 │   ├── channels.go         # channels subcommands
 │   ├── reactions.go        # reactions subcommands
 │   ├── pins.go             # pins subcommands
 │   ├── users.go            # users subcommands
-│   ├── files.go            # files subcommands
 │   └── emoji.go            # emoji subcommands
 ├── internal/
 │   ├── config/             # Configuration management
 │   ├── slack/              # Slack API client wrapper
 │   ├── output/             # Output formatting (JSON, human-readable)
-│   └── watch/              # Socket Mode event handling
-├── pkg/                    # Public packages (if any)
+│   ├── cache/              # Metadata caching
+│   ├── channels/           # Channel resolution
+│   ├── messages/           # Message operations
+│   ├── users/              # User operations
+│   └── usergroups/         # User group operations
 ├── docs/
 │   └── DESIGN.md           # Design document
 ├── main.go                 # Entry point

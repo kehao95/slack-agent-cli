@@ -22,7 +22,6 @@ Be respectful, inclusive, and professional in all interactions.
 
 - Go 1.21 or higher
 - A Slack workspace for testing
-- Slack App with Socket Mode enabled
 
 ### Building
 

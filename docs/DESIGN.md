@@ -714,6 +714,11 @@ The CLI is built in Go using slack-go/slack. Single binary distribution and fast
 
 ## 12. Future Considerations
 
+### Considered for Future
 - Multi-workspace support via named profiles
 - Plugin system for custom commands
 - Integration with other messaging platforms (Discord, Teams)
+
+### Not Planned (Not for Now)
+- **Socket Mode / Real-time Event Streaming** - The CLI is designed for batch operations and polling. Real-time streaming via Socket Mode adds complexity without clear benefit for the target use cases (scripts, cron jobs, AI agents). For real-time needs, use the Slack API directly or webhooks.
+- **Interactive Watch Command** - Long-running processes conflict with the stateless, pipe-first design philosophy.
