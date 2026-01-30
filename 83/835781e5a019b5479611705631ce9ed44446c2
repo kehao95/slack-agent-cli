@@ -1,60 +1,60 @@
 .beads/issues.jsonl
-  897f0363dfb60c67 1-30
+  23bc50ef99998369 1-30
 AGENTS.md
-  897f0363dfb60c67 1-409
+  23bc50ef99998369 1-409
 cmd/auth.go
-  897f0363dfb60c67 1-69
+  23bc50ef99998369 1-69
 cmd/cache.go
-  897f0363dfb60c67 1-330
+  23bc50ef99998369 1-330
 cmd/channels.go
-  897f0363dfb60c67 1-203
+  23bc50ef99998369 1-203
 cmd/emoji.go
-  897f0363dfb60c67 1-58
+  23bc50ef99998369 1-58
 cmd/messages.go
-  897f0363dfb60c67 1-457
+  23bc50ef99998369 1-457
 cmd/pins.go
-  897f0363dfb60c67 1-212
+  23bc50ef99998369 1-212
 cmd/reactions.go
-  897f0363dfb60c67 1-223
+  23bc50ef99998369 1-223
 cmd/root.go
-  897f0363dfb60c67 1-38
+  23bc50ef99998369 1-38
 cmd/users.go
-  897f0363dfb60c67 1-178
+  23bc50ef99998369 1-178
 docs/DESIGN.md
-  897f0363dfb60c67 1-719
+  23bc50ef99998369 1-719
 go.mod
-  897f0363dfb60c67 1-30
+  23bc50ef99998369 1-30
 internal/channels/resolver.go
-  897f0363dfb60c67 1-177
+  23bc50ef99998369 1-177
 internal/channels/resolver_test.go
-  897f0363dfb60c67 1-257
+  23bc50ef99998369 1-257
 internal/channels/service.go
-  897f0363dfb60c67 1-77
+  23bc50ef99998369 1-77
 internal/channels/service_test.go
-  897f0363dfb60c67 1-86
+  23bc50ef99998369 1-86
 internal/messages/list.go
-  897f0363dfb60c67 1-243
+  23bc50ef99998369 1-243
 internal/messages/list_test.go
-  897f0363dfb60c67 1-92
+  23bc50ef99998369 1-92
 internal/output/output.go
-  897f0363dfb60c67 1-65
+  23bc50ef99998369 1-65
 internal/slack/client.go
-  897f0363dfb60c67 1-1002
+  23bc50ef99998369 1-1002
 internal/usergroups/resolver.go
-  897f0363dfb60c67 1-123
+  23bc50ef99998369 1-123
 internal/users/resolver.go
-  897f0363dfb60c67 1-224
+  23bc50ef99998369 1-224
 internal/users/resolver_test.go
-  897f0363dfb60c67 1-262
+  23bc50ef99998369 1-262
 main.go
-  897f0363dfb60c67 1-7
+  23bc50ef99998369 1-7
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "83835781e5a019b5479611705631ce9ed44446c2",
   "prompts": {
-    "897f0363dfb60c67": {
+    "23bc50ef99998369": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_8383578",
