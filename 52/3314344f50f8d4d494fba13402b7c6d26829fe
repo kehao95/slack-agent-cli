@@ -3,7 +3,7 @@ AGENTS.md
 CONTRIBUTING.md
   edbb6e1cebdfbc07 1-190
 README.md
-  edbb6e1cebdfbc07 1-81
+  edbb6e1cebdfbc07 1-6,10-16,18-81
 cmd/root.go
   edbb6e1cebdfbc07 1-55
 docs/DESIGN.md
@@ -28,9 +28,9 @@ internal/output/output.go
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 1646,
+      "total_additions": 1642,
       "total_deletions": 0,
-      "accepted_lines": 1646,
+      "accepted_lines": 1642,
       "overriden_lines": 0
     }
   }
