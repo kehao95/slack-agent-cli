@@ -1,20 +1,52 @@
+cmd/pins.go
+  19ec95a938ffffb0 29,41,53
+cmd/cache.go
+  19ec95a938ffffb0 5,125,140,143,156,158,162,168-201,206,209,213-216,220-222,229-231,236-239,243-250,252-255,258-262,264-282,285,305-308,316-319,322
+cmd/messages.go
+  19ec95a938ffffb0 60,90,102
+docs/DESIGN.md
+  897f0363dfb60c67 1,3,7,9-13,20
+cmd/reactions.go
+  19ec95a938ffffb0 53
+internal/slack/client.go
+  19ec95a938ffffb0 234
+cmd/emoji.go
+  19ec95a938ffffb0 27
+internal/output/output.go
+  19ec95a938ffffb0 16-17,19-21,23
+cmd/root.go
+  897f0363dfb60c67 15-22
+  19ec95a938ffffb0 36-37
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "83835781e5a019b5479611705631ce9ed44446c2",
   "prompts": {
-    "26168895f68df044": {
+    "19ec95a938ffffb0": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f347795efferlQgr9qX1KJBrw",
+        "id": "ses_3f3a32c51ffeFltUowsOAMY7jB",
         "model": "github-copilot/claude-sonnet-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 30,
-      "total_deletions": 1,
-      "accepted_lines": 30,
+      "total_additions": 242,
+      "total_deletions": 146,
+      "accepted_lines": 133,
+      "overriden_lines": 0
+    },
+    "897f0363dfb60c67": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4442caaffeYv00DTMTdvQQsP",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 19,
+      "total_deletions": 6,
+      "accepted_lines": 19,
       "overriden_lines": 0
     }
   }
