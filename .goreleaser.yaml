@@ -74,16 +74,19 @@ changelog:
     - title: 'Others'
       order: 999
 
-# Homebrew Tap
+# Homebrew Formula (stored in this repo)
 brews:
   - name: slack-agent-cli
     
-    # GitHub repository for the tap
+    # Store formula in this repository under homebrew/ directory
     repository:
       owner: kehao95
-      name: homebrew-tap
+      name: slack-agent-cli
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
+    
+    # Folder to store the formula (creates homebrew/slack-agent-cli.rb)
+    folder: homebrew
     
     # Commit author
     commit_author:
@@ -91,7 +94,7 @@ brews:
       email: bot@goreleaser.com
     
     # Commit message
-    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    commit_msg_template: "chore(homebrew): update formula for {{ .ProjectName }} {{ .Tag }}"
     
     # Metadata
     homepage: "https://github.com/kehao95/slack-agent-cli"
@@ -127,7 +130,7 @@ release:
     
     ### Homebrew (macOS/Linux)
     ```bash
-    brew install kehao95/tap/slack-agent-cli
+    brew install kehao95/slack-agent-cli/slack-agent-cli
     ```
     
     ### Go Install
