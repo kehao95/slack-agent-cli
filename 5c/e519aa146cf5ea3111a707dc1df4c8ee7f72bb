@@ -1,20 +1,20 @@
 cmd/messages.go
-  4fe99dab5314f7e0 1-123
+  f7641537279c6ffe 1-123
 internal/cache/populate.go
-  4fe99dab5314f7e0 1-331
+  f7641537279c6ffe 1-331
 internal/messages/list.go
-  4fe99dab5314f7e0 1-243
+  f7641537279c6ffe 1-243
 internal/slack/client.go
-  4fe99dab5314f7e0 1-190
+  f7641537279c6ffe 1-190
 internal/usergroups/resolver.go
-  4fe99dab5314f7e0 1-123
+  f7641537279c6ffe 1-123
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "5ce519aa146cf5ea3111a707dc1df4c8ee7f72bb",
   "prompts": {
-    "4fe99dab5314f7e0": {
+    "f7641537279c6ffe": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_5ce519a",
