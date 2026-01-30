@@ -1,26 +1,28 @@
-internal/watch/watcher_test.go
-  5ecfd640caf7b9b7 1-243
-internal/watch/watcher.go
-  5ecfd640caf7b9b7 11,126,143
+.beads/issues.jsonl
+  fc13f79235d6032f 1-30
 cmd/watch.go
-  5ecfd640caf7b9b7 1-131
+  fc13f79235d6032f 1-131
+internal/watch/watcher.go
+  fc13f79235d6032f 1-385
+internal/watch/watcher_test.go
+  fc13f79235d6032f 1-243
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "ce61306c54ef23e33cac760dd3a05d81751794d6",
   "prompts": {
-    "5ecfd640caf7b9b7": {
+    "fc13f79235d6032f": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f3f47bdaffeqLqzQZ9OpAi0Er",
+        "id": "ses_restored_ce61306",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 388,
-      "total_deletions": 13,
-      "accepted_lines": 377,
+      "total_additions": 789,
+      "total_deletions": 0,
+      "accepted_lines": 789,
       "overriden_lines": 0
     }
   }
