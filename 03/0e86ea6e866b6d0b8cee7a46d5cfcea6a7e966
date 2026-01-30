@@ -1,88 +1,86 @@
 .beads/.gitignore
-  109cfcd8af01c1e4 1-45
+  1d7186d444c6d3cf 1-44
 .beads/README.md
-  109cfcd8af01c1e4 1-82
+  1d7186d444c6d3cf 1-81
 .beads/config.yaml
-  109cfcd8af01c1e4 1-63
-.beads/interactions.jsonl
-  109cfcd8af01c1e4 1-1
+  1d7186d444c6d3cf 1-62
 .beads/issues.jsonl
-  109cfcd8af01c1e4 1-31
+  1d7186d444c6d3cf 1-30
 .beads/metadata.json
-  109cfcd8af01c1e4 1-4
+  1d7186d444c6d3cf 1-4
 .gitattributes
-  109cfcd8af01c1e4 1-4
+  1d7186d444c6d3cf 1-3
 AGENTS.md
-  109cfcd8af01c1e4 1-401
+  1d7186d444c6d3cf 1-400
 README.md
-  109cfcd8af01c1e4 1-51
+  1d7186d444c6d3cf 1-50
 cmd/channels.go
-  109cfcd8af01c1e4 1-88
+  1d7186d444c6d3cf 1-87
 cmd/messages.go
-  109cfcd8af01c1e4 1-108
+  1d7186d444c6d3cf 1-107
 cmd/root.go
-  109cfcd8af01c1e4 1-34
+  1d7186d444c6d3cf 1-33
 docs/DESIGN.md
-  109cfcd8af01c1e4 1-663
+  1d7186d444c6d3cf 1-662
 go.mod
-  109cfcd8af01c1e4 1-31
+  1d7186d444c6d3cf 1-30
 go.sum
-  109cfcd8af01c1e4 1-67
+  1d7186d444c6d3cf 1-66
 internal/cache/populate.go
-  109cfcd8af01c1e4 1-280
+  1d7186d444c6d3cf 1-279
 internal/cache/store.go
-  109cfcd8af01c1e4 1-320
+  1d7186d444c6d3cf 1-319
 internal/cache/store_test.go
-  109cfcd8af01c1e4 1-159
+  1d7186d444c6d3cf 1-158
 internal/channels/resolver.go
-  109cfcd8af01c1e4 1-115
+  1d7186d444c6d3cf 1-114
 internal/channels/resolver_test.go
-  109cfcd8af01c1e4 1-143
+  1d7186d444c6d3cf 1-142
 internal/channels/service.go
-  109cfcd8af01c1e4 1-77
+  1d7186d444c6d3cf 1-76
 internal/channels/service_test.go
-  109cfcd8af01c1e4 1-79
+  1d7186d444c6d3cf 1-78
 internal/config/config.go
-  109cfcd8af01c1e4 1-157
+  1d7186d444c6d3cf 1-156
 internal/config/config_test.go
-  109cfcd8af01c1e4 1-88
+  1d7186d444c6d3cf 1-87
 internal/messages/list.go
-  109cfcd8af01c1e4 1-105
+  1d7186d444c6d3cf 1-104
 internal/messages/list_test.go
-  109cfcd8af01c1e4 1-93
+  1d7186d444c6d3cf 1-92
 internal/output/output.go
-  109cfcd8af01c1e4 1-65
+  1d7186d444c6d3cf 1-64
 internal/slack/client.go
-  109cfcd8af01c1e4 1-128
+  1d7186d444c6d3cf 1-127
 internal/slack/client_test.go
-  109cfcd8af01c1e4 1-45
+  1d7186d444c6d3cf 1-44
 internal/slack/messages.go
-  109cfcd8af01c1e4 1-75
+  1d7186d444c6d3cf 1-74
 internal/slack/mock_client.go
-  109cfcd8af01c1e4 1-28
+  1d7186d444c6d3cf 1-27
 internal/users/resolver.go
-  109cfcd8af01c1e4 1-154
+  1d7186d444c6d3cf 1-153
 internal/users/resolver_test.go
-  109cfcd8af01c1e4 1-120
+  1d7186d444c6d3cf 1-119
 main.go
-  109cfcd8af01c1e4 1-8
+  1d7186d444c6d3cf 1-7
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "030e86ea6e866b6d0b8cee7a46d5cfcea6a7e966",
   "prompts": {
-    "109cfcd8af01c1e4": {
+    "1d7186d444c6d3cf": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
+        "id": "ses_restored_030e86e",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 3912,
+      "total_additions": 3879,
       "total_deletions": 0,
-      "accepted_lines": 3912,
+      "accepted_lines": 3879,
       "overriden_lines": 0
     }
   }
