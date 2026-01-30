@@ -1,20 +1,28 @@
+internal/users/resolver.go
+  109cfcd8af01c1e4 16,58,60-62,66,73,86,95,120-151,188-203,215-216,223
+cmd/messages.go
+  109cfcd8af01c1e4 14,73-74,88,91-93,96,110-111,113-115
+internal/messages/list.go
+  109cfcd8af01c1e4 19-23,47,51-52,55-58,99-105,108,116-117,121-124,126-132,134-135
+internal/users/resolver_test.go
+  109cfcd8af01c1e4 16,18-20,39-45
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "c11a4812ad537f1bc24218398b8f366f94111286",
   "prompts": {
-    "fa1ae9291a326cb4": {
+    "109cfcd8af01c1e4": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f4927f75ffekwLhtn8cyPCR1s",
+        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
         "model": "github-copilot/claude-opus-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 13,
-      "total_deletions": 8,
-      "accepted_lines": 13,
+      "total_additions": 142,
+      "total_deletions": 45,
+      "accepted_lines": 130,
       "overriden_lines": 0
     }
   }
