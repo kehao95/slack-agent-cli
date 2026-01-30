@@ -1,0 +1,31 @@
+docs/DESIGN.md
+  3c382045cf335928 717,721-724
+cmd/root.go
+  3c382045cf335928 9,24-39
+README.md
+  3c382045cf335928 1,3,5,7-9,11-17,21-23,27,30-31,33-34,37,40-41,43-47,53,59-61,63,67,69-77
+AGENTS.md
+  3c382045cf335928 182,193-197
+internal/output/output.go
+  3c382045cf335928 27-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "6dcdea5854fbabb710dcaafa63d6c3e396787936",
+  "prompts": {
+    "3c382045cf335928": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f39981e9ffeNxgV11fD6m46bv",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 235,
+      "total_deletions": 144,
+      "accepted_lines": 141,
+      "overriden_lines": 0
+    }
+  }
+}
