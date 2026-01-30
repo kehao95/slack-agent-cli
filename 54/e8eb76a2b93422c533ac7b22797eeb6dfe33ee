@@ -1,20 +1,22 @@
+internal/messages/list.go
+  109cfcd8af01c1e4 6,8,110,139-168
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "54e8eb76a2b93422c533ac7b22797eeb6dfe33ee",
   "prompts": {
-    "9e984c92eb069ead": {
+    "109cfcd8af01c1e4": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f44a3c8fffeAFzfUtM9npK58d",
-        "model": "github-copilot/gpt-5-mini"
+        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
+        "model": "github-copilot/claude-opus-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 52,
-      "total_deletions": 3,
-      "accepted_lines": 52,
+      "total_additions": 33,
+      "total_deletions": 1,
+      "accepted_lines": 33,
       "overriden_lines": 0
     }
   }
