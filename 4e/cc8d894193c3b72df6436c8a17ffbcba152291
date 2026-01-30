@@ -1,24 +1,24 @@
 .beads/export-state/251ce2e4e70e26c9.json
-  79ebe9f413152758 1-6
+  63ba94691db99ca7 1-6
 cmd/cache.go
-  79ebe9f413152758 1-235
+  63ba94691db99ca7 1-235
 docs/DESIGN.md
-  79ebe9f413152758 1-813
+  63ba94691db99ca7 1-813
 internal/cache/populate.go
-  79ebe9f413152758 1-328
+  63ba94691db99ca7 1-328
 internal/channels/resolver.go
-  79ebe9f413152758 1-176
+  63ba94691db99ca7 1-176
 internal/channels/resolver_test.go
-  79ebe9f413152758 1-249
+  63ba94691db99ca7 1-249
 internal/slack/client.go
-  79ebe9f413152758 1-181
+  63ba94691db99ca7 1-181
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "4ecc8d894193c3b72df6436c8a17ffbcba152291",
   "prompts": {
-    "79ebe9f413152758": {
+    "63ba94691db99ca7": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_4ecc8d8",
