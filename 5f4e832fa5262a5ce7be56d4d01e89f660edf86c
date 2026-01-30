@@ -1,0 +1,27 @@
+README.md
+  3c382045cf335928 55
+homebrew/README.md
+  3c382045cf335928 1-17
+.goreleaser.yaml
+  3c382045cf335928 77,81,84,88-90,97,133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "5f4e832fa5262a5ce7be56d4d01e89f660edf86c",
+  "prompts": {
+    "3c382045cf335928": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f39981e9ffeNxgV11fD6m46bv",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 6,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    }
+  }
+}
