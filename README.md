@@ -64,7 +64,26 @@ go install github.com/kehao95/slack-agent-cli@latest
 
 Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/releases)
 
-## Configuration
+## Authentication & Configuration
+
+### How It Works
+
+**This CLI uses User Tokens** - It authenticates as **you** and acts on your behalf in Slack. This means:
+
+- ✅ **Acts as you:** Messages, reactions, and actions appear as if you did them
+- ✅ **Uses your permissions:** Can only access channels/DMs you have access to
+- ✅ **Simple & stateless:** No OAuth flows, webhooks, or server infrastructure needed
+- ⚠️ **Token security:** Keep your token safe - it has the same permissions you do
+
+**User Token** (what this CLI uses):
+- Format: `xoxp-...` 
+- Represents **you** (the user)
+- Perfect for automation, scripts, and AI agents acting on your behalf
+
+**Bot Token** (NOT used by this CLI):
+- Format: `xoxb-...`
+- Represents a **bot user** (separate identity)
+- Requires more setup and different use cases
 
 ### Quick Setup (1 minute)
 
