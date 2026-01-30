@@ -1,0 +1,77 @@
+cmd/pins.go
+  b54fc09e4d5e37cf 22,25,34,37,46,49
+cmd/root.go
+  09b57b7881fa9d6a 68-73
+  b54fc09e4d5e37cf 17,23,26-27,30,33,80
+cmd/messages.go
+  b54fc09e4d5e37cf 48,51,54,57,60,93,96,99,102,129,132,135,138,160,163,184,187
+cmd/auth.go
+  b54fc09e4d5e37cf 21-22,30-31
+cmd/users.go
+  b54fc09e4d5e37cf 49,52,55,91,94,102-104
+homebrew/slk.rb
+  b54fc09e4d5e37cf 17,25
+main.go
+  09b57b7881fa9d6a 5-10,12
+cmd/channels.go
+  b54fc09e4d5e37cf 45,48,51,54,57,66,69,78,81
+cmd/cache.go
+  b54fc09e4d5e37cf 33,36,39,42,76,79
+internal/testutil/testutil.go
+  b54fc09e4d5e37cf 70
+cmd/reactions.go
+  b54fc09e4d5e37cf 22,25,34,37,46,49
+cmd/emoji.go
+  b54fc09e4d5e37cf 21,24
+internal/errors/errors.go
+  b54fc09e4d5e37cf 181,187
+.goreleaser.yaml
+  b54fc09e4d5e37cf 15,17,79,120,133
+  78de52e906c9d76f 1,6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "9de6f568fc16145ac77fcbe096a9556032f58650",
+  "prompts": {
+    "09b57b7881fa9d6a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f2ebd43effeZHd1O5a8si5oz0",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 0,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    },
+    "78de52e906c9d76f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f32d81e0ffeisAhM8lRSFDAyy",
+        "model": "github-copilot/gpt-5-mini"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "b54fc09e4d5e37cf": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f2efef9effeX8yf77HE1LtjZ4",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 77,
+      "total_deletions": 77,
+      "accepted_lines": 75,
+      "overriden_lines": 0
+    }
+  }
+}
