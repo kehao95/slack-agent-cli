@@ -1,3 +1,19 @@
+internal/cache/store_test.go
+  109cfcd8af01c1e4 159-362
+internal/channels/resolver_test.go
+  109cfcd8af01c1e4 45-58,87-89,91-92,95,100,105-116,118-119,122-123,125-126,128-137,139-141,143-144,152-157,160,163-166,169,174-177,179-181
+internal/slack/client.go
+  109cfcd8af01c1e4 23-35,117-151
+docs/DESIGN.md
+  109cfcd8af01c1e4 65-69,288-413,444,581-584,593,603-620
+internal/users/resolver_test.go
+  109cfcd8af01c1e4 15,25,28-30,36,40-42,44-45,48,51,56-57,61,65-71,79,84-108,113-117,119-121,124,128-133,135-153,155-156,159,162-165,168,172-222,224-248
+cmd/cache.go
+  109cfcd8af01c1e4 1-235
+internal/channels/resolver.go
+  109cfcd8af01c1e4 14-23,41-42,45,48,52,56,68,78-81,86-92,95,97,99,102-109,111-112,115-120
+internal/users/resolver.go
+  109cfcd8af01c1e4 43-44,47-50,54,58,60-75,78,88-99,104-106,108-109,118-119,124-126,134,139-140,142-143,146-148,150,152-153,156-160,162-167,169-170
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -8,13 +24,13 @@
       "agent_id": {
         "tool": "opencode",
         "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
-        "model": "github-copilot/claude-sonnet-4.5"
+        "model": "github-copilot/claude-opus-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 1,
-      "total_deletions": 0,
-      "accepted_lines": 1,
+      "total_additions": 1043,
+      "total_deletions": 175,
+      "accepted_lines": 1016,
       "overriden_lines": 0
     }
   }
