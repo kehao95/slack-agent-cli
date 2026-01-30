@@ -126,11 +126,12 @@ func (r *Resolver) fetchUntilFound(ctx context.Context, name string, existing []
 
 	for {
 		// Fetch next page
+		// Note: Only fetch public_channel to avoid scope issues (private_channel requires groups:read)
 		page, nextCursor, err := r.client.ListChannels(ctx, slack.ListChannelsParams{
 			Limit:           200,
 			Cursor:          currentCursor,
 			IncludeArchived: false,
-			Types:           []string{"public_channel", "private_channel"},
+			Types:           []string{"public_channel"},
 		})
 		if err != nil {
 			// Save progress before returning error
