@@ -1,40 +1,30 @@
+.beads/export-state/251ce2e4e70e26c9.json
+  ee50599c20ba708b 1-6
+.gitignore
+  ee50599c20ba708b 1-48
 AGENTS.md
-  fa1ae9291a326cb4 17-21,26-28,30-37,54,58,60-70,72-75,90,121
-  c7b517ce96404645 81,85,87-89,92-95,97,99-103,108,110,112,117,119,160,162,164-167,170-173,175,177-179,182,202,204-210,213-217,222
+  ee50599c20ba708b 1-360
 README.md
-  fa1ae9291a326cb4 13,25-26,28,30-32,41-46
+  ee50599c20ba708b 1-65
 docs/DESIGN.md
-  fa1ae9291a326cb4 738-740,744-745,792,794
+  ee50599c20ba708b 1-813
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "8585e768da23c0464c6c7a69c1d0afff850f045c",
   "prompts": {
-    "c7b517ce96404645": {
+    "ee50599c20ba708b": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f48f9bcfffe2H9qwFE3867qce",
-        "model": "github-copilot/claude-opus-4.5"
+        "id": "ses_restored_8585e76",
+        "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 51,
-      "total_deletions": 109,
-      "accepted_lines": 51,
-      "overriden_lines": 0
-    },
-    "fa1ae9291a326cb4": {
-      "agent_id": {
-        "tool": "opencode",
-        "id": "ses_3f4927f75ffekwLhtn8cyPCR1s",
-        "model": "github-copilot/claude-opus-4.5"
-      },
-      "human_author": "Hao Ke <hao.ke@heap.io>",
-      "messages": [],
-      "total_additions": 90,
-      "total_deletions": 67,
-      "accepted_lines": 61,
+      "total_additions": 1292,
+      "total_deletions": 0,
+      "accepted_lines": 1292,
       "overriden_lines": 0
     }
   }
