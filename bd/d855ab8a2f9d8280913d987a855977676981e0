@@ -1,28 +1,28 @@
 .beads/issues.jsonl
-  0161f74641715808 1-38
+  6e6d9906cd1ff003 1-38
 cmd/auth.go
-  0161f74641715808 1-59
+  6e6d9906cd1ff003 1-59
 cmd/cache.go
-  0161f74641715808 1-318
+  6e6d9906cd1ff003 1-318
 cmd/channels.go
-  0161f74641715808 1-155
+  6e6d9906cd1ff003 1-155
 cmd/emoji.go
-  0161f74641715808 1-47
+  6e6d9906cd1ff003 1-47
 cmd/messages.go
-  0161f74641715808 1-388
+  6e6d9906cd1ff003 1-388
 cmd/pins.go
-  0161f74641715808 1-165
+  6e6d9906cd1ff003 1-165
 cmd/reactions.go
-  0161f74641715808 1-176
+  6e6d9906cd1ff003 1-176
 cmd/users.go
-  0161f74641715808 1-157
+  6e6d9906cd1ff003 1-157
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "bdd855ab8a2f9d8280913d987a855977676981e0",
   "prompts": {
-    "0161f74641715808": {
+    "6e6d9906cd1ff003": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_bdd855a",
