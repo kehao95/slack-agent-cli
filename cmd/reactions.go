@@ -19,10 +19,10 @@ var reactionsAddCmd = &cobra.Command{
 	Short: "Add reaction to message",
 	Long:  "Add an emoji reaction to a Slack message.",
 	Example: `  # Add thumbsup reaction
-  slack-agent-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+  slk reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 
   # Add custom emoji
-  slack-agent-cli reactions add --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
+  slk reactions add --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
 	RunE: runReactionsAdd,
 }
 
@@ -31,10 +31,10 @@ var reactionsRemoveCmd = &cobra.Command{
 	Short: "Remove reaction from message",
 	Long:  "Remove an emoji reaction from a Slack message.",
 	Example: `  # Remove thumbsup reaction
-  slack-agent-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
+  slk reactions remove --channel "#general" --ts "1705312365.000100" --emoji "thumbsup"
 
   # Remove custom emoji
-  slack-agent-cli reactions remove --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
+  slk reactions remove --channel "#general" --ts "1705312365.000100" --emoji "custom_emoji"`,
 	RunE: runReactionsRemove,
 }
 
@@ -43,10 +43,10 @@ var reactionsListCmd = &cobra.Command{
 	Short: "List reactions on a message",
 	Long:  "List all emoji reactions on a Slack message.",
 	Example: `  # List reactions on a message
-  slack-agent-cli reactions list --channel "#general" --ts "1705312365.000100"
+  slk reactions list --channel "#general" --ts "1705312365.000100"
 
   # List with human-readable output
-  slack-agent-cli reactions list --channel "#general" --ts "1705312365.000100" --human`,
+  slk reactions list --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runReactionsList,
 }
 

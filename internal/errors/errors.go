@@ -178,13 +178,13 @@ func NotFoundError(resourceType, identifier string, hint string) error {
 
 // ChannelNotFoundError creates a specific error for missing channels with helpful hints.
 func ChannelNotFoundError(channel string) error {
-	hint := "Hint: Run 'slack-agent-cli cache populate channels --all' to refresh the channel cache"
+	hint := "Hint: Run 'slk cache populate channels --all' to refresh the channel cache"
 	return NotFoundError("channel", channel, hint)
 }
 
 // UserNotFoundError creates a specific error for missing users with helpful hints.
 func UserNotFoundError(user string) error {
-	hint := "Hint: Run 'slack-agent-cli cache populate users --all' to refresh the user cache"
+	hint := "Hint: Run 'slk cache populate users --all' to refresh the user cache"
 	return NotFoundError("user", user, hint)
 }
 

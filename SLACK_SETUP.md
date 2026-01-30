@@ -1,6 +1,6 @@
-# Slack Setup Guide for slack-agent-cli
+# Slack Setup Guide for slk
 
-This guide walks you through setting up a Slack App with the necessary permissions for `slack-agent-cli`.
+This guide walks you through setting up a Slack App with the necessary permissions for `slk`.
 
 ## Choose Your Mode
 
@@ -44,12 +44,12 @@ This guide walks you through setting up a Slack App with the necessary permissio
 
 1. After installation, you'll see **"User OAuth Token"** (starts with `xoxp-`)
 2. Copy this token
-3. Run `slack-agent-cli config init` and paste the token when prompted
+3. Run `slk config init` and paste the token when prompted
 
 ### Step 4: Test the Connection
 
 ```bash
-slack-agent-cli auth test
+slk auth test
 ```
 
 You should see your user info - you're all set! 🎉
@@ -64,7 +64,7 @@ If you prefer to configure scopes manually:
 
 1. Go to https://api.slack.com/apps
 2. Click **"Create New App"** → **"From scratch"**
-3. Enter app name: `slack-agent-cli`
+3. Enter app name: `slk`
 4. Choose your workspace
 5. Click **"Create App"**
 
@@ -109,7 +109,7 @@ Add these additional scopes:
 ### 4. Configure CLI
 
 ```bash
-slack-agent-cli config init
+slk config init
 ```
 
 Paste your token when prompted.
@@ -134,7 +134,7 @@ Paste your token when prompted.
 
 ## Security Notes
 
-- Your token is stored locally in `~/.config/slack-agent-cli/config.json`
+- Your token is stored locally in `~/.config/slk/config.json`
 - File permissions are set to `0600` (owner read/write only)
 - Never commit your token to version control
 - You can revoke the token anytime at https://api.slack.com/apps
@@ -147,22 +147,22 @@ Once configured, you can:
 
 ```bash
 # List channels
-slack-agent-cli channels list --human
+slk channels list --human
 
 # Get recent messages
-slack-agent-cli messages list --channel "#general" --limit 10
+slk messages list --channel "#general" --limit 10
 
 # Search messages
-slack-agent-cli messages search --query "error"
+slk messages search --query "error"
 
 # Send a message
-slack-agent-cli messages send --channel "#general" --text "Hello!"
+slk messages send --channel "#general" --text "Hello!"
 
 # Add a reaction
-slack-agent-cli reactions add --channel "#general" --ts "1234567890.123456" --emoji "thumbsup"
+slk reactions add --channel "#general" --ts "1234567890.123456" --emoji "thumbsup"
 
 # And much more!
-slack-agent-cli --help
+slk --help
 ```
 
 ---

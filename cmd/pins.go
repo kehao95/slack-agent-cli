@@ -19,10 +19,10 @@ var pinsAddCmd = &cobra.Command{
 	Short: "Pin a message",
 	Long:  "Pin a message to a Slack channel.",
 	Example: `  # Pin a message
-  slack-agent-cli pins add --channel "#general" --ts "1705312365.000100"
+  slk pins add --channel "#general" --ts "1705312365.000100"
 
   # Pin with human-readable output
-  slack-agent-cli pins add --channel "#general" --ts "1705312365.000100" --human`,
+  slk pins add --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runPinsAdd,
 }
 
@@ -31,10 +31,10 @@ var pinsRemoveCmd = &cobra.Command{
 	Short: "Unpin a message",
 	Long:  "Remove a pinned message from a Slack channel.",
 	Example: `  # Unpin a message
-  slack-agent-cli pins remove --channel "#general" --ts "1705312365.000100"
+  slk pins remove --channel "#general" --ts "1705312365.000100"
 
   # Unpin with human-readable output
-  slack-agent-cli pins remove --channel "#general" --ts "1705312365.000100" --human`,
+  slk pins remove --channel "#general" --ts "1705312365.000100" --human`,
 	RunE: runPinsRemove,
 }
 
@@ -43,10 +43,10 @@ var pinsListCmd = &cobra.Command{
 	Short: "List pinned messages",
 	Long:  "List all pinned messages in a Slack channel.",
 	Example: `  # List pinned messages
-  slack-agent-cli pins list --channel "#general"
+  slk pins list --channel "#general"
 
   # List with human-readable output
-  slack-agent-cli pins list --channel "#general" --human`,
+  slk pins list --channel "#general" --human`,
 	RunE: runPinsList,
 }
 

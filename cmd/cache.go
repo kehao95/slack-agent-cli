@@ -30,16 +30,16 @@ By default, fetches one page at a time and saves progress. Use --all to
 fetch everything (with rate limiting). If interrupted, the next run
 resumes from where it left off.`,
 	Example: `  # Fetch one page of channels (200 items)
-  slack-agent-cli cache populate channels
+  slk cache populate channels
 
   # Fetch all channels with progress output
-  slack-agent-cli cache populate channels --all
+  slk cache populate channels --all
 
   # Fetch all users
-  slack-agent-cli cache populate users --all
+  slk cache populate users --all
 
   # Custom page size and delay
-  slack-agent-cli cache populate channels --all --page-size 100 --page-delay 2s`,
+  slk cache populate channels --all --page-size 100 --page-delay 2s`,
 	Args: cobra.ExactArgs(1),
 	RunE: runCachePopulate,
 }
@@ -73,10 +73,10 @@ Output (JSON):
 
 Cache TTL: 7 days (automatically refreshed when stale)`,
 	Example: `  # Check cache status
-  slack-agent-cli cache status
+  slk cache status
 
   # Check before bulk operations
-  slack-agent-cli cache status && slack-agent-cli messages list --channel "#general"`,
+  slk cache status && slk messages list --channel "#general"`,
 	RunE: runCacheStatus,
 }
 

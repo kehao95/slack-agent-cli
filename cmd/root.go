@@ -14,23 +14,23 @@ var (
 	cfgFile string
 
 	rootCmd = &cobra.Command{
-		Use:   "slack-agent-cli",
+		Use:   "slk",
 		Short: "Slack for Non-Humans™",
 		Long: `Slack for Non-Humans™ - Machine-first CLI for Slack. JSON by default.
 
 Quick Start:
   1. Verify authentication:
-     slack-agent-cli auth test
+     slk auth test
 
   2. Pre-warm cache (optional but recommended):
-     slack-agent-cli cache populate channels --all
-     slack-agent-cli cache populate users --all
+     slk cache populate channels --all
+     slk cache populate users --all
 
   3. List recent messages:
-     slack-agent-cli messages list --channel "#general" --limit 10
+     slk messages list --channel "#general" --limit 10
 
   4. Send a message:
-     slack-agent-cli messages send --channel "#general" --text "Hello!"
+     slk messages send --channel "#general" --text "Hello!"
 
 Exit Codes:
   0 - Success
@@ -65,13 +65,19 @@ Environment Variables:
 	}
 )
 
+// SetVersionInfo sets version information for the CLI.
+// This is called from main.go with values injected by GoReleaser.
+func SetVersionInfo(version, commit, date string) {
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
+}
+
 // Execute runs the root command with proper exit code handling.
 func Execute() {
 	errors.Execute(rootCmd)
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/slack-agent-cli/config.json)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/slack-cli/config.json)")
 	rootCmd.PersistentFlags().BoolP("human", "H", false, "human-readable output with tables and colors")
 	viper.BindPFlag("output.human", rootCmd.PersistentFlags().Lookup("human"))
 }

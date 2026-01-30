@@ -1,4 +1,4 @@
-# slack-agent-cli
+# slk
 
 > **Slack for non-humans™**
 
@@ -27,23 +27,23 @@ Humans want a UI, we just want a clean pipe.
 
 ```bash
 # Get channel history as minified JSON
-slack-agent-cli messages list --channel C12345
+slk messages list --channel C12345
 
 # Pipe directly into other tools
-slack-agent-cli messages list --channel "#general" | jq '.[].text'
+slk messages list --channel "#general" | jq '.[].text'
 ```
 
 ### For Biological Entities
 
 ```bash
 # Initialize configuration
-slack-agent-cli config init
+slk config init
 
 # List channels in human-readable format
-slack-agent-cli channels list --human
+slk channels list --human
 
 # List recent messages
-slack-agent-cli messages list --channel "#general" --limit 10 --human
+slk messages list --channel "#general" --limit 10 --human
 ```
 
 ## Installation
@@ -51,18 +51,18 @@ slack-agent-cli messages list --channel "#general" --limit 10 --human
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install kehao95/slack-agent-cli/slack-agent-cli
+brew install kehao95/slk/slk
 ```
 
 ### Go Install
 
 ```bash
-go install github.com/kehao95/slack-agent-cli@latest
+go install github.com/kehao95/slk@latest
 ```
 
 ### Pre-built Binaries
 
-Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/releases)
+Download from [GitHub Releases](https://github.com/kehao95/slk/releases)
 
 ## Authentication & Configuration
 
@@ -93,7 +93,7 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
    - **Full Access:** [`slack-app-manifest-full.yaml`](./slack-app-manifest-full.yaml)
 3. **Install to workspace:** Click "Install to Workspace" and authorize
 4. **Copy token:** Copy the **User OAuth Token** (starts with `xoxp-`)
-5. **Initialize CLI:** Run `slack-agent-cli config init` and paste your token
+5. **Initialize CLI:** Run `slk config init` and paste your token
 
 **See [SLACK_SETUP.md](./SLACK_SETUP.md) for detailed setup instructions and mode comparison.**
 
@@ -103,12 +103,12 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
 
 ```bash
 # Summarize the last hour of #alerts using an LLM
-slack-agent-cli messages list --channel "#alerts" --since 1h | llm "Summarize these alerts"
+slk messages list --channel "#alerts" --since 1h | llm "Summarize these alerts"
 
 # Auto-reply to specific errors
-slack-agent-cli messages search --query "error: deployment" | \
+slk messages search --query "error: deployment" | \
   jq -r '.messages[].ts' | \
-  xargs -I {} slack-agent-cli messages reply --channel "#ops" --thread {} --text "Investigating..."
+  xargs -I {} slk messages reply --channel "#ops" --thread {} --text "Investigating..."
 ```
 
 ## License

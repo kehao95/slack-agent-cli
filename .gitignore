@@ -47,3 +47,4 @@ build/
 .internal/
 slack-agent-cli
 dist/
+slk
