@@ -1,13 +1,9 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
-	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -35,21 +31,14 @@ func init() {
 }
 
 func runEmojiList(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
-
-	client := slack.New(cfg.UserToken)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
+	defer cmdCtx.Close()
 
 	// List emoji
-	result, err := client.ListEmoji(ctx)
+	result, err := cmdCtx.Client.ListEmoji(cmdCtx.Ctx)
 	if err != nil {
 		return fmt.Errorf("list emoji: %w", err)
 	}

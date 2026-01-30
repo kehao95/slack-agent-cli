@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
-	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -42,20 +39,13 @@ func init() {
 }
 
 func runAuthTest(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 10*time.Second)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
-	client := slack.New(cfg.UserToken)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
-	defer cancel()
-
-	result, err := client.AuthTest(ctx)
+	result, err := cmdCtx.Client.AuthTest(cmdCtx.Ctx)
 	if err != nil {
 		return fmt.Errorf("auth test: %w", err)
 	}

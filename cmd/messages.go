@@ -1,21 +1,14 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/cache"
-	"github.com/kehao95/slack-agent-cli/internal/channels"
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/messages"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
-	"github.com/kehao95/slack-agent-cli/internal/usergroups"
-	"github.com/kehao95/slack-agent-cli/internal/users"
 	slackapi "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -148,26 +141,14 @@ func init() {
 }
 
 func runMessagesList(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	fetcher := slack.NewMessageFetcher(client)
+	fetcher := slack.NewMessageFetcher(cmdCtx.Client)
 	service := messages.NewService(fetcher)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-	userResolver := users.NewCachedResolver(client, cacheStore)
-	userGroupResolver := usergroups.NewCachedResolver(client, cacheStore)
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -176,27 +157,24 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	thread, _ := cmd.Flags().GetString("thread")
 	refreshCache, _ := cmd.Flags().GetBool("refresh-cache")
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Handle cache refresh
 	if refreshCache {
-		if err := channelResolver.RefreshCache(ctx); err != nil {
+		if err := cmdCtx.ChannelResolver.RefreshCache(cmdCtx.Ctx); err != nil {
 			return fmt.Errorf("refresh cache: %w", err)
 		}
-		if err := userResolver.RefreshCache(ctx); err != nil {
+		if err := cmdCtx.UserResolver.RefreshCache(cmdCtx.Ctx); err != nil {
 			return fmt.Errorf("refresh user cache: %w", err)
 		}
-		if err := userGroupResolver.RefreshCache(ctx); err != nil {
+		if err := cmdCtx.UserGroupResolver.RefreshCache(cmdCtx.Ctx); err != nil {
 			return fmt.Errorf("refresh usergroup cache: %w", err)
 		}
 	}
 
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
-	result, err := service.List(ctx, messages.Params{
+	result, err := service.List(cmdCtx.Ctx, messages.Params{
 		Channel: channelID,
 		Limit:   limit,
 		Since:   since,
@@ -210,20 +188,18 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	// Set display metadata for human-readable output
 	result.Channel = channelInput
 	result.ChannelName = channelInput
-	result.SetUserResolver(ctx, userResolver)
-	result.SetUserGroupResolver(ctx, userGroupResolver)
+	result.SetUserResolver(cmdCtx.Ctx, cmdCtx.UserResolver)
+	result.SetUserGroupResolver(cmdCtx.Ctx, cmdCtx.UserGroupResolver)
 
 	return output.Print(cmd, result)
 }
 
 func runMessagesSearch(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	query, _ := cmd.Flags().GetString("query")
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -238,11 +214,8 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid sort-dir value '%s': must be 'asc' or 'desc'", sortDir)
 	}
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
-	userClient := slack.NewUserClient(cfg.UserToken)
-	result, err := userClient.SearchMessages(ctx, query, slack.SearchParams{
+	userClient := slack.NewUserClient(cmdCtx.Config.UserToken)
+	result, err := userClient.SearchMessages(cmdCtx.Ctx, query, slack.SearchParams{
 		Count:     limit,
 		Page:      1,
 		SortBy:    sortBy,
@@ -257,14 +230,6 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 }
 
 func runMessagesSend(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
-
 	channelInput, _ := cmd.Flags().GetString("channel")
 	text, _ := cmd.Flags().GetString("text")
 	thread, _ := cmd.Flags().GetString("thread")
@@ -335,26 +300,20 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("message text is required (use --text, --blocks, or pipe via stdin)")
 	}
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
+		return err
 	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
+	defer cmdCtx.Close()
 
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Send the message
-	result, err := client.PostMessage(ctx, channelID, slack.PostMessageOptions{
+	result, err := cmdCtx.Client.PostMessage(cmdCtx.Ctx, channelID, slack.PostMessageOptions{
 		Text:        text,
 		ThreadTS:    thread,
 		Blocks:      blocks,
@@ -372,38 +331,24 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 }
 
 func runMessagesEdit(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	timestamp, _ := cmd.Flags().GetString("ts")
 	text, _ := cmd.Flags().GetString("text")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Edit the message
-	result, err := client.EditMessage(ctx, channelID, timestamp, text)
+	result, err := cmdCtx.Client.EditMessage(cmdCtx.Ctx, channelID, timestamp, text)
 	if err != nil {
 		return err
 	}
@@ -415,37 +360,23 @@ func runMessagesEdit(cmd *cobra.Command, args []string) error {
 }
 
 func runMessagesDelete(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	timestamp, _ := cmd.Flags().GetString("ts")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Delete the message
-	result, err := client.DeleteMessage(ctx, channelID, timestamp)
+	result, err := cmdCtx.Client.DeleteMessage(cmdCtx.Ctx, channelID, timestamp)
 	if err != nil {
 		return err
 	}

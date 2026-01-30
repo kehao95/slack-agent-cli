@@ -1,13 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/cache"
-	"github.com/kehao95/slack-agent-cli/internal/channels"
-	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
@@ -85,38 +80,24 @@ func init() {
 }
 
 func runReactionsAdd(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	timestamp, _ := cmd.Flags().GetString("ts")
 	emoji, _ := cmd.Flags().GetString("emoji")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Add the reaction
-	if err := client.AddReaction(ctx, channelID, timestamp, emoji); err != nil {
+	if err := cmdCtx.Client.AddReaction(cmdCtx.Ctx, channelID, timestamp, emoji); err != nil {
 		return fmt.Errorf("add reaction: %w", err)
 	}
 
@@ -133,38 +114,24 @@ func runReactionsAdd(cmd *cobra.Command, args []string) error {
 }
 
 func runReactionsRemove(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	timestamp, _ := cmd.Flags().GetString("ts")
 	emoji, _ := cmd.Flags().GetString("emoji")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Remove the reaction
-	if err := client.RemoveReaction(ctx, channelID, timestamp, emoji); err != nil {
+	if err := cmdCtx.Client.RemoveReaction(cmdCtx.Ctx, channelID, timestamp, emoji); err != nil {
 		return fmt.Errorf("remove reaction: %w", err)
 	}
 
@@ -181,37 +148,23 @@ func runReactionsRemove(cmd *cobra.Command, args []string) error {
 }
 
 func runReactionsList(cmd *cobra.Command, args []string) error {
-	cfg, path, err := config.Load(cfgFile)
+	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config (%s): %w", path, err)
-	}
+	defer cmdCtx.Close()
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	timestamp, _ := cmd.Flags().GetString("ts")
 
-	// Initialize cache store
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
-	}
-
-	client := slack.New(cfg.UserToken)
-	channelResolver := channels.NewCachedResolver(client, cacheStore)
-
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-	defer cancel()
-
 	// Resolve channel name to ID
-	channelID, err := channelResolver.ResolveID(ctx, channelInput)
+	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
 	}
 
 	// Get reactions
-	result, err := client.GetReactions(ctx, channelID, timestamp)
+	result, err := cmdCtx.Client.GetReactions(cmdCtx.Ctx, channelID, timestamp)
 	if err != nil {
 		return fmt.Errorf("get reactions: %w", err)
 	}
