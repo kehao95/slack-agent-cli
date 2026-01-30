@@ -1,22 +1,22 @@
 internal/messages/list.go
-  109cfcd8af01c1e4 50,84,108-114,117-125
+  f941690c6b56a1d6 1-183
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "a8d8dbef33ebc5272bf193b230dad3d7f916f1d4",
   "prompts": {
-    "109cfcd8af01c1e4": {
+    "f941690c6b56a1d6": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
+        "id": "ses_restored_a8d8dbe",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 20,
-      "total_deletions": 5,
-      "accepted_lines": 18,
+      "total_additions": 183,
+      "total_deletions": 0,
+      "accepted_lines": 183,
       "overriden_lines": 0
     }
   }
