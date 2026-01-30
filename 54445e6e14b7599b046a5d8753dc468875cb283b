@@ -1,0 +1,23 @@
+(multiple files)
+  b1234567890abcde (entire commit)
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "54445e6e14b7599b046a5d8753dc468875cb283b",
+  "prompts": {
+    "b1234567890abcde": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "restored",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
