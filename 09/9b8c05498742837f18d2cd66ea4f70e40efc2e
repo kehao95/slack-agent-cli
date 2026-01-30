@@ -1,30 +1,32 @@
-.goreleaser.yaml
-  3c382045cf335928 1-143
 .github/workflows/ci.yml
-  3c382045cf335928 1-80
-README.md
-  3c382045cf335928 52-53,55-59,64-66
+  2f2c1c828908d932 1-80
 .github/workflows/release.yml
-  3c382045cf335928 1-36
+  2f2c1c828908d932 1-36
+.gitignore
+  2f2c1c828908d932 1-49
+.goreleaser.yaml
+  2f2c1c828908d932 1-143
 HOMEBREW_TAP_SETUP.md
-  3c382045cf335928 1-110
+  2f2c1c828908d932 1-110
+README.md
+  2f2c1c828908d932 1-93
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "099b8c05498742837f18d2cd66ea4f70e40efc2e",
   "prompts": {
-    "3c382045cf335928": {
+    "2f2c1c828908d932": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f39981e9ffeNxgV11fD6m46bv",
+        "id": "ses_restored_099b8c0",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 402,
-      "total_deletions": 21,
-      "accepted_lines": 381,
+      "total_additions": 511,
+      "total_deletions": 0,
+      "accepted_lines": 511,
       "overriden_lines": 0
     }
   }
