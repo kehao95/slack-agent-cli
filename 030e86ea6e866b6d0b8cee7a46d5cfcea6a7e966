@@ -1,0 +1,20 @@
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "030e86ea6e866b6d0b8cee7a46d5cfcea6a7e966",
+  "prompts": {
+    "9576049170c19516": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "restored",
+        "model": "amazon-bedrock/anthropic.claude-opus-4-5-20251101-v1:0"
+      },
+      "human_author": "Hao Ke",
+      "messages": [],
+      "total_additions": 375,
+      "total_deletions": 23,
+      "accepted_lines": 375,
+      "overriden_lines": 0
+    }
+  }
+}
