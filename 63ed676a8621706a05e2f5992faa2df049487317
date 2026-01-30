@@ -1,0 +1,23 @@
+cmd/root.go
+  3c382045cf335928 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "63ed676a8621706a05e2f5992faa2df049487317",
+  "prompts": {
+    "3c382045cf335928": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f39981e9ffeNxgV11fD6m46bv",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 6,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
