@@ -25,6 +25,8 @@ type MessageClient interface {
 type ChannelClient interface {
 	Client
 	ListChannels(ctx context.Context, params ListChannelsParams) ([]slackapi.Channel, string, error)
+	JoinChannel(ctx context.Context, channelID string) (*ChannelJoinResult, error)
+	LeaveChannel(ctx context.Context, channelID string) (*ChannelLeaveResult, error)
 }
 
 // UserClient extends Client with user operations.
@@ -38,6 +40,7 @@ type UserClient interface {
 type ReactionClient interface {
 	AddReaction(ctx context.Context, channel, timestamp, emoji string) error
 	RemoveReaction(ctx context.Context, channel, timestamp, emoji string) error
+	GetReactions(ctx context.Context, channel, timestamp string) (*ReactionListResult, error)
 }
 
 // PinClient provides pin capabilities.
@@ -45,6 +48,11 @@ type PinClient interface {
 	AddPin(ctx context.Context, channel, timestamp string) error
 	RemovePin(ctx context.Context, channel, timestamp string) error
 	ListPins(ctx context.Context, channel string) (*PinListResult, error)
+}
+
+// EmojiClient provides emoji capabilities.
+type EmojiClient interface {
+	ListEmoji(ctx context.Context) (*EmojiListResult, error)
 }
 
 // FullClient combines all client capabilities.
@@ -132,6 +140,129 @@ func (r *ReactionResult) Lines() []string {
 		actionText = fmt.Sprintf("✓ Removed :%s: from message in %s", r.Emoji, r.Channel)
 	}
 	return []string{actionText}
+}
+
+// ReactionListResult represents the result of listing reactions on a message.
+type ReactionListResult struct {
+	OK        bool           `json:"ok"`
+	Channel   string         `json:"channel"`
+	ChannelID string         `json:"channel_id"`
+	Timestamp string         `json:"ts"`
+	Reactions []ReactionItem `json:"reactions"`
+}
+
+// ReactionItem represents a single reaction (emoji) with count and users.
+type ReactionItem struct {
+	Name  string   `json:"name"`
+	Count int      `json:"count"`
+	Users []string `json:"users"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *ReactionListResult) Lines() []string {
+	lines := []string{
+		fmt.Sprintf("Reactions on message in %s", r.Channel),
+		fmt.Sprintf("Timestamp: %s", r.Timestamp),
+		"───────────────────────────────",
+	}
+
+	if len(r.Reactions) == 0 {
+		lines = append(lines, "No reactions on this message.")
+		return lines
+	}
+
+	for _, reaction := range r.Reactions {
+		userList := fmt.Sprintf("%d user(s)", reaction.Count)
+		if len(reaction.Users) > 0 && len(reaction.Users) <= 5 {
+			// Show user IDs if there are 5 or fewer
+			userList = fmt.Sprintf("by: %v", reaction.Users)
+		}
+		lines = append(lines, fmt.Sprintf(":%s: × %d %s", reaction.Name, reaction.Count, userList))
+	}
+
+	return lines
+}
+
+// EmojiListResult represents the result of listing custom emoji.
+type EmojiListResult struct {
+	OK    bool              `json:"ok"`
+	Emoji map[string]string `json:"emoji"`
+	Count int               `json:"count"`
+}
+
+// EmojiItem represents a single emoji for easier display.
+type EmojiItem struct {
+	Name  string `json:"name"`
+	Value string `json:"value"` // URL for custom emoji, alias for standard
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *EmojiListResult) Lines() []string {
+	lines := []string{
+		fmt.Sprintf("Custom Emoji (%d)", r.Count),
+		"───────────────────────────────",
+	}
+
+	if r.Count == 0 {
+		lines = append(lines, "No custom emoji found.")
+		return lines
+	}
+
+	// Sort emoji names for consistent output
+	names := make([]string, 0, len(r.Emoji))
+	for name := range r.Emoji {
+		names = append(names, name)
+	}
+
+	// Display up to 50 emoji in human-readable mode
+	displayCount := len(names)
+	if displayCount > 50 {
+		displayCount = 50
+	}
+
+	for i := 0; i < displayCount; i++ {
+		name := names[i]
+		value := r.Emoji[name]
+		// Truncate long URLs for readability
+		if len(value) > 60 {
+			value = value[:57] + "..."
+		}
+		lines = append(lines, fmt.Sprintf(":%s: → %s", name, value))
+	}
+
+	if len(names) > 50 {
+		lines = append(lines, fmt.Sprintf("\n... and %d more (use --json to see all)", len(names)-50))
+	}
+
+	return lines
+}
+
+// ChannelJoinResult represents the result of joining a channel.
+type ChannelJoinResult struct {
+	OK        bool   `json:"ok"`
+	Channel   string `json:"channel"`
+	ChannelID string `json:"channel_id"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *ChannelJoinResult) Lines() []string {
+	return []string{
+		fmt.Sprintf("✓ Joined channel %s", r.Channel),
+	}
+}
+
+// ChannelLeaveResult represents the result of leaving a channel.
+type ChannelLeaveResult struct {
+	OK        bool   `json:"ok"`
+	Channel   string `json:"channel"`
+	ChannelID string `json:"channel_id"`
+}
+
+// Lines implements the output.Printable interface for human-readable output.
+func (r *ChannelLeaveResult) Lines() []string {
+	return []string{
+		fmt.Sprintf("✓ Left channel %s", r.Channel),
+	}
 }
 
 // PinResult represents the result of adding or removing a pin.
@@ -404,6 +535,48 @@ func (c *APIClient) RemoveReaction(ctx context.Context, channel, timestamp, emoj
 	}
 
 	return c.sdk.RemoveReactionContext(ctx, emoji, itemRef)
+}
+
+// GetReactions retrieves all reactions on a specific message.
+func (c *APIClient) GetReactions(ctx context.Context, channel, timestamp string) (*ReactionListResult, error) {
+	if channel == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+	if timestamp == "" {
+		return nil, fmt.Errorf("timestamp is required")
+	}
+
+	itemRef := slackapi.ItemRef{
+		Channel:   channel,
+		Timestamp: timestamp,
+	}
+
+	params := slackapi.GetReactionsParameters{
+		Full: true, // Get full details including user list
+	}
+
+	reactions, err := c.sdk.GetReactionsContext(ctx, itemRef, params)
+	if err != nil {
+		return nil, fmt.Errorf("get reactions: %w", err)
+	}
+
+	// Convert slack-go ItemReaction to our ReactionItem structure
+	reactionItems := make([]ReactionItem, 0, len(reactions))
+	for _, reaction := range reactions {
+		reactionItems = append(reactionItems, ReactionItem{
+			Name:  reaction.Name,
+			Count: reaction.Count,
+			Users: reaction.Users,
+		})
+	}
+
+	return &ReactionListResult{
+		OK:        true,
+		Channel:   channel,
+		ChannelID: channel,
+		Timestamp: timestamp,
+		Reactions: reactionItems,
+	}, nil
 }
 
 // ListChannels fetches channels the calling user is a member of.
@@ -770,5 +943,60 @@ func (c *APIClient) ListPins(ctx context.Context, channel string) (*PinListResul
 		OK:      true,
 		Channel: channel,
 		Items:   pinnedItems,
+	}, nil
+}
+
+// ListEmoji retrieves all custom emoji in the workspace.
+func (c *APIClient) ListEmoji(ctx context.Context) (*EmojiListResult, error) {
+	emoji, err := c.sdk.GetEmojiContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list emoji: %w", err)
+	}
+
+	return &EmojiListResult{
+		OK:    true,
+		Emoji: emoji,
+		Count: len(emoji),
+	}, nil
+}
+
+// JoinChannel joins a channel by ID.
+func (c *APIClient) JoinChannel(ctx context.Context, channelID string) (*ChannelJoinResult, error) {
+	if channelID == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+
+	channel, _, _, err := c.sdk.JoinConversationContext(ctx, channelID)
+	if err != nil {
+		return nil, fmt.Errorf("join channel: %w", err)
+	}
+
+	channelName := channel.Name
+	if channelName == "" {
+		channelName = channelID
+	}
+
+	return &ChannelJoinResult{
+		OK:        true,
+		Channel:   channelName,
+		ChannelID: channelID,
+	}, nil
+}
+
+// LeaveChannel leaves a channel by ID.
+func (c *APIClient) LeaveChannel(ctx context.Context, channelID string) (*ChannelLeaveResult, error) {
+	if channelID == "" {
+		return nil, fmt.Errorf("channel is required")
+	}
+
+	_, err := c.sdk.LeaveConversationContext(ctx, channelID)
+	if err != nil {
+		return nil, fmt.Errorf("leave channel: %w", err)
+	}
+
+	return &ChannelLeaveResult{
+		OK:        true,
+		Channel:   channelID,
+		ChannelID: channelID,
 	}, nil
 }

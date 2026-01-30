@@ -42,6 +42,14 @@ func (m *resolverMockClient) ListChannels(ctx context.Context, params slack.List
 	return resp, cursor, nil
 }
 
+func (m *resolverMockClient) JoinChannel(ctx context.Context, channelID string) (*slack.ChannelJoinResult, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *resolverMockClient) LeaveChannel(ctx context.Context, channelID string) (*slack.ChannelLeaveResult, error) {
+	return nil, errors.New("not implemented")
+}
+
 func TestResolverResolveID_DirectID(t *testing.T) {
 	// Direct channel IDs should work without cache or client
 	resolver := NewResolver(nil)
