@@ -1,36 +1,38 @@
-internal/slack/errors.go
-  913e5b346087c3fb 1-37
-internal/slack/reactions.go
-  913e5b346087c3fb 13,16,19,33,36,39,53,56
-internal/slack/pins.go
-  913e5b346087c3fb 13,16,30,33,47
-internal/slack/messages.go
-  913e5b346087c3fb 79,108,111,150,153,180,183
+.beads/issues.jsonl
+  9320cf4cfcf071ef 1-38
 internal/slack/channels.go
-  913e5b346087c3fb 48,71
-internal/slack/search.go
-  913e5b346087c3fb 23
-internal/slack/errors_test.go
-  913e5b346087c3fb 1-64
+  9320cf4cfcf071ef 1-84
 internal/slack/client_test.go
-  913e5b346087c3fb 178
+  9320cf4cfcf071ef 1-375
+internal/slack/errors.go
+  9320cf4cfcf071ef 1-37
+internal/slack/errors_test.go
+  9320cf4cfcf071ef 1-64
+internal/slack/messages.go
+  9320cf4cfcf071ef 1-196
+internal/slack/pins.go
+  9320cf4cfcf071ef 1-80
+internal/slack/reactions.go
+  9320cf4cfcf071ef 1-90
+internal/slack/search.go
+  9320cf4cfcf071ef 1-64
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "86969240798a5930274debe8a6cb26e4cf107ef8",
   "prompts": {
-    "913e5b346087c3fb": {
+    "9320cf4cfcf071ef": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f34c78f5ffeYBCiEDijqc69LK",
+        "id": "ses_restored_8696924",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 125,
-      "total_deletions": 24,
-      "accepted_lines": 125,
+      "total_additions": 1028,
+      "total_deletions": 0,
+      "accepted_lines": 1028,
       "overriden_lines": 0
     }
   }
