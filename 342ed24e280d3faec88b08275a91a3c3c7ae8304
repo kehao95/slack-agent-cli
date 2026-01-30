@@ -1,0 +1,23 @@
+internal/slack/channels.go
+  78de52e906c9d76f 6,31,33-34,39,41-51,59-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "342ed24e280d3faec88b08275a91a3c3c7ae8304",
+  "prompts": {
+    "78de52e906c9d76f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f32d81e0ffeisAhM8lRSFDAyy",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 46,
+      "total_deletions": 23,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}
