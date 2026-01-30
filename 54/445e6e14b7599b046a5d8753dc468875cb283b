@@ -1,30 +1,30 @@
 .beads/export-state/251ce2e4e70e26c9.json
-  8187fd73255d527d 1-6
+  e790b9f92b0afa01 1-6
 .beads/issues.jsonl
-  8187fd73255d527d 1-30
+  e790b9f92b0afa01 1-30
 cmd/cache.go
-  8187fd73255d527d 1-235
+  e790b9f92b0afa01 1-235
 docs/DESIGN.md
-  8187fd73255d527d 1-816
+  e790b9f92b0afa01 1-816
 internal/cache/store_test.go
-  8187fd73255d527d 1-362
+  e790b9f92b0afa01 1-362
 internal/channels/resolver.go
-  8187fd73255d527d 1-141
+  e790b9f92b0afa01 1-141
 internal/channels/resolver_test.go
-  8187fd73255d527d 1-183
+  e790b9f92b0afa01 1-183
 internal/slack/client.go
-  8187fd73255d527d 1-175
+  e790b9f92b0afa01 1-175
 internal/users/resolver.go
-  8187fd73255d527d 1-181
+  e790b9f92b0afa01 1-181
 internal/users/resolver_test.go
-  8187fd73255d527d 1-250
+  e790b9f92b0afa01 1-250
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "54445e6e14b7599b046a5d8753dc468875cb283b",
   "prompts": {
-    "8187fd73255d527d": {
+    "e790b9f92b0afa01": {
       "agent_id": {
         "tool": "opencode",
         "id": "ses_restored_54445e6",
