@@ -2,10 +2,6 @@ display_information:
   name: slack-agent-cli (Full Access)
   description: Slack for Non-Humans™ - Full read/write access
   background_color: "#2c2d30"
-features:
-  bot_user:
-    display_name: slack-agent-cli
-    always_online: false
 oauth_config:
   scopes:
     user:
