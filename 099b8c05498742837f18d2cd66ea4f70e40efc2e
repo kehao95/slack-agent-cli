@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "099b8c05498742837f18d2cd66ea4f70e40efc2e",
+  "prompts": {
+    "34eda32302848e7a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f316ab35ffecOIgPcJgGB40kg",
+        "model": "github-copilot/gpt-5-mini"
+      },
+      "human_author": "Hao Ke",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
