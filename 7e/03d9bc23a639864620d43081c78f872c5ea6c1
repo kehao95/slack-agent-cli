@@ -1,24 +1,26 @@
-internal/slack/client.go
-  9b3a91b35e962531 20-21,76-108,231-281
+.beads/issues.jsonl
+  32eaff0bf2b4e9ff 1-30
 cmd/messages.go
-  9b3a91b35e962531 83-106,112-113,136-147,378-462
+  32eaff0bf2b4e9ff 1-462
+internal/slack/client.go
+  32eaff0bf2b4e9ff 1-610
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "7e03d9bc23a639864620d43081c78f872c5ea6c1",
   "prompts": {
-    "9b3a91b35e962531": {
+    "32eaff0bf2b4e9ff": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f3f7385fffe3VNMZ31WXJFn8w",
+        "id": "ses_restored_7e03d9b",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 215,
-      "total_deletions": 6,
-      "accepted_lines": 209,
+      "total_additions": 1102,
+      "total_deletions": 0,
+      "accepted_lines": 1102,
       "overriden_lines": 0
     }
   }
