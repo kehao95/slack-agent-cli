@@ -24,7 +24,8 @@ func Print(cmd *cobra.Command, data interface{}) error {
 }
 
 func printJSON(data interface{}) error {
-	encoded, err := json.MarshalIndent(data, "", "  ")
+	// Default to minified JSON for machine efficiency (pipe-friendly)
+	encoded, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal json: %w", err)
 	}
