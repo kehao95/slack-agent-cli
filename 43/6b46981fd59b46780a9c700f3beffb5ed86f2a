@@ -1,20 +1,28 @@
+internal/channels/service.go
+  897f0363dfb60c67 21-22
+docs/DESIGN.md
+  897f0363dfb60c67 586-617
+internal/slack/client.go
+  897f0363dfb60c67 409-411,413,415-416,418-420,423,470-471,477
+cmd/channels.go
+  897f0363dfb60c67 36
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "436b46981fd59b46780a9c700f3beffb5ed86f2a",
   "prompts": {
-    "61b1c1c69059d6e2": {
+    "897f0363dfb60c67": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f352b468ffetPaYkEMuTuJrtK",
-        "model": "github-copilot/claude-sonnet-4.5"
+        "id": "ses_3f4442caaffeYv00DTMTdvQQsP",
+        "model": "github-copilot/claude-opus-4.5"
       },
-      "human_author": "Hao Ke",
+      "human_author": "Hao Ke <hao.ke@heap.io>",
       "messages": [],
-      "total_additions": 0,
-      "total_deletions": 2,
-      "accepted_lines": 0,
+      "total_additions": 52,
+      "total_deletions": 36,
+      "accepted_lines": 49,
       "overriden_lines": 0
     }
   }
