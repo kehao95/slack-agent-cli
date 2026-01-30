@@ -1,0 +1,23 @@
+internal/messages/list.go
+  109cfcd8af01c1e4 6,118-120,158-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "a8eb4a8047ae1ab63361ae664600e56545605e00",
+  "prompts": {
+    "109cfcd8af01c1e4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3f4fab7eeffemBvOs76nT7Em34",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 1,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    }
+  }
+}
