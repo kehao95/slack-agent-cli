@@ -10,10 +10,10 @@ import (
 // AddPin pins a message to a channel.
 func (c *APIClient) AddPin(ctx context.Context, channel, timestamp string) error {
 	if channel == "" {
-		return fmt.Errorf("channel is required")
+		return ErrChannelRequired
 	}
 	if timestamp == "" {
-		return fmt.Errorf("timestamp is required")
+		return ErrTimestampRequired
 	}
 
 	itemRef := slackapi.ItemRef{
@@ -27,10 +27,10 @@ func (c *APIClient) AddPin(ctx context.Context, channel, timestamp string) error
 // RemovePin removes a pin from a message.
 func (c *APIClient) RemovePin(ctx context.Context, channel, timestamp string) error {
 	if channel == "" {
-		return fmt.Errorf("channel is required")
+		return ErrChannelRequired
 	}
 	if timestamp == "" {
-		return fmt.Errorf("timestamp is required")
+		return ErrTimestampRequired
 	}
 
 	itemRef := slackapi.ItemRef{
@@ -44,7 +44,7 @@ func (c *APIClient) RemovePin(ctx context.Context, channel, timestamp string) er
 // ListPins lists all pinned items in a channel.
 func (c *APIClient) ListPins(ctx context.Context, channel string) (*PinListResult, error) {
 	if channel == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 
 	items, _, err := c.sdk.ListPinsContext(ctx, channel)

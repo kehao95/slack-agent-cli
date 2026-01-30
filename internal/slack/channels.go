@@ -45,7 +45,7 @@ func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, li
 // JoinChannel joins a channel by ID.
 func (c *APIClient) JoinChannel(ctx context.Context, channelID string) (*ChannelJoinResult, error) {
 	if channelID == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 
 	channel, _, _, err := c.sdk.JoinConversationContext(ctx, channelID)
@@ -68,7 +68,7 @@ func (c *APIClient) JoinChannel(ctx context.Context, channelID string) (*Channel
 // LeaveChannel leaves a channel by ID.
 func (c *APIClient) LeaveChannel(ctx context.Context, channelID string) (*ChannelLeaveResult, error) {
 	if channelID == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 
 	_, err := c.sdk.LeaveConversationContext(ctx, channelID)
