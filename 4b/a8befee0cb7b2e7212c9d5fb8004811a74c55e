@@ -1,15 +1,15 @@
 .beads/issues.jsonl
-  f185e5436cb4f2ef 1-43
+  be6273685a488af2 1-43
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.0.40",
   "base_commit_sha": "4ba8befee0cb7b2e7212c9d5fb8004811a74c55e",
   "prompts": {
-    "f185e5436cb4f2ef": {
+    "be6273685a488af2": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_restored_1769810036",
+        "id": "ses_restored_4ba8bef",
         "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke <hao.ke@heap.io>",
