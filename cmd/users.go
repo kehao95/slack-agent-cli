@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/kehao95/slack-agent-cli/internal/users"
@@ -220,7 +221,7 @@ func resolveUserID(ctx context.Context, client *slack.APIClient, input string) (
 				return u.ID, nil
 			}
 		}
-		return "", fmt.Errorf("user @%s not found", username)
+		return "", errors.UserNotFoundError("@" + username)
 	}
 
 	// Assume it's already a user ID

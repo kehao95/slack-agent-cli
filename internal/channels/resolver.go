@@ -8,6 +8,7 @@ import (
 	slackapi "github.com/slack-go/slack"
 
 	"github.com/kehao95/slack-agent-cli/internal/cache"
+	"github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 )
 
@@ -79,7 +80,7 @@ func (r *Resolver) ResolveID(ctx context.Context, input string) (string, error) 
 		}
 	}
 
-	return "", fmt.Errorf("channel %s not found", trimmed)
+	return "", errors.ChannelNotFoundError(trimmed)
 }
 
 // loadChannels returns the cached channel list and the next cursor (if partial).

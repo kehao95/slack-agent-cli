@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	slackapi "github.com/slack-go/slack"
@@ -198,8 +199,10 @@ func TestResolverCacheMiss_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for nonexistent channel")
 	}
-	if !errors.Is(err, nil) && err.Error() != "channel #nonexistent not found" {
-		t.Fatalf("unexpected error: %v", err)
+	// The error message now includes a hint
+	expectedMsg := "channel not found: #nonexistent"
+	if !strings.Contains(err.Error(), expectedMsg) {
+		t.Fatalf("expected error to contain %q, got: %v", expectedMsg, err)
 	}
 	if client.index != 2 {
 		t.Fatalf("expected 2 API calls to exhaust pages, got %d", client.index)
