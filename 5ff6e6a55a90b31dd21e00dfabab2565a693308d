@@ -4,17 +4,17 @@
   "git_ai_version": "1.0.40",
   "base_commit_sha": "5ff6e6a55a90b31dd21e00dfabab2565a693308d",
   "prompts": {
-    "897f0363dfb60c67": {
+    "19ec95a938ffffb0": {
       "agent_id": {
         "tool": "opencode",
-        "id": "ses_3f4442caaffeYv00DTMTdvQQsP",
-        "model": "github-copilot/claude-opus-4.5"
+        "id": "ses_3f3a32c51ffeFltUowsOAMY7jB",
+        "model": "github-copilot/claude-sonnet-4.5"
       },
       "human_author": "Hao Ke",
       "messages": [],
-      "total_additions": 11,
-      "total_deletions": 3,
-      "accepted_lines": 11,
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
       "overriden_lines": 0
     }
   }
