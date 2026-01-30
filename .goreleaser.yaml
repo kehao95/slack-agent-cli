@@ -1,0 +1,143 @@
+# GoReleaser configuration for slack-agent-cli
+# Documentation: https://goreleaser.com
+
+version: 2
+
+project_name: slack-agent-cli
+
+before:
+  hooks:
+    # Clean up and ensure dependencies are correct
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: slack-agent-cli
+    main: ./main.go
+    binary: slack-agent-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Ignore combinations that don't make sense
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      # Inject version info
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - docs/DESIGN.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - typo
+  groups:
+    - title: 'Features'
+      regexp: '^feat:'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^fix:'
+      order: 1
+    - title: 'Others'
+      order: 999
+
+# Homebrew Tap
+brews:
+  - name: slack-agent-cli
+    
+    # GitHub repository for the tap
+    repository:
+      owner: kehao95
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    
+    # Commit author
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    
+    # Commit message
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    
+    # Metadata
+    homepage: "https://github.com/kehao95/slack-agent-cli"
+    description: "Slack for Non-Humans™ - Machine-first CLI for Slack"
+    license: "MIT"
+    
+    # Skip upload if this is a prerelease
+    skip_upload: auto
+
+# GitHub Release
+release:
+  github:
+    owner: kehao95
+    name: slack-agent-cli
+  
+  # Draft release (you can review before publishing)
+  draft: false
+  
+  # Prerelease flag
+  prerelease: auto
+  
+  # Release name
+  name_template: "{{.ProjectName}} v{{.Version}}"
+  
+  # Header and footer for the release notes
+  header: |
+    ## Slack for Non-Humans™
+    
+    Machine-first CLI for Slack. JSON by default.
+  
+  footer: |
+    ## Installation
+    
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew install kehao95/tap/slack-agent-cli
+    ```
+    
+    ### Go Install
+    ```bash
+    go install github.com/kehao95/slack-agent-cli@{{.Tag}}
+    ```
+    
+    ### Direct Download
+    Download the appropriate binary for your platform from the assets below.
+    
+    ---
+    
+    **Full Documentation:** https://github.com/kehao95/slack-agent-cli
