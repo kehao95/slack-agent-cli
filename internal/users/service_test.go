@@ -289,3 +289,154 @@ func TestUserInfoResult_Lines(t *testing.T) {
 		}
 	}
 }
+
+func TestService_GetPresence(t *testing.T) {
+	tests := []struct {
+		name         string
+		userID       string
+		mockPresence *slackapi.UserPresence
+		mockErr      error
+		wantErr      bool
+		wantPresence string
+		wantOnline   bool
+	}{
+		{
+			name:   "active user",
+			userID: "U123",
+			mockPresence: &slackapi.UserPresence{
+				Presence:        "active",
+				Online:          true,
+				AutoAway:        false,
+				ManualAway:      false,
+				ConnectionCount: 2,
+				LastActivity:    slackapi.JSONTime(1234567890),
+			},
+			mockErr:      nil,
+			wantErr:      false,
+			wantPresence: "active",
+			wantOnline:   true,
+		},
+		{
+			name:   "away user",
+			userID: "U456",
+			mockPresence: &slackapi.UserPresence{
+				Presence:        "away",
+				Online:          false,
+				AutoAway:        true,
+				ManualAway:      false,
+				ConnectionCount: 0,
+				LastActivity:    slackapi.JSONTime(1234567890),
+			},
+			mockErr:      nil,
+			wantErr:      false,
+			wantPresence: "away",
+			wantOnline:   false,
+		},
+		{
+			name:         "api error",
+			userID:       "U999",
+			mockPresence: nil,
+			mockErr:      errors.New("presence api error"),
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockUserClient{
+				presence:    tt.mockPresence,
+				presenceErr: tt.mockErr,
+			}
+
+			service := NewService(mock)
+			result, err := service.GetPresence(context.Background(), tt.userID)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetPresence() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err != nil {
+				return // Expected error case
+			}
+
+			if result.Presence != tt.wantPresence {
+				t.Errorf("GetPresence() presence = %v, want %v", result.Presence, tt.wantPresence)
+			}
+
+			if result.Online != tt.wantOnline {
+				t.Errorf("GetPresence() online = %v, want %v", result.Online, tt.wantOnline)
+			}
+
+			if !result.OK {
+				t.Errorf("GetPresence() OK = false, want true")
+			}
+		})
+	}
+}
+
+func TestPresenceResult_Lines(t *testing.T) {
+	tests := []struct {
+		name       string
+		result     *PresenceResult
+		wantStatus string
+		wantOnline string
+	}{
+		{
+			name: "active user",
+			result: &PresenceResult{
+				OK:              true,
+				Presence:        "active",
+				Online:          true,
+				AutoAway:        false,
+				ManualAway:      false,
+				ConnectionCount: 2,
+				LastActivity:    1234567890,
+			},
+			wantStatus: "Status: 🟢 Active",
+			wantOnline: "Online: Yes",
+		},
+		{
+			name: "away user",
+			result: &PresenceResult{
+				OK:              true,
+				Presence:        "away",
+				Online:          false,
+				AutoAway:        true,
+				ManualAway:      false,
+				ConnectionCount: 0,
+				LastActivity:    1234567890,
+			},
+			wantStatus: "Status: ⚪ Away",
+			wantOnline: "Online: No",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lines := tt.result.Lines()
+
+			if len(lines) < 3 {
+				t.Errorf("Lines() got %d lines, want at least 3", len(lines))
+			}
+
+			foundStatus := false
+			foundOnline := false
+			for _, line := range lines {
+				if line == tt.wantStatus {
+					foundStatus = true
+				}
+				if line == tt.wantOnline {
+					foundOnline = true
+				}
+			}
+
+			if !foundStatus {
+				t.Errorf("Lines() missing expected status: %s", tt.wantStatus)
+			}
+			if !foundOnline {
+				t.Errorf("Lines() missing expected online: %s", tt.wantOnline)
+			}
+		})
+	}
+}

@@ -14,8 +14,10 @@ type mockUserClient struct {
 	singleUser   *slackapi.User
 	users        map[string]*slackapi.User
 	allUsers     []slackapi.User // For ListUsers
+	presence     *slackapi.UserPresence
 	err          error
 	listUsersErr error
+	presenceErr  error
 	callsGetOne  int
 	callsListAll int
 }
@@ -43,6 +45,20 @@ func (m *mockUserClient) ListUsers(ctx context.Context, cursor string, limit int
 	}
 	// Return all users with empty cursor (simulating single page)
 	return m.allUsers, "", nil
+}
+
+func (m *mockUserClient) GetUserPresence(ctx context.Context, userID string) (*slackapi.UserPresence, error) {
+	if m.presenceErr != nil {
+		return nil, m.presenceErr
+	}
+	if m.presence != nil {
+		return m.presence, nil
+	}
+	// Default presence
+	return &slackapi.UserPresence{
+		Presence: "active",
+		Online:   true,
+	}, nil
 }
 
 func TestResolver_GetDisplayName_FromCache(t *testing.T) {
