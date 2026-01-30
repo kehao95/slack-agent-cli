@@ -14,6 +14,7 @@ import (
 type UserClient interface {
 	GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error)
 	ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error)
+	GetUserPresence(ctx context.Context, userID string) (*slackapi.UserPresence, error)
 }
 
 // CachedUser holds the subset of user info we persist.

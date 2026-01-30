@@ -40,3 +40,12 @@ func (c *APIClient) GetUserGroups(ctx context.Context) ([]slackapi.UserGroup, er
 	}
 	return groups, nil
 }
+
+// GetUserPresence fetches the presence status of a specific user.
+func (c *APIClient) GetUserPresence(ctx context.Context, userID string) (*slackapi.UserPresence, error) {
+	presence, err := c.sdk.GetUserPresenceContext(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user presence: %w", err)
+	}
+	return presence, nil
+}

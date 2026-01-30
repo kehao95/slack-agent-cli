@@ -178,15 +178,31 @@ func runUsersInfo(cmd *cobra.Command, args []string) error {
 }
 
 func runUsersPresence(cmd *cobra.Command, args []string) error {
+	cmdCtx, err := NewCommandContext(cmd, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+
+	service := users.NewService(cmdCtx.Client)
+
 	userInput, _ := cmd.Flags().GetString("user")
 	if userInput == "" {
 		return fmt.Errorf("--user flag is required")
 	}
 
-	// For now, return a not implemented message
-	// The Slack SDK supports presence via GetUserPresence, but we'll implement
-	// this later as it requires additional API permissions
-	return fmt.Errorf("users presence command not yet implemented - requires additional API scopes")
+	// Resolve user ID from @username or user ID
+	userID, err := resolveUserID(cmd.Context(), cmdCtx.Client, userInput)
+	if err != nil {
+		return fmt.Errorf("resolve user: %w", err)
+	}
+
+	result, err := service.GetPresence(cmdCtx.Ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return output.Print(cmd, result)
 }
 
 // resolveUserID converts @username to user ID, or returns the input if it's already an ID.

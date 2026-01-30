@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	slackapi "github.com/slack-go/slack"
 )
@@ -50,6 +51,17 @@ type UserInfoResult struct {
 	User UserInfo `json:"user"`
 }
 
+// PresenceResult contains the result of a user presence lookup.
+type PresenceResult struct {
+	OK              bool   `json:"ok"`
+	Presence        string `json:"presence"`         // "active" or "away"
+	Online          bool   `json:"online"`           // true if user is online
+	AutoAway        bool   `json:"auto_away"`        // true if away status is automatic
+	ManualAway      bool   `json:"manual_away"`      // true if user manually set away
+	ConnectionCount int    `json:"connection_count"` // number of active connections
+	LastActivity    int64  `json:"last_activity"`    // unix timestamp of last activity
+}
+
 // List fetches users with pagination.
 func (s *Service) List(ctx context.Context, params ListParams) (*ListResult, error) {
 	if params.Limit <= 0 {
@@ -87,6 +99,24 @@ func (s *Service) GetInfo(ctx context.Context, userID string) (*UserInfoResult, 
 	return &UserInfoResult{
 		OK:   true,
 		User: toUserInfo(user),
+	}, nil
+}
+
+// GetPresence fetches the presence status of a specific user.
+func (s *Service) GetPresence(ctx context.Context, userID string) (*PresenceResult, error) {
+	presence, err := s.client.GetUserPresence(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user presence: %w", err)
+	}
+
+	return &PresenceResult{
+		OK:              true,
+		Presence:        presence.Presence,
+		Online:          presence.Online,
+		AutoAway:        presence.AutoAway,
+		ManualAway:      presence.ManualAway,
+		ConnectionCount: presence.ConnectionCount,
+		LastActivity:    int64(presence.LastActivity),
 	}, nil
 }
 
@@ -170,6 +200,42 @@ func (r *UserInfoResult) Lines() []string {
 		lines = append(lines, "Status: Deleted")
 	} else {
 		lines = append(lines, "Status: Active")
+	}
+
+	return lines
+}
+
+// Lines implements the output.Printable interface for PresenceResult.
+func (r *PresenceResult) Lines() []string {
+	title := "User Presence"
+	lines := []string{title, strings.Repeat("-", len(title))}
+
+	// Add presence status with icon
+	presenceIcon := "🟢"
+	if r.Presence == "away" {
+		presenceIcon = "⚪"
+	}
+	lines = append(lines, fmt.Sprintf("Status: %s %s", presenceIcon, strings.Title(r.Presence)))
+
+	if r.Online {
+		lines = append(lines, "Online: Yes")
+	} else {
+		lines = append(lines, "Online: No")
+	}
+
+	if r.AutoAway {
+		lines = append(lines, "Away Type: Automatic (idle)")
+	} else if r.ManualAway {
+		lines = append(lines, "Away Type: Manual")
+	}
+
+	if r.ConnectionCount > 0 {
+		lines = append(lines, fmt.Sprintf("Active Connections: %d", r.ConnectionCount))
+	}
+
+	if r.LastActivity > 0 {
+		lastActivity := time.Unix(r.LastActivity, 0)
+		lines = append(lines, fmt.Sprintf("Last Activity: %s", lastActivity.Format(time.RFC3339)))
 	}
 
 	return lines
