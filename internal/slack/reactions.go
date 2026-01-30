@@ -10,13 +10,13 @@ import (
 // AddReaction adds an emoji reaction to a message.
 func (c *APIClient) AddReaction(ctx context.Context, channel, timestamp, emoji string) error {
 	if channel == "" {
-		return fmt.Errorf("channel is required")
+		return ErrChannelRequired
 	}
 	if timestamp == "" {
-		return fmt.Errorf("timestamp is required")
+		return ErrTimestampRequired
 	}
 	if emoji == "" {
-		return fmt.Errorf("emoji is required")
+		return ErrEmojiRequired
 	}
 
 	itemRef := slackapi.ItemRef{
@@ -30,13 +30,13 @@ func (c *APIClient) AddReaction(ctx context.Context, channel, timestamp, emoji s
 // RemoveReaction removes an emoji reaction from a message.
 func (c *APIClient) RemoveReaction(ctx context.Context, channel, timestamp, emoji string) error {
 	if channel == "" {
-		return fmt.Errorf("channel is required")
+		return ErrChannelRequired
 	}
 	if timestamp == "" {
-		return fmt.Errorf("timestamp is required")
+		return ErrTimestampRequired
 	}
 	if emoji == "" {
-		return fmt.Errorf("emoji is required")
+		return ErrEmojiRequired
 	}
 
 	itemRef := slackapi.ItemRef{
@@ -50,10 +50,10 @@ func (c *APIClient) RemoveReaction(ctx context.Context, channel, timestamp, emoj
 // GetReactions retrieves all reactions on a specific message.
 func (c *APIClient) GetReactions(ctx context.Context, channel, timestamp string) (*ReactionListResult, error) {
 	if channel == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 	if timestamp == "" {
-		return nil, fmt.Errorf("timestamp is required")
+		return nil, ErrTimestampRequired
 	}
 
 	itemRef := slackapi.ItemRef{

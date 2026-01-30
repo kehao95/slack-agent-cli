@@ -76,7 +76,7 @@ func formatSlackTimestamp(t time.Time) string {
 // ListConversationsHistory retrieves channel history.
 func (c *APIClient) ListConversationsHistory(ctx context.Context, params HistoryParams) (*slackapi.GetConversationHistoryResponse, error) {
 	if params.Channel == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 	options := &slackapi.GetConversationHistoryParameters{ChannelID: params.Channel}
 	options.Cursor = params.Cursor
@@ -105,10 +105,10 @@ func (c *APIClient) ListThreadReplies(ctx context.Context, params ThreadParams) 
 // PostMessage sends a message to a channel.
 func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMessageOptions) (*PostMessageResult, error) {
 	if channel == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 	if opts.Text == "" && len(opts.Blocks) == 0 {
-		return nil, fmt.Errorf("either text or blocks is required")
+		return nil, ErrTextRequired
 	}
 
 	msgOpts := []slackapi.MsgOption{
@@ -147,10 +147,10 @@ func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMe
 // EditMessage updates an existing message.
 func (c *APIClient) EditMessage(ctx context.Context, channel, timestamp, text string) (*EditMessageResult, error) {
 	if channel == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 	if timestamp == "" {
-		return nil, fmt.Errorf("timestamp is required")
+		return nil, ErrTimestampRequired
 	}
 	if text == "" {
 		return nil, fmt.Errorf("text is required")
@@ -177,10 +177,10 @@ func (c *APIClient) EditMessage(ctx context.Context, channel, timestamp, text st
 // DeleteMessage deletes a message.
 func (c *APIClient) DeleteMessage(ctx context.Context, channel, timestamp string) (*DeleteMessageResult, error) {
 	if channel == "" {
-		return nil, fmt.Errorf("channel is required")
+		return nil, ErrChannelRequired
 	}
 	if timestamp == "" {
-		return nil, fmt.Errorf("timestamp is required")
+		return nil, ErrTimestampRequired
 	}
 
 	_, _, err := c.sdk.DeleteMessageContext(ctx, channel, timestamp)

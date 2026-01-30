@@ -175,7 +175,7 @@ func TestPostMessageValidation(t *testing.T) {
 			name:      "no text or blocks",
 			channel:   "C123ABC",
 			opts:      PostMessageOptions{},
-			wantError: "either text or blocks is required",
+			wantError: "text or blocks is required",
 		},
 		{
 			name:    "valid with blocks",

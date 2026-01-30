@@ -20,7 +20,7 @@ func NewUserClient(userToken string) *UserAPIClient {
 // SearchMessages searches messages across the workspace using search.messages API.
 func (c *UserAPIClient) SearchMessages(ctx context.Context, query string, params SearchParams) (*SearchResult, error) {
 	if query == "" {
-		return nil, fmt.Errorf("search query is required")
+		return nil, ErrQueryRequired
 	}
 
 	searchParams := slackapi.SearchParameters{
