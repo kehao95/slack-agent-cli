@@ -1,0 +1,35 @@
+cmd/context.go
+  de1cb8002db72cd8 51
+internal/slack/client.go
+  de1cb8002db72cd8 4-6,16,20-55
+internal/config/config_test.go
+  de1cb8002db72cd8 66-92
+internal/config/config.go
+  de1cb8002db72cd8 19-21,25,107,109-111,134-142
+SLACK_SETUP.md
+  de1cb8002db72cd8 3,8-11,14-19,21,23,35,41,47,53
+CONTRIBUTING.md
+  de1cb8002db72cd8 168-169
+README.md
+  de1cb8002db72cd8 96-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "2efe89a0a7bf2ddd8b621651ac2f6ab996215428",
+  "prompts": {
+    "de1cb8002db72cd8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3e5b3b14cffef4EOjibX93gRtB",
+        "model": "github-copilot/gpt-5-mini"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 348,
+      "total_deletions": 158,
+      "accepted_lines": 252,
+      "overriden_lines": 0
+    }
+  }
+}
