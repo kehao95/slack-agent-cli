@@ -48,3 +48,6 @@ build/
 slack-agent-cli
 dist/
 slk
+
+# git ai
+prompts.db

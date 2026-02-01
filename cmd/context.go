@@ -48,7 +48,7 @@ func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandConte
 		return nil, errors.ConfigError("failed to initialize cache: %w", err)
 	}
 
-	client := slack.New(cfg.UserToken)
+	client := slack.NewAuto(cfg.UserToken, cfg.Cookie)
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 
 	return &CommandContext{

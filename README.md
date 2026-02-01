@@ -93,7 +93,9 @@ Download from [GitHub Releases](https://github.com/kehao95/slk/releases)
    - **Full Access:** [`slack-app-manifest-full.yaml`](./slack-app-manifest-full.yaml)
 3. **Install to workspace:** Click "Install to Workspace" and authorize
 4. **Copy token:** Copy the **User OAuth Token** (starts with `xoxp-`)
-5. **Initialize CLI:** Run `slk config init` and paste your token
+5. **Configure:**
+   - **Option A:** Run `slk config init` and paste your token
+   - **Option B:** Set `export SLACK_USER_TOKEN='xoxp-...'`
 
 **See [SLACK_SETUP.md](./SLACK_SETUP.md) for detailed setup instructions and mode comparison.**
 

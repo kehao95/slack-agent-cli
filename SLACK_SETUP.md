@@ -1,28 +1,26 @@
 # Slack Setup Guide for slk
 
-This guide walks you through setting up a Slack App with the necessary permissions for `slk`.
+This guide walks you through setting up authentication for `slk`.
 
 ## Choose Your Mode
 
 **Read-Only Mode** - For viewing and searching only (recommended for most users)
-- ✅ List channels, messages, users
-- ✅ Search messages
-- ✅ View reactions, pins, files
-- ❌ Can't send messages or modify anything
+- List channels, messages, users
+- Search messages
+- View reactions, pins, files
+- Can't send messages or modify anything
 
 **Full Access Mode** - For automation and writing
-- ✅ Everything from read-only mode
-- ✅ Send, edit, delete messages
-- ✅ Add/remove reactions
-- ✅ Pin/unpin messages
-- ✅ Upload files
-- ✅ Join/leave channels
+- Everything from read-only mode
+- Send, edit, delete messages
+- Add/remove reactions
+- Pin/unpin messages
+- Upload files
+- Join/leave channels
 
----
+### Quick Setup (Recommended)
 
-## Quick Setup (Recommended)
-
-### Step 1: Create Slack App from Manifest
+#### Step 1: Create Slack App from Manifest
 
 1. Go to https://api.slack.com/apps
 2. Click **"Create New App"**
@@ -34,29 +32,27 @@ This guide walks you through setting up a Slack App with the necessary permissio
    - **Full Access:** [`slack-app-manifest-full.yaml`](./slack-app-manifest-full.yaml)
 7. Click **"Next"** → Review → **"Create"**
 
-### Step 2: Install the App
+#### Step 2: Install the App
 
 1. In your new app's settings, go to **"OAuth & Permissions"**
 2. Click **"Install to Workspace"**
 3. Review the permissions and click **"Allow"**
 
-### Step 3: Copy Your User Token
+#### Step 3: Copy Your User Token
 
 1. After installation, you'll see **"User OAuth Token"** (starts with `xoxp-`)
 2. Copy this token
 3. Run `slk config init` and paste the token when prompted
 
-### Step 4: Test the Connection
+#### Step 4: Test the Connection
 
 ```bash
 slk auth test
 ```
 
-You should see your user info - you're all set! 🎉
+You should see your user info - you're all set!
 
 ---
-
-## Manual Setup (Alternative)
 
 If you prefer to configure scopes manually:
 

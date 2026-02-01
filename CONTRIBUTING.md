@@ -165,8 +165,8 @@ func TestChannelResolver(t *testing.T) {
 
 ```go
 func TestSlackIntegration(t *testing.T) {
-    if os.Getenv("SLACK_TOKEN") == "" {
-        t.Skip("SLACK_TOKEN not set")
+    if os.Getenv("SLACK_USER_TOKEN") == "" {
+        t.Skip("SLACK_USER_TOKEN not set")
     }
     // test implementation
 }

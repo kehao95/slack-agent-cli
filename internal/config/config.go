@@ -16,10 +16,13 @@ const (
 )
 
 // Config represents the configuration stored on disk.
-// This CLI operates as a user client, using User Token (xoxp-...) to act on behalf of the user.
+// Supports two authentication methods:
+//   - OAuth user token (xoxp-): SLACK_USER_TOKEN env var (preferred)
+//   - Client token (xoxc-): SLACK_CLIENT_TOKEN + SLACK_CLIENT_COOKIE env vars
 type Config struct {
 	Version   int            `json:"version"`
 	UserToken string         `json:"user_token"`
+	Cookie    string         `json:"cookie,omitempty"`
 	Defaults  Defaults       `json:"defaults"`
 	Channels  map[string]ACL `json:"channels"`
 }
@@ -101,7 +104,11 @@ func (c *Config) Validate() error {
 		return errors.New("config is nil")
 	}
 	if c.UserToken == "" {
-		return errors.New("user token is required (set SLACK_USER_TOKEN or add user_token to config)")
+		return errors.New("token is required (set SLACK_USER_TOKEN, SLACK_CLIENT_TOKEN, or add user_token to config)")
+	}
+	// xoxc- tokens require a cookie
+	if strings.HasPrefix(c.UserToken, "xoxc-") && c.Cookie == "" {
+		return errors.New("xoxc- client tokens require a cookie (set SLACK_CLIENT_COOKIE or add cookie to config)")
 	}
 	return nil
 }
@@ -124,6 +131,15 @@ func resolvePath(path string) (string, error) {
 }
 
 func applyEnvOverrides(cfg *Config) {
+	// Client token (xoxc-) - extracted from browser/desktop (lowest priority)
+	if val := os.Getenv("SLACK_CLIENT_TOKEN"); val != "" {
+		cfg.UserToken = val
+	}
+	// Cookie for client tokens
+	if val := os.Getenv("SLACK_CLIENT_COOKIE"); val != "" {
+		cfg.Cookie = val
+	}
+	// OAuth user token (xoxp-) - highest priority, preferred auth method
 	if val := os.Getenv("SLACK_USER_TOKEN"); val != "" {
 		cfg.UserToken = val
 	}

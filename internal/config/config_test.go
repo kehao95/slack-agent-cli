@@ -63,6 +63,36 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 }
 
+func TestApplyEnvOverridesClientToken(t *testing.T) {
+	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "xoxc-client")
+	t.Setenv("SLACK_CLIENT_COOKIE", "xoxd-cookie")
+
+	cfg := DefaultConfig()
+	applyEnvOverrides(cfg)
+
+	if cfg.UserToken != "xoxc-client" {
+		t.Fatalf("expected client token override, got %s", cfg.UserToken)
+	}
+	if cfg.Cookie != "xoxd-cookie" {
+		t.Fatalf("expected cookie override, got %s", cfg.Cookie)
+	}
+}
+
+func TestApplyEnvOverridesUserTokenTakesPrecedence(t *testing.T) {
+	// When both are set, SLACK_USER_TOKEN should win
+	t.Setenv("SLACK_USER_TOKEN", "xoxp-user")
+	t.Setenv("SLACK_CLIENT_TOKEN", "xoxc-client")
+	t.Setenv("SLACK_CLIENT_COOKIE", "xoxd-cookie")
+
+	cfg := DefaultConfig()
+	applyEnvOverrides(cfg)
+
+	if cfg.UserToken != "xoxp-user" {
+		t.Fatalf("expected SLACK_USER_TOKEN to take precedence, got %s", cfg.UserToken)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	cfg := DefaultConfig()
 	if err := cfg.Validate(); err == nil {
