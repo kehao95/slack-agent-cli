@@ -54,13 +54,18 @@ func New(basePath string, ttl time.Duration) *Store {
 	}
 }
 
-// DefaultStore returns a Store using the standard cache directory (~/.config/slack-cli/cache).
-func DefaultStore() (*Store, error) {
+// DefaultStore returns a Store using the standard cache directory scoped by team ID
+// (~/.config/slack-cli/cache/{team_id}).
+func DefaultStore(teamID string) (*Store, error) {
+	teamID = strings.TrimSpace(teamID)
+	if teamID == "" {
+		return nil, errors.New("team id is required for cache store")
+	}
 	base, err := defaultBasePath()
 	if err != nil {
 		return nil, err
 	}
-	return New(base, DefaultTTL), nil
+	return New(filepath.Join(base, teamID), DefaultTTL), nil
 }
 
 // Load reads a cached entry by key and unmarshals it into v.

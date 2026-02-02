@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/kehao95/slack-agent-cli/internal/cache"
@@ -43,13 +45,20 @@ func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandConte
 		return nil, errors.ConfigError("invalid config (%s): %w", path, err)
 	}
 
-	cacheStore, err := cache.DefaultStore()
-	if err != nil {
-		return nil, errors.ConfigError("failed to initialize cache: %w", err)
-	}
-
 	client := slack.NewAuto(cfg.UserToken, cfg.Cookie)
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+
+	teamID, err := resolveTeamID(ctx, client)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	cacheStore, err := cache.DefaultStore(teamID)
+	if err != nil {
+		cancel()
+		return nil, errors.ConfigError("failed to initialize cache: %w", err)
+	}
 
 	return &CommandContext{
 		Ctx:               ctx,
@@ -75,4 +84,18 @@ func (c *CommandContext) Close() {
 // Convenience method that wraps ChannelResolver.ResolveID.
 func (c *CommandContext) ResolveChannel(input string) (string, error) {
 	return c.ChannelResolver.ResolveID(c.Ctx, input)
+}
+
+func resolveTeamID(ctx context.Context, client *slack.APIClient) (string, error) {
+	if envTeamID := strings.TrimSpace(os.Getenv("SLACK_TEAM_ID")); envTeamID != "" {
+		return envTeamID, nil
+	}
+	resp, err := client.AuthTest(ctx)
+	if err != nil {
+		return "", errors.AuthError("auth test failed: %w", err)
+	}
+	if resp.TeamID == "" {
+		return "", errors.AuthError("auth test missing team id")
+	}
+	return resp.TeamID, nil
 }

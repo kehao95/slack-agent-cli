@@ -8,6 +8,7 @@ import (
 func TestLoadDefaultWhenMissing(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "")
 	t.Setenv("SLACK_CLI_FORMAT", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
 
 	path := filepath.Join(t.TempDir(), "config.json")
 	cfg, actualPath, err := Load(path)
@@ -25,6 +26,7 @@ func TestLoadDefaultWhenMissing(t *testing.T) {
 func TestSaveAndLoad(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "")
 	t.Setenv("SLACK_CLI_FORMAT", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
 
 	path := filepath.Join(t.TempDir(), "slack", "config.json")
 	cfg := DefaultConfig()

@@ -360,3 +360,25 @@ func TestStore_GetStatus(t *testing.T) {
 		t.Errorf("expected cursor_next, got %s", uStatus.NextCursor)
 	}
 }
+
+func TestDefaultStore_RequiresTeamID(t *testing.T) {
+	_, err := DefaultStore("")
+	if err == nil {
+		t.Fatal("expected error for empty team id")
+	}
+}
+
+func TestDefaultStore_PathIncludesTeamID(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	store, err := DefaultStore("T123TEST")
+	if err != nil {
+		t.Fatalf("DefaultStore failed: %v", err)
+	}
+
+	expected := filepath.Join(home, ".config", "slack-cli", "cache", "T123TEST")
+	if store.BasePath != expected {
+		t.Fatalf("expected base path %s, got %s", expected, store.BasePath)
+	}
+}

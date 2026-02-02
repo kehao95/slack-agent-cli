@@ -24,6 +24,7 @@ func TestNewCommandContext_ValidConfig(t *testing.T) {
 	cmd.SetContext(context.Background())
 
 	// Create command context
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
 		t.Fatalf("NewCommandContext returned error: %v", err)
@@ -66,6 +67,7 @@ func TestNewCommandContext_ValidConfig(t *testing.T) {
 // an error when the config file doesn't exist and no env vars are set.
 func TestNewCommandContext_MissingConfig(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
 
 	// Point to non-existent config
 	cfgFile = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -75,6 +77,7 @@ func TestNewCommandContext_MissingConfig(t *testing.T) {
 
 	// NewCommandContext should succeed (Load creates default config)
 	// but validation should fail
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err == nil {
 		defer cmdCtx.Close()
@@ -91,6 +94,7 @@ func TestNewCommandContext_MissingConfig(t *testing.T) {
 // an error when the config is invalid (missing user token).
 func TestNewCommandContext_InvalidConfig(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
 
 	// Create config without user token
 	configPath := filepath.Join(t.TempDir(), "config.json")
@@ -107,6 +111,7 @@ func TestNewCommandContext_InvalidConfig(t *testing.T) {
 	cmd.SetContext(context.Background())
 
 	// Should fail validation
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err == nil {
 		defer cmdCtx.Close()
@@ -129,6 +134,7 @@ func TestNewCommandContext_DefaultTimeout(t *testing.T) {
 	cmd.SetContext(context.Background())
 
 	// Pass timeout=0 to use default
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
 		t.Fatalf("NewCommandContext returned error: %v", err)
@@ -160,6 +166,7 @@ func TestNewCommandContext_CustomTimeout(t *testing.T) {
 	cmd.SetContext(context.Background())
 
 	// Use custom 10-second timeout
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	customTimeout := 10 * time.Second
 	cmdCtx, err := NewCommandContext(cmd, customTimeout)
 	if err != nil {
@@ -190,6 +197,7 @@ func TestCommandContext_Close(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	cmd.SetContext(context.Background())
 
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
 		t.Fatalf("NewCommandContext returned error: %v", err)
@@ -254,6 +262,7 @@ func TestCommandContext_CloseNilCancel(t *testing.T) {
 func setupValidConfig(t *testing.T) string {
 	t.Helper()
 	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()

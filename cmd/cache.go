@@ -238,17 +238,18 @@ func (c *cacheStatusPrintable) Lines() []string {
 }
 
 func runCacheStatus(cmd *cobra.Command, args []string) error {
-	cacheStore, err := cache.DefaultStore()
+	cmdCtx, err := NewCommandContext(cmd, 10*time.Second)
 	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
+		return err
 	}
+	defer cmdCtx.Close()
 
 	response := cacheStatusResponse{
 		Items: make([]cacheStatusItem, 0),
 	}
 
 	for _, key := range []string{cache.CacheKeyChannels, cache.CacheKeyUsers} {
-		status, found := cacheStore.GetStatus(key)
+		status, found := cmdCtx.CacheStore.GetStatus(key)
 		if !found {
 			response.Items = append(response.Items, cacheStatusItem{
 				Key:    key,
@@ -303,10 +304,11 @@ func (c *cacheClearPrintable) Lines() []string {
 }
 
 func runCacheClear(cmd *cobra.Command, args []string) error {
-	cacheStore, err := cache.DefaultStore()
+	cmdCtx, err := NewCommandContext(cmd, 10*time.Second)
 	if err != nil {
-		return fmt.Errorf("init cache: %w", err)
+		return err
 	}
+	defer cmdCtx.Close()
 
 	var targets []string
 	if len(args) == 0 {
@@ -324,10 +326,10 @@ func runCacheClear(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, key := range targets {
-		if err := cacheStore.Expire(key); err != nil {
+		if err := cmdCtx.CacheStore.Expire(key); err != nil {
 			return fmt.Errorf("clear %s: %w", key, err)
 		}
-		if err := cacheStore.ExpirePartial(key); err != nil {
+		if err := cmdCtx.CacheStore.ExpirePartial(key); err != nil {
 			return fmt.Errorf("clear %s partial: %w", key, err)
 		}
 		response.Results = append(response.Results, cacheClearResult{
