@@ -96,8 +96,19 @@ Download from [GitHub Releases](https://github.com/kehao95/slk/releases)
 5. **Configure:**
    - **Option A:** Run `slk config init` and paste your token
    - **Option B:** Set `export SLACK_USER_TOKEN='xoxp-...'`
+   - **Option C:** Use OAuth flow with `slk auth oauth` (see below)
 
 **See [SLACK_SETUP.md](./SLACK_SETUP.md) for detailed setup instructions and mode comparison.**
+
+### OAuth Flow (Alternative)
+
+For automated token exchange, use the built-in OAuth server:
+
+```bash
+slk auth oauth --client-id $SLACK_CLIENT_ID --client-secret $SLACK_CLIENT_SECRET
+```
+
+This starts a local server on port 8089 with a `/callback` endpoint. Expose it publicly (via your preferred method) and add the callback URL to your Slack app's redirect URIs. After authorization, the token is returned in the response.
 
 ## Use Cases
 
