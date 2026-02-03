@@ -1,0 +1,25 @@
+cmd/auth_oauth.go
+  c10888f7d4464339 35-36,41,155
+README.md
+  c10888f7d4464339 99,103-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "64084d3782972a509f53d3c14c5844861fcb25c0",
+  "prompts": {
+    "c10888f7d4464339": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3dc3119caffeRJ5ewBn1Hqm1rf",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 17,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    }
+  }
+}
