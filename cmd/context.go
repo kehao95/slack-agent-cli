@@ -72,6 +72,24 @@ func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandConte
 	}, nil
 }
 
+// NewCommandContextWithToken creates a minimal context with a provided token.
+// This is useful for verifying tokens before saving them to config.
+// It does not initialize cache or resolvers since those require team ID.
+func NewCommandContextWithToken(cmd *cobra.Command, timeout time.Duration, token string) (*CommandContext, error) {
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+
+	client := slack.NewAuto(token, "")
+	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+
+	return &CommandContext{
+		Ctx:    ctx,
+		Cancel: cancel,
+		Client: client,
+	}, nil
+}
+
 // Close releases resources held by the CommandContext.
 // Always defer Close() after creating a CommandContext.
 func (c *CommandContext) Close() {
