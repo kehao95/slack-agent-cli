@@ -1,0 +1,25 @@
+cmd/auth_login.go
+  cc3cf444d1a13351 1-130
+cmd/context.go
+  cc3cf444d1a13351 75-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "a48f91ce5f9e6cdede1d5b328cc09d5202254119",
+  "prompts": {
+    "cc3cf444d1a13351": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3d45dcafaffe4o2NDm1YaX3Arm",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 148,
+      "total_deletions": 0,
+      "accepted_lines": 148,
+      "overriden_lines": 0
+    }
+  }
+}
