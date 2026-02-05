@@ -1,0 +1,25 @@
+README.md
+  7b29b8c906bad894 54-55
+.goreleaser.yaml
+  7b29b8c906bad894 88-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "0fc5a144668248803af0c144946b31cf25b252a9",
+  "prompts": {
+    "7b29b8c906bad894": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3d4536fabffeBtvfhl6Ip01mJu",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
