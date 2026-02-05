@@ -1,0 +1,23 @@
+cmd/context_test.go
+  1a546948b74e6570 228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "e4f672c4af1952ae808307fa42448f1bc9c8ca36",
+  "prompts": {
+    "1a546948b74e6570": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3d4434b6cffebaMF8hllEXq91c",
+        "model": "github-copilot/claude-sonnet-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
