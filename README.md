@@ -51,14 +51,13 @@ slk messages list --channel "#general" --limit 10 --human
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap kehao95/slack-agent-cli https://github.com/kehao95/slack-agent-cli
-brew install slk
+brew install kehao95/slack-agent-cli/slk
 ```
 
 ### Go Install
 
 ```bash
-go install github.com/kehao95/slk@latest
+go install github.com/kehao95/slack-agent-cli@latest
 ```
 
 ### Pre-built Binaries

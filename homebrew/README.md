@@ -5,7 +5,7 @@ This directory contains the Homebrew formula for slk, automatically generated an
 ## Installation
 
 ```bash
-brew install kehao95/slk/slk
+brew install kehao95/slack-agent-cli/slk
 ```
 
 ## How it Works
