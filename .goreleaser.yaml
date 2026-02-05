@@ -85,8 +85,8 @@ brews:
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
     
-    # Folder to store the formula (creates homebrew/slack-agent-cli.rb)
-    folder: homebrew
+    # Folder to store the formula (creates Formula/slk.rb)
+    folder: Formula
     
     # Commit author
     commit_author:
