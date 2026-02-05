@@ -225,6 +225,7 @@ func TestCommandContext_ResolveChannel(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	cmd.SetContext(context.Background())
 
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
 		t.Fatalf("NewCommandContext returned error: %v", err)
