@@ -1,0 +1,23 @@
+README.md
+  d97baba8021a5b79 3,5,39-40,65,73-76,97,108,111,113-157,169-186,189-192,194-218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "739a368270f8b619abab6558eb89d6f741029907",
+  "prompts": {
+    "d97baba8021a5b79": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3d4480963ffe9xx4yeaRrATWf7",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 107,
+      "total_deletions": 14,
+      "accepted_lines": 107,
+      "overriden_lines": 0
+    }
+  }
+}
