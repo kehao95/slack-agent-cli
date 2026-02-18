@@ -1,0 +1,25 @@
+.github/workflows/release.yml
+  e3f9f62c64206ae2 36
+.goreleaser.yaml
+  e3f9f62c64206ae2 81,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.4",
+  "base_commit_sha": "1ee4d13ebab52d42242c6bd28e7d53359417e0c0",
+  "prompts": {
+    "e3f9f62c64206ae2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_38e81cd44ffeqzOSqerXN7AM7u",
+        "model": "github-copilot/claude-opus-4.5"
+      },
+      "human_author": "Hao Ke <hao.ke@heap.io>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 3,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
