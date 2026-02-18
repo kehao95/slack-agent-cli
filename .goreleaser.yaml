@@ -78,10 +78,10 @@ changelog:
 brews:
   - name: slk
     
-    # Store formula in this repository under homebrew/ directory
+    # Store formula in dedicated homebrew tap repository
     repository:
       owner: kehao95
-      name: slack-agent-cli
+      name: homebrew-slack-agent-cli
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
     
