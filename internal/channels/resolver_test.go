@@ -52,14 +52,49 @@ func (m *resolverMockClient) LeaveChannel(ctx context.Context, channelID string)
 }
 
 func TestResolverResolveID_DirectID(t *testing.T) {
-	// Direct channel IDs should work without cache or client
+	// Direct conversation IDs should work without cache or client
+	tests := []string{"C123ABC", "D123ABC", "G123ABC"}
 	resolver := NewResolver(nil)
-	id, err := resolver.ResolveID(context.Background(), "C123ABC")
-	if err != nil {
-		t.Fatalf("ResolveID returned error: %v", err)
+	for _, input := range tests {
+		id, err := resolver.ResolveID(context.Background(), input)
+		if err != nil {
+			t.Fatalf("ResolveID returned error for %s: %v", input, err)
+		}
+		if id != input {
+			t.Fatalf("expected %s, got %s", input, id)
+		}
 	}
-	if id != "C123ABC" {
-		t.Fatalf("expected C123ABC, got %s", id)
+}
+
+func TestResolverResolveID_PermalinkID(t *testing.T) {
+	tests := []struct {
+		name     string
+		link     string
+		expected string
+	}{
+		{
+			name:     "public channel permalink",
+			link:     "https://example.slack.com/archives/C123ABC/p1705312365000100",
+			expected: "C123ABC",
+		},
+		{
+			name:     "dm permalink",
+			link:     "https://example.slack.com/archives/D123ABC/p1705312365000100?thread_ts=1705312365.000100",
+			expected: "D123ABC",
+		},
+	}
+
+	resolver := NewResolver(nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, err := resolver.ResolveID(context.Background(), tt.link)
+			if err != nil {
+				t.Fatalf("ResolveID returned error: %v", err)
+			}
+			if id != tt.expected {
+				t.Fatalf("expected %s, got %s", tt.expected, id)
+			}
+		})
 	}
 }
 

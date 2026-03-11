@@ -3,6 +3,8 @@ package channels
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"regexp"
 	"strings"
 
 	slackapi "github.com/slack-go/slack"
@@ -11,6 +13,8 @@ import (
 	"github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 )
+
+var conversationIDPattern = regexp.MustCompile(`^[CDG][A-Z0-9]+$`)
 
 // Resolver resolves channel names to IDs using disk-cached lookups.
 type Resolver struct {
@@ -49,8 +53,16 @@ func (r *Resolver) ResolveID(ctx context.Context, input string) (string, error) 
 	if trimmed == "" {
 		return "", fmt.Errorf("channel is required")
 	}
+
+	// Support Slack message permalinks like:
+	// https://workspace.slack.com/archives/C123/p1705312365000100
+	// https://workspace.slack.com/archives/D123/p1705312365000100
+	if fromPermalink, ok := channelIDFromPermalink(trimmed); ok {
+		return fromPermalink, nil
+	}
+
 	// If it looks like a channel ID, return as-is
-	if strings.HasPrefix(trimmed, "C") && !strings.Contains(trimmed, "#") {
+	if isConversationID(trimmed) && !strings.Contains(trimmed, "#") {
 		return trimmed, nil
 	}
 	normalized := strings.TrimPrefix(trimmed, "#")
@@ -81,6 +93,28 @@ func (r *Resolver) ResolveID(ctx context.Context, input string) (string, error) 
 	}
 
 	return "", errors.ChannelNotFoundError(trimmed)
+}
+
+func isConversationID(input string) bool {
+	return conversationIDPattern.MatchString(strings.TrimSpace(input))
+}
+
+func channelIDFromPermalink(input string) (string, bool) {
+	u, err := url.Parse(input)
+	if err != nil || u.Host == "" {
+		return "", false
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 || parts[0] != "archives" {
+		return "", false
+	}
+
+	channelID := strings.ToUpper(parts[1])
+	if !isConversationID(channelID) {
+		return "", false
+	}
+	return channelID, true
 }
 
 // loadChannels returns the cached channel list and the next cursor (if partial).
