@@ -26,6 +26,10 @@ func (m mockChannelClient) ListChannels(ctx context.Context, params slack.ListCh
 	return m.listChannels(ctx, params)
 }
 
+func (m mockChannelClient) GetConversationInfo(ctx context.Context, channelID string) (*slackapi.Channel, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (m mockChannelClient) JoinChannel(ctx context.Context, channelID string) (*slack.ChannelJoinResult, error) {
 	return nil, errors.New("not implemented")
 }

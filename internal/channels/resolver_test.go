@@ -13,10 +13,11 @@ import (
 )
 
 type resolverMockClient struct {
-	responses [][]slackapi.Channel
-	cursors   []string
-	index     int
-	error     error
+	responses        [][]slackapi.Channel
+	cursors          []string
+	index            int
+	error            error
+	conversationInfo map[string]*slackapi.Channel
 }
 
 func (m *resolverMockClient) ListConversationsHistory(ctx context.Context, params slack.HistoryParams) (*slackapi.GetConversationHistoryResponse, error) {
@@ -41,6 +42,20 @@ func (m *resolverMockClient) ListChannels(ctx context.Context, params slack.List
 	}
 	m.index++
 	return resp, cursor, nil
+}
+
+func (m *resolverMockClient) GetConversationInfo(ctx context.Context, channelID string) (*slackapi.Channel, error) {
+	if m.error != nil {
+		return nil, m.error
+	}
+	if m.conversationInfo == nil {
+		return nil, errors.New("not found")
+	}
+	channel, ok := m.conversationInfo[channelID]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+	return channel, nil
 }
 
 func (m *resolverMockClient) JoinChannel(ctx context.Context, channelID string) (*slack.ChannelJoinResult, error) {
@@ -291,5 +306,113 @@ func TestResolverRefreshCache(t *testing.T) {
 	}
 	if id != "C4" {
 		t.Fatalf("expected C4, got %s", id)
+	}
+}
+
+func TestResolverResolveName(t *testing.T) {
+	tests := []struct {
+		name      string
+		channelID string
+		cached    []slackapi.Channel
+		expected  string
+	}{
+		{
+			name:      "channel in cache",
+			channelID: "C123",
+			cached: []slackapi.Channel{
+				{GroupConversation: slackapi.GroupConversation{Name: "general", Conversation: slackapi.Conversation{ID: "C123"}}},
+			},
+			expected: "general",
+		},
+		{
+			name:      "channel not in cache - fallback to ID",
+			channelID: "C999",
+			cached: []slackapi.Channel{
+				{GroupConversation: slackapi.GroupConversation{Name: "general", Conversation: slackapi.Conversation{ID: "C123"}}},
+			},
+			expected: "C999",
+		},
+		{
+			name:      "no cache - fallback to ID",
+			channelID: "C456",
+			cached:    nil,
+			expected:  "C456",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			store := cache.New(dir, cache.DefaultTTL)
+
+			// Pre-populate cache if provided
+			if tt.cached != nil {
+				if err := store.Save(cache.CacheKeyChannels, tt.cached); err != nil {
+					t.Fatalf("failed to pre-populate cache: %v", err)
+				}
+			}
+
+			resolver := NewCachedResolver(nil, store)
+			result := resolver.ResolveName(context.Background(), tt.channelID)
+			if result != tt.expected {
+				t.Fatalf("expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestResolverResolveNameWithFetch(t *testing.T) {
+	dir := t.TempDir()
+	store := cache.New(dir, cache.DefaultTTL)
+
+	client := &resolverMockClient{
+		responses: [][]slackapi.Channel{
+			{
+				{GroupConversation: slackapi.GroupConversation{Name: "random", Conversation: slackapi.Conversation{ID: "C789"}}},
+				{GroupConversation: slackapi.GroupConversation{Name: "engineering", Conversation: slackapi.Conversation{ID: "C456"}}},
+			},
+		},
+	}
+
+	resolver := NewCachedResolver(client, store)
+
+	// First call should fetch from API
+	name := resolver.ResolveName(context.Background(), "C456")
+	if name != "engineering" {
+		t.Fatalf("expected engineering, got %s", name)
+	}
+}
+
+func TestResolverResolveNameWithConversationInfo(t *testing.T) {
+	dir := t.TempDir()
+	store := cache.New(dir, cache.DefaultTTL)
+
+	client := &resolverMockClient{
+		conversationInfo: map[string]*slackapi.Channel{
+			"C0AB3T5KCCW": {
+				GroupConversation: slackapi.GroupConversation{
+					Name:         "platform-agent",
+					Conversation: slackapi.Conversation{ID: "C0AB3T5KCCW"},
+				},
+			},
+		},
+	}
+
+	resolver := NewCachedResolver(client, store)
+	name := resolver.ResolveName(context.Background(), "C0AB3T5KCCW")
+	if name != "platform-agent" {
+		t.Fatalf("expected platform-agent, got %s", name)
+	}
+	if client.index != 0 {
+		t.Fatalf("expected no paginated channel fetch, got %d", client.index)
+	}
+	// The cache starts empty, so we should not mark the whole channel cache complete.
+	var cached []slackapi.Channel
+	found, err := store.Load(cache.CacheKeyChannels, &cached)
+	if err != nil {
+		t.Fatalf("failed to load cache: %v", err)
+	}
+	if found {
+		t.Fatalf("did not expect full channel cache to be written from single conversation lookup")
 	}
 }

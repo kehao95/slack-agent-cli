@@ -26,6 +26,22 @@ func (c *APIClient) ListChannels(ctx context.Context, params ListChannelsParams)
 	return channels, nextCursor, err
 }
 
+// GetConversationInfo fetches metadata for a specific conversation by ID.
+func (c *APIClient) GetConversationInfo(ctx context.Context, channelID string) (*slackapi.Channel, error) {
+	if channelID == "" {
+		return nil, ErrChannelRequired
+	}
+
+	channel, err := c.sdk.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{
+		ChannelID: channelID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get conversation info: %w", err)
+	}
+
+	return channel, nil
+}
+
 // ListChannelsPaginated provides a simpler interface for cache population.
 // Returns channels the user is a member of (uses users.conversations API).
 // Automatically includes private_channel type if groups:read scope is available.

@@ -92,6 +92,38 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 	return userID
 }
 
+// GetMentionName returns a handle-like value suitable for @-style references.
+func (r *Resolver) GetMentionName(ctx context.Context, userID string) string {
+	users, err := r.loadOrFetchUsers(ctx)
+	if err != nil || users == nil {
+		if r.client != nil {
+			info, err := r.client.GetUserInfo(ctx, userID)
+			if err == nil {
+				return mentionName(toCachedUser(info))
+			}
+		}
+		return userID
+	}
+
+	if u, ok := users[userID]; ok {
+		return mentionName(u)
+	}
+
+	if r.client != nil {
+		info, err := r.client.GetUserInfo(ctx, userID)
+		if err == nil {
+			cu := toCachedUser(info)
+			users[userID] = cu
+			if r.cache != nil {
+				_ = r.cache.Save(cache.CacheKeyUsers, users)
+			}
+			return mentionName(cu)
+		}
+	}
+
+	return userID
+}
+
 // GetUser returns cached user info or fetches it.
 func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, error) {
 	users, err := r.loadOrFetchUsers(ctx)
@@ -223,4 +255,17 @@ func displayName(u CachedUser) string {
 		return u.RealName
 	}
 	return u.Name
+}
+
+func mentionName(u CachedUser) string {
+	if u.Name != "" {
+		return u.Name
+	}
+	if u.DisplayName != "" {
+		return u.DisplayName
+	}
+	if u.RealName != "" {
+		return u.RealName
+	}
+	return u.ID
 }

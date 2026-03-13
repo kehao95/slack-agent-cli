@@ -157,6 +157,8 @@ Options:
   --thread <ts>          Fetch replies in a specific thread
   --include-bots         Include bot messages (default: true)
   --refresh-cache        Force refresh of cached channel/user metadata before running
+  --resolved-json        Resolve channel/user refs in JSON output (default: true)
+  --raw-json             Preserve raw Slack IDs in JSON output
   --json                 Output as JSON
 ```
 
@@ -173,6 +175,8 @@ slk messages list --channel "#general" --thread "1705312365.000100"
 ```
 
 After the first invocation warms the cache, subsequent `messages list` commands reuse the stored channel and user maps so resolution becomes effectively instantaneous unless `--refresh-cache` is specified.
+
+When using `--json`, the default output is resolved for agent readability: channel and user references are rendered as `#channel` / `@user`, while the original Slack IDs remain available in companion fields like `channel_id`, `user_id`, and `edited.user_id`. Use `--raw-json` to keep the original Slack payload shape.
 
 ---
 
@@ -222,6 +226,8 @@ Options:
   --limit <n>            Max results to return (default: 20)
   --sort <field>         Sort by 'score' or 'timestamp' (default: timestamp)
   --sort-dir <dir>       Sort direction 'asc' or 'desc' (default: desc)
+  --resolved-json        Resolve channel/user refs in JSON output (default: true)
+  --raw-json             Preserve raw Slack IDs in JSON output
   --json                 Output as JSON
 ```
 
@@ -476,25 +482,25 @@ $ slk messages list --channel "#general" --limit 3 --json
 
 ```json
 {
-  "ok": true,
-  "channel": {
-    "id": "C123ABC",
-    "name": "general"
-  },
+  "channel": "#general",
+  "channel_id": "C123ABC",
+  "channel_name": "general",
   "messages": [
     {
       "ts": "1705312365.000100",
-      "user": "U456DEF",
-      "username": "alice",
+      "user": "@alice",
+      "user_id": "U456DEF",
+      "username": "Alice Example",
       "text": "Hello everyone!",
       "thread_ts": null,
       "reply_count": 1,
-      "reactions": [{"name": "wave", "count": 2}]
+      "reactions": [{"name": "wave", "count": 2, "users": ["@alice"], "user_ids": ["U456DEF"]}]
     },
     {
       "ts": "1705312381.000200",
-      "user": "U789GHI",
-      "username": "bob",
+      "user": "@bob",
+      "user_id": "U789GHI",
+      "username": "Bob Example",
       "text": "Hey Alice! How's the project going?",
       "thread_ts": null,
       "reply_count": 0,
@@ -502,8 +508,9 @@ $ slk messages list --channel "#general" --limit 3 --json
     },
     {
       "ts": "1705312395.000300",
-      "user": "U456DEF",
-      "username": "alice",
+      "user": "@alice",
+      "user_id": "U456DEF",
+      "username": "Alice Example",
       "text": "Making good progress, will share an update soon.",
       "thread_ts": "1705312365.000100",
       "reply_count": 0,
@@ -511,9 +518,7 @@ $ slk messages list --channel "#general" --limit 3 --json
     }
   ],
   "has_more": true,
-  "response_metadata": {
-    "next_cursor": "dXNlcl9..."
-  }
+  "next_cursor": "dXNlcl9..."
 }
 ```
 

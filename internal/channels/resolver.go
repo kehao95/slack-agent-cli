@@ -95,6 +95,133 @@ func (r *Resolver) ResolveID(ctx context.Context, input string) (string, error) 
 	return "", errors.ChannelNotFoundError(trimmed)
 }
 
+// ResolveName returns the channel name for a given channel ID.
+// Returns the ID itself if the name cannot be resolved.
+func (r *Resolver) ResolveName(ctx context.Context, channelID string) string {
+	// Load channels from cache
+	channels, cursor, err := r.loadChannels(ctx)
+	if err != nil {
+		return channelID // Fallback to ID on error
+	}
+
+	// Search in cached channels
+	for _, ch := range channels {
+		if ch.ID == channelID {
+			return ch.Name
+		}
+	}
+
+	if r.client != nil {
+		name := r.lookupNameByID(ctx, channelID, channels, cursor)
+		if name != "" {
+			return name
+		}
+	}
+
+	// Not found in cache - try to fetch more if we have a client and cursor
+	if r.client != nil && (cursor != "" || len(channels) == 0) {
+		name := r.fetchNameForID(ctx, channelID, channels, cursor)
+		if name != "" {
+			return name
+		}
+	}
+
+	return channelID // Fallback to ID if not found
+}
+
+func (r *Resolver) lookupNameByID(ctx context.Context, channelID string, channels []slackapi.Channel, cursor string) string {
+	info, err := r.client.GetConversationInfo(ctx, channelID)
+	if err != nil || info == nil {
+		return ""
+	}
+
+	name := strings.TrimSpace(info.Name)
+	if name == "" {
+		return ""
+	}
+
+	r.cacheConversationInfo(channels, cursor, *info)
+	return name
+}
+
+func (r *Resolver) cacheConversationInfo(channels []slackapi.Channel, cursor string, channel slackapi.Channel) {
+	if r.cache == nil {
+		return
+	}
+
+	for _, existing := range channels {
+		if existing.ID == channel.ID {
+			return
+		}
+	}
+
+	updated := append(append([]slackapi.Channel{}, channels...), channel)
+	if cursor != "" {
+		_ = r.cache.SavePartial(cache.CacheKeyChannels, updated, cursor, false, len(updated))
+		return
+	}
+
+	if len(channels) > 0 {
+		_ = r.cache.Save(cache.CacheKeyChannels, updated)
+	}
+}
+
+// fetchNameForID continues fetching pages until the channel ID is found.
+func (r *Resolver) fetchNameForID(ctx context.Context, channelID string, existing []slackapi.Channel, cursor string) string {
+	channels := existing
+	currentCursor := cursor
+
+	for {
+		// Fetch next page
+		page, nextCursor, err := r.client.ListChannels(ctx, slack.ListChannelsParams{
+			Limit:           200,
+			Cursor:          currentCursor,
+			IncludeArchived: false,
+			Types:           []string{"public_channel"},
+		})
+		if err != nil {
+			// Save progress before returning
+			if r.cache != nil && len(channels) > 0 {
+				_ = r.cache.SavePartial(cache.CacheKeyChannels, channels, currentCursor, false, len(channels))
+			}
+			return ""
+		}
+
+		// Search in new page
+		for _, ch := range page {
+			if ch.ID == channelID {
+				// Found! Save progress and return
+				channels = append(channels, page...)
+				if r.cache != nil {
+					if nextCursor == "" {
+						_ = r.cache.PromotePartial(cache.CacheKeyChannels, channels)
+					} else {
+						_ = r.cache.SavePartial(cache.CacheKeyChannels, channels, nextCursor, false, len(channels))
+					}
+				}
+				return ch.Name
+			}
+		}
+
+		channels = append(channels, page...)
+
+		// No more pages
+		if nextCursor == "" {
+			// Save as complete
+			if r.cache != nil {
+				_ = r.cache.PromotePartial(cache.CacheKeyChannels, channels)
+			}
+			return "" // Not found
+		}
+
+		// Save progress and continue
+		if r.cache != nil {
+			_ = r.cache.SavePartial(cache.CacheKeyChannels, channels, nextCursor, false, len(channels))
+		}
+		currentCursor = nextCursor
+	}
+}
+
 func isConversationID(input string) bool {
 	return conversationIDPattern.MatchString(strings.TrimSpace(input))
 }

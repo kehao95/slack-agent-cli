@@ -1,7 +1,10 @@
 package slack
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	slackapi "github.com/slack-go/slack"
 )
@@ -364,8 +367,12 @@ type SearchParams struct {
 
 // SearchResult represents the search.messages API response.
 type SearchResult struct {
-	Query    string         `json:"query"`
-	Messages SearchMessages `json:"messages"`
+	Query           string                `json:"query"`
+	Messages        SearchMessages        `json:"messages"`
+	userResolver    SearchUserResolver    `json:"-"`
+	channelResolver SearchChannelResolver `json:"-"`
+	ctx             context.Context       `json:"-"`
+	rawJSON         bool                  `json:"-"`
 }
 
 // SearchMessages contains the list of matching messages.
@@ -389,6 +396,79 @@ type SearchMatch struct {
 type SearchChannel struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// SearchUserResolver resolves search result user IDs to names.
+type SearchUserResolver interface {
+	GetDisplayName(ctx context.Context, userID string) string
+	GetMentionName(ctx context.Context, userID string) string
+}
+
+// SearchChannelResolver resolves search result channel IDs to names.
+type SearchChannelResolver interface {
+	ResolveName(ctx context.Context, channelID string) string
+}
+
+// SetUserResolver configures JSON user enrichment for search results.
+func (r *SearchResult) SetUserResolver(ctx context.Context, resolver SearchUserResolver) {
+	r.ctx = ctx
+	r.userResolver = resolver
+}
+
+// SetChannelResolver configures JSON channel enrichment for search results.
+func (r *SearchResult) SetChannelResolver(ctx context.Context, resolver SearchChannelResolver) {
+	r.ctx = ctx
+	r.channelResolver = resolver
+}
+
+// SetRawJSON controls whether search JSON should preserve raw IDs.
+func (r *SearchResult) SetRawJSON(raw bool) {
+	r.rawJSON = raw
+}
+
+// MarshalJSON enriches search results with resolved user and channel references.
+func (r SearchResult) MarshalJSON() ([]byte, error) {
+	type output struct {
+		Query    string `json:"query"`
+		Messages struct {
+			Total   int                      `json:"total"`
+			Matches []map[string]interface{} `json:"matches"`
+		} `json:"messages"`
+	}
+
+	result := output{Query: r.Query}
+	result.Messages.Total = r.Messages.Total
+	result.Messages.Matches = make([]map[string]interface{}, len(r.Messages.Matches))
+
+	for i, match := range r.Messages.Matches {
+		entry := map[string]interface{}{
+			"type":      match.Type,
+			"user":      match.User,
+			"username":  match.Username,
+			"ts":        match.Timestamp,
+			"text":      match.Text,
+			"permalink": match.Permalink,
+			"channel": map[string]interface{}{
+				"id":   match.Channel.ID,
+				"name": match.Channel.Name,
+			},
+		}
+
+		if !r.rawJSON {
+			if resolvedUser := r.resolvedSearchUserRef(match.User); resolvedUser != "" && resolvedUser != match.User {
+				entry["user_id"] = match.User
+				entry["user"] = resolvedUser
+			}
+
+			if channel, ok := entry["channel"].(map[string]interface{}); ok {
+				channel["name"] = r.resolvedSearchChannelRef(match.Channel)
+			}
+		}
+
+		result.Messages.Matches[i] = entry
+	}
+
+	return json.Marshal(result)
 }
 
 // Lines implements the output.Printable interface for human-readable search results.
@@ -431,4 +511,45 @@ func (r *SearchResult) Lines() []string {
 	}
 
 	return lines
+}
+
+func (r SearchResult) resolvedSearchUserRef(userID string) string {
+	if userID == "" {
+		return ""
+	}
+	if r.userResolver != nil && r.ctx != nil {
+		name := r.userResolver.GetMentionName(r.ctx, userID)
+		if name != "" && name != userID {
+			return formatSearchUserRef(name)
+		}
+	}
+	return userID
+}
+
+func (r SearchResult) resolvedSearchChannelRef(channel SearchChannel) string {
+	name := strings.TrimSpace(channel.Name)
+	if name == "" && r.channelResolver != nil && r.ctx != nil && channel.ID != "" {
+		resolved := strings.TrimSpace(r.channelResolver.ResolveName(r.ctx, channel.ID))
+		if resolved != "" && resolved != channel.ID {
+			name = resolved
+		}
+	}
+	if name == "" {
+		return channel.ID
+	}
+	if strings.HasPrefix(name, "#") {
+		return name
+	}
+	return "#" + name
+}
+
+func formatSearchUserRef(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "@") {
+		return trimmed
+	}
+	return "@" + trimmed
 }

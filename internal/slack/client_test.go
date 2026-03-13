@@ -2,6 +2,7 @@ package slack
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	slackapi "github.com/slack-go/slack"
@@ -137,6 +138,126 @@ func TestSearchResultLinesEmpty(t *testing.T) {
 	if !foundNoResults {
 		t.Error("expected 'No messages found' in output")
 	}
+}
+
+type mockSearchUserResolver struct {
+	users map[string]string
+}
+
+func (m mockSearchUserResolver) GetDisplayName(ctx context.Context, userID string) string {
+	if name, ok := m.users[userID]; ok {
+		return name
+	}
+	return userID
+}
+
+func (m mockSearchUserResolver) GetMentionName(ctx context.Context, userID string) string {
+	if name, ok := m.users[userID]; ok {
+		return name
+	}
+	return userID
+}
+
+type mockSearchChannelResolver struct {
+	names map[string]string
+}
+
+func (m mockSearchChannelResolver) ResolveName(ctx context.Context, channelID string) string {
+	if name, ok := m.names[channelID]; ok {
+		return name
+	}
+	return channelID
+}
+
+func TestSearchResultMarshalJSONResolved(t *testing.T) {
+	result := &SearchResult{
+		Query: "deploy",
+		Messages: SearchMessages{
+			Total: 1,
+			Matches: []SearchMatch{{
+				Type:      "message",
+				Channel:   SearchChannel{ID: "C123", Name: "general"},
+				User:      "U123",
+				Username:  "Alice Example",
+				Timestamp: "1705312365.000100",
+				Text:      "deploy failed",
+				Permalink: "https://example.slack.com/archives/C123/p1705312365000100",
+			}},
+		},
+	}
+	result.SetUserResolver(context.Background(), mockSearchUserResolver{users: map[string]string{"U123": "alice"}})
+	result.SetChannelResolver(context.Background(), mockSearchChannelResolver{names: map[string]string{"C123": "general"}})
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		fatalJSON(t, err)
+	}
+
+	var output map[string]interface{}
+	if err := json.Unmarshal(data, &output); err != nil {
+		fatalJSON(t, err)
+	}
+
+	messages := output["messages"].(map[string]interface{})
+	matches := messages["matches"].([]interface{})
+	match := matches[0].(map[string]interface{})
+	if match["user"] != "@alice" {
+		t.Fatalf("expected resolved user @alice, got %v", match["user"])
+	}
+	if match["user_id"] != "U123" {
+		t.Fatalf("expected user_id U123, got %v", match["user_id"])
+	}
+	channel := match["channel"].(map[string]interface{})
+	if channel["name"] != "#general" {
+		t.Fatalf("expected channel name #general, got %v", channel["name"])
+	}
+}
+
+func TestSearchResultMarshalJSONRaw(t *testing.T) {
+	result := &SearchResult{
+		Query: "deploy",
+		Messages: SearchMessages{
+			Total: 1,
+			Matches: []SearchMatch{{
+				Type:      "message",
+				Channel:   SearchChannel{ID: "C123", Name: "general"},
+				User:      "U123",
+				Username:  "Alice Example",
+				Timestamp: "1705312365.000100",
+				Text:      "deploy failed",
+			}},
+		},
+	}
+	result.SetRawJSON(true)
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		fatalJSON(t, err)
+	}
+
+	var output map[string]interface{}
+	if err := json.Unmarshal(data, &output); err != nil {
+		fatalJSON(t, err)
+	}
+
+	messages := output["messages"].(map[string]interface{})
+	matches := messages["matches"].([]interface{})
+	match := matches[0].(map[string]interface{})
+	if match["user"] != "U123" {
+		t.Fatalf("expected raw user U123, got %v", match["user"])
+	}
+	if _, exists := match["user_id"]; exists {
+		t.Fatalf("did not expect user_id in raw mode, got %v", match["user_id"])
+	}
+	channel := match["channel"].(map[string]interface{})
+	if channel["name"] != "general" {
+		t.Fatalf("expected raw channel name general, got %v", channel["name"])
+	}
+}
+
+func fatalJSON(t *testing.T, err error) {
+	t.Helper()
+	t.Fatalf("json operation failed: %v", err)
 }
 
 func contains(s, substr string) bool {

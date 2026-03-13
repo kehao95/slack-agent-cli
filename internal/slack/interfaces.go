@@ -16,6 +16,7 @@ type Client interface {
 type ChannelClient interface {
 	Client
 	ListChannels(ctx context.Context, params ListChannelsParams) ([]slackapi.Channel, string, error)
+	GetConversationInfo(ctx context.Context, channelID string) (*slackapi.Channel, error)
 	JoinChannel(ctx context.Context, channelID string) (*ChannelJoinResult, error)
 	LeaveChannel(ctx context.Context, channelID string) (*ChannelLeaveResult, error)
 }

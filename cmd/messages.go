@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kehao95/slack-agent-cli/internal/messages"
 	"github.com/kehao95/slack-agent-cli/internal/output"
@@ -22,23 +23,28 @@ var messagesListCmd = &cobra.Command{
 
 Output (JSON):
   {
-    "channel": "channel_id",
-    "channel_name": "#general",
+    "channel": "#general",
+    "channel_id": "C123ABC",
+    "channel_name": "general",
     "messages": [
       {
         "type": "message",
-        "user": "U123ABC",
+        "user": "@alice",
+        "user_id": "U123ABC",
+        "username": "Alice Example",
         "text": "message text",
         "ts": "1705312365.000100",
-        "thread_ts": "1705312365.000100",  // Present if in thread
-        "edited": {"user": "U123ABC", "ts": "..."},  // Present if edited
-        "reactions": [{"name": "thumbsup", "count": 2, "users": ["U123"]}],
+        "thread_ts": "1705312365.000100",
+        "edited": {"user": "@alice", "user_id": "U123ABC", "ts": "..."},
+        "reactions": [{"name": "thumbsup", "count": 2, "users": ["@alice"], "user_ids": ["U123ABC"]}],
         "reply_count": 5  // Number of replies in thread
       }
     ],
     "has_more": true,
     "next_cursor": "bmV4dF90czox..."
   }
+
+By default JSON resolves channel and user references for readability while preserving raw IDs in companion *_id fields. Use --raw-json to keep Slack IDs in their original fields.
 
 Channel Resolution:
   - Channel IDs (C123ABC) work directly without cache lookup
@@ -69,20 +75,24 @@ var messagesSearchCmd = &cobra.Command{
 Output (JSON):
   {
     "query": "search terms",
-    "total": 42,
-    "matches": [
-      {
-        "type": "message",
-        "user": "U123ABC",
-        "username": "alice",
-        "text": "message text",
-        "ts": "1705312365.000100",
-        "channel": {"id": "C123", "name": "general"},
-        "permalink": "https://workspace.slack.com/archives/..."
-      }
-    ],
-    "pagination": {"total_count": 42, "page": 1, "page_count": 3}
+    "messages": {
+      "total": 42,
+      "matches": [
+        {
+          "type": "message",
+          "user": "@alice",
+          "user_id": "U123ABC",
+          "username": "alice",
+          "text": "message text",
+          "ts": "1705312365.000100",
+          "channel": {"id": "C123", "name": "#general"},
+          "permalink": "https://workspace.slack.com/archives/..."
+        }
+      ]
+    }
   }
+
+By default JSON resolves channel and user references for readability while preserving raw IDs in companion *_id fields. Use --raw-json to keep Slack IDs in their original fields.
 
 Search Syntax:
   - Basic: "error logs"
@@ -202,12 +212,16 @@ func init() {
 	messagesListCmd.Flags().String("until", "", "Messages before this time")
 	messagesListCmd.Flags().String("thread", "", "Thread timestamp to fetch replies")
 	messagesListCmd.Flags().Bool("refresh-cache", false, "Force refresh of cached channel/user metadata")
+	messagesListCmd.Flags().Bool("resolved-json", true, "Resolve channel and user references in JSON output")
+	messagesListCmd.Flags().Bool("raw-json", false, "Preserve raw Slack IDs in JSON output")
 	messagesListCmd.MarkFlagRequired("channel")
 
 	messagesSearchCmd.Flags().StringP("query", "q", "", "Search query (required)")
 	messagesSearchCmd.Flags().IntP("limit", "l", 20, "Maximum results to return")
 	messagesSearchCmd.Flags().String("sort", "timestamp", "Sort by 'score' or 'timestamp'")
 	messagesSearchCmd.Flags().String("sort-dir", "desc", "Sort direction 'asc' or 'desc'")
+	messagesSearchCmd.Flags().Bool("resolved-json", true, "Resolve channel and user references in JSON output")
+	messagesSearchCmd.Flags().Bool("raw-json", false, "Preserve raw Slack IDs in JSON output")
 	messagesSearchCmd.MarkFlagRequired("query")
 
 	messagesSendCmd.Flags().StringP("channel", "c", "", "Target channel or @user (required)")
@@ -247,6 +261,8 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	until, _ := cmd.Flags().GetString("until")
 	thread, _ := cmd.Flags().GetString("thread")
 	refreshCache, _ := cmd.Flags().GetBool("refresh-cache")
+	rawJSON, _ := cmd.Flags().GetBool("raw-json")
+	resolvedJSON, _ := cmd.Flags().GetBool("resolved-json")
 
 	// Handle cache refresh
 	if refreshCache {
@@ -276,13 +292,29 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Set display metadata for human-readable output
-	result.Channel = channelInput
-	result.ChannelName = channelInput
+	// Set display metadata
+	result.Channel = channelID
+	// Resolve channel name for both JSON and human-readable output
+	channelName := cmdCtx.ChannelResolver.ResolveName(cmdCtx.Ctx, channelID)
+	if channelName != "" && channelName != channelID {
+		result.ChannelName = strings.TrimPrefix(channelName, "#")
+	} else {
+		result.ChannelName = strings.TrimPrefix(channelInput, "#")
+	}
 	result.SetUserResolver(cmdCtx.Ctx, cmdCtx.UserResolver)
 	result.SetUserGroupResolver(cmdCtx.Ctx, cmdCtx.UserGroupResolver)
+	result.SetRawJSON(rawJSON || !resolvedJSON)
 
 	return output.Print(cmd, result)
+}
+
+// isChannelID checks if a string looks like a channel ID (starts with C, D, or G followed by alphanumerics)
+func isChannelID(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+	first := s[0]
+	return (first == 'C' || first == 'D' || first == 'G') && strings.ToUpper(s) == s
 }
 
 func runMessagesSearch(cmd *cobra.Command, args []string) error {
@@ -296,6 +328,8 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	limit, _ := cmd.Flags().GetInt("limit")
 	sortBy, _ := cmd.Flags().GetString("sort")
 	sortDir, _ := cmd.Flags().GetString("sort-dir")
+	rawJSON, _ := cmd.Flags().GetBool("raw-json")
+	resolvedJSON, _ := cmd.Flags().GetBool("resolved-json")
 
 	// Validate sort parameters
 	if sortBy != "score" && sortBy != "timestamp" {
@@ -316,6 +350,9 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("search messages: %w", err)
 	}
+	result.SetUserResolver(cmdCtx.Ctx, cmdCtx.UserResolver)
+	result.SetChannelResolver(cmdCtx.Ctx, cmdCtx.ChannelResolver)
+	result.SetRawJSON(rawJSON || !resolvedJSON)
 
 	return output.Print(cmd, result)
 }
