@@ -339,7 +339,7 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid sort-dir value '%s': must be 'asc' or 'desc'", sortDir)
 	}
 
-	userClient := slack.NewUserClient(cmdCtx.Config.UserToken)
+	userClient := slack.NewUserClient(cmdCtx.AuthToken)
 	result, err := userClient.SearchMessages(cmdCtx.Ctx, query, slack.SearchParams{
 		Count:     limit,
 		Page:      1,

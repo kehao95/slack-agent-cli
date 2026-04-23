@@ -4,11 +4,8 @@ display_information:
   background_color: "#2c2d30"
 oauth_config:
   scopes:
-    user:
-      # Identity
-      - identify
-      
-      # Channel access (read-only)
+    bot:
+      # Channel access (read-only, bot perspective)
       - channels:read
       - channels:history
       - groups:read
@@ -17,25 +14,38 @@ oauth_config:
       - im:history
       - mpim:read
       - mpim:history
-      
-      # Search
-      - search:read
-      
+
       # Users
       - users:read
-      
+
       # Reactions (read-only)
       - reactions:read
-      
+
       # Pins (read-only)
       - pins:read
-      
+
       # Files (read-only)
       - files:read
-      
+
       # Emoji
       - emoji:read
 settings:
+  event_subscriptions:
+    bot_events:
+      # Subscribe to message events across all surfaces visible to the bot user.
+      # Thread-related subtypes such as message_replied arrive under these.
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - message.app_home
+
+      # Thread-adjacent activity that may matter for inbox/watch style flows.
+      - reaction_added
+      - reaction_removed
+      - pin_added
+      - pin_removed
   org_deploy_enabled: false
-  socket_mode_enabled: false
+  socket_mode_enabled: true
+  is_hosted: false
   token_rotation_enabled: false

@@ -200,7 +200,10 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 
 | Variable | Description |
 |----------|-------------|
+| `SLACK_CLI_ROLE` | Active auth role: `user` or `bot` (default: `user`) |
 | `SLACK_USER_TOKEN` | Override user token from config |
+| `SLACK_BOT_TOKEN` | Override bot token from config |
+| `SLACK_APP_TOKEN` | App-level token for Socket Mode events |
 | `SLACK_CLI_CONFIG` | Custom config file path |
 | `SLACK_CLI_FORMAT` | Default output format (`json` or `human`) |
 

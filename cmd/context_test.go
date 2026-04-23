@@ -61,6 +61,46 @@ func TestNewCommandContext_ValidConfig(t *testing.T) {
 	if cmdCtx.Config.UserToken != "xoxp-test-token" {
 		t.Errorf("expected user token 'xoxp-test-token', got '%s'", cmdCtx.Config.UserToken)
 	}
+	if cmdCtx.AuthRole != config.RoleUser {
+		t.Errorf("expected auth role %q, got %q", config.RoleUser, cmdCtx.AuthRole)
+	}
+	if cmdCtx.AuthToken != "xoxp-test-token" {
+		t.Errorf("expected auth token 'xoxp-test-token', got '%s'", cmdCtx.AuthToken)
+	}
+}
+
+func TestNewCommandContext_BotRole(t *testing.T) {
+	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_BOT_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	t.Setenv("SLACK_CLI_ROLE", "bot")
+
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	cfg := config.DefaultConfig()
+	cfg.UserToken = "xoxp-test-token"
+	cfg.BotToken = "xoxb-test-token"
+	_, err := config.Save(configPath, cfg)
+	if err != nil {
+		t.Fatalf("failed to create test config: %v", err)
+	}
+	cfgFile = configPath
+
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetContext(context.Background())
+
+	t.Setenv("SLACK_TEAM_ID", "T123TEST")
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		t.Fatalf("NewCommandContext returned error: %v", err)
+	}
+	defer cmdCtx.Close()
+
+	if cmdCtx.AuthRole != config.RoleBot {
+		t.Errorf("expected auth role %q, got %q", config.RoleBot, cmdCtx.AuthRole)
+	}
+	if cmdCtx.AuthToken != "xoxb-test-token" {
+		t.Errorf("expected auth token 'xoxb-test-token', got '%s'", cmdCtx.AuthToken)
+	}
 }
 
 // TestNewCommandContext_MissingConfig verifies that NewCommandContext returns
@@ -263,7 +303,9 @@ func TestCommandContext_CloseNilCancel(t *testing.T) {
 func setupValidConfig(t *testing.T) string {
 	t.Helper()
 	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_BOT_TOKEN", "")
 	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	t.Setenv("SLACK_CLI_ROLE", "")
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()

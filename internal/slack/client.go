@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	slackapi "github.com/slack-go/slack"
+	"github.com/slack-go/slack/socketmode"
 )
 
 // APIClient implements Client by wrapping slack-go's Client.
@@ -37,6 +38,28 @@ func NewAuto(token, cookie string) *APIClient {
 		return NewWithCookie(token, cookie)
 	}
 	return New(token)
+}
+
+// NewSocketModeClient creates a socketmode client using the existing user token model plus an
+// app-level token for Socket Mode connection management.
+func NewSocketModeClient(token, cookie, appToken string) *socketmode.Client {
+	var api *slackapi.Client
+	if strings.HasPrefix(token, "xoxc-") && cookie != "" {
+		httpClient := &http.Client{
+			Transport: &cookieTransport{
+				cookie: cookie,
+				base:   http.DefaultTransport,
+			},
+		}
+		api = slackapi.New(
+			token,
+			slackapi.OptionHTTPClient(httpClient),
+			slackapi.OptionAppLevelToken(appToken),
+		)
+	} else {
+		api = slackapi.New(token, slackapi.OptionAppLevelToken(appToken))
+	}
+	return socketmode.New(api)
 }
 
 // cookieTransport is an http.RoundTripper that adds the Slack 'd' cookie to requests.

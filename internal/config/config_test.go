@@ -9,6 +9,7 @@ func TestLoadDefaultWhenMissing(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "")
 	t.Setenv("SLACK_CLI_FORMAT", "")
 	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	t.Setenv("SLACK_CLI_ROLE", "")
 
 	path := filepath.Join(t.TempDir(), "config.json")
 	cfg, actualPath, err := Load(path)
@@ -21,12 +22,16 @@ func TestLoadDefaultWhenMissing(t *testing.T) {
 	if cfg.UserToken != "" {
 		t.Fatalf("expected empty user token, got %q", cfg.UserToken)
 	}
+	if cfg.Role != RoleUser {
+		t.Fatalf("expected default role %q, got %q", RoleUser, cfg.Role)
+	}
 }
 
 func TestSaveAndLoad(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "")
 	t.Setenv("SLACK_CLI_FORMAT", "")
 	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	t.Setenv("SLACK_CLI_ROLE", "")
 
 	path := filepath.Join(t.TempDir(), "slack", "config.json")
 	cfg := DefaultConfig()
@@ -52,6 +57,9 @@ func TestSaveAndLoad(t *testing.T) {
 
 func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("SLACK_USER_TOKEN", "xoxp-env")
+	t.Setenv("SLACK_BOT_TOKEN", "xoxb-env")
+	t.Setenv("SLACK_APP_TOKEN", "xapp-env")
+	t.Setenv("SLACK_CLI_ROLE", "bot")
 	t.Setenv("SLACK_CLI_FORMAT", "json")
 
 	cfg := DefaultConfig()
@@ -59,6 +67,15 @@ func TestApplyEnvOverrides(t *testing.T) {
 
 	if cfg.UserToken != "xoxp-env" {
 		t.Fatalf("expected user token override, got %s", cfg.UserToken)
+	}
+	if cfg.BotToken != "xoxb-env" {
+		t.Fatalf("expected bot token override, got %s", cfg.BotToken)
+	}
+	if cfg.AppToken != "xapp-env" {
+		t.Fatalf("expected app token override, got %s", cfg.AppToken)
+	}
+	if cfg.Role != "bot" {
+		t.Fatalf("expected role override bot, got %s", cfg.Role)
 	}
 	if cfg.Defaults.OutputFormat != "json" {
 		t.Fatalf("expected format override json, got %s", cfg.Defaults.OutputFormat)
@@ -103,5 +120,49 @@ func TestValidate(t *testing.T) {
 	cfg.UserToken = "xoxp"
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestValidateBotRole(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Role = RoleBot
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error when bot token empty")
+	}
+	cfg.BotToken = "xoxb"
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestValidateInvalidRole(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Role = "admin"
+	cfg.UserToken = "xoxp"
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected error for invalid role")
+	}
+}
+
+func TestActiveAuth(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.UserToken = "xoxp-user"
+	cfg.BotToken = "xoxb-bot"
+
+	token, cookie, role, err := cfg.ActiveAuth()
+	if err != nil {
+		t.Fatalf("ActiveAuth returned error: %v", err)
+	}
+	if token != "xoxp-user" || cookie != "" || role != RoleUser {
+		t.Fatalf("expected user auth, got token=%q cookie=%q role=%q", token, cookie, role)
+	}
+
+	cfg.Role = RoleBot
+	token, cookie, role, err = cfg.ActiveAuth()
+	if err != nil {
+		t.Fatalf("ActiveAuth returned error: %v", err)
+	}
+	if token != "xoxb-bot" || cookie != "" || role != RoleBot {
+		t.Fatalf("expected bot auth, got token=%q cookie=%q role=%q", token, cookie, role)
 	}
 }

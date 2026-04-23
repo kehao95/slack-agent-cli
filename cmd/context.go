@@ -23,6 +23,9 @@ type CommandContext struct {
 	Ctx               context.Context
 	Cancel            context.CancelFunc
 	Config            *config.Config
+	AuthRole          string
+	AuthToken         string
+	AuthCookie        string
 	Client            *slack.APIClient
 	CacheStore        *cache.Store
 	ChannelResolver   *channels.Resolver
@@ -33,6 +36,22 @@ type CommandContext struct {
 // NewCommandContext initializes all common dependencies needed by commands.
 // Pass timeout=0 to use the default timeout of 30 seconds.
 func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandContext, error) {
+	return newCommandContext(cmd, timeout, false, "", "", true)
+}
+
+// NewStreamingCommandContext initializes command dependencies without applying a deadline to the
+// command context, while still using a bounded setup call for auth/team discovery.
+func NewStreamingCommandContext(cmd *cobra.Command) (*CommandContext, error) {
+	return newCommandContext(cmd, 0, true, "", "", true)
+}
+
+// NewStreamingCommandContextWithToken initializes streaming command dependencies using an explicit
+// API token while preserving the loaded config for app-level settings.
+func NewStreamingCommandContextWithToken(cmd *cobra.Command, token, cookie string) (*CommandContext, error) {
+	return newCommandContext(cmd, 0, true, token, cookie, false)
+}
+
+func newCommandContext(cmd *cobra.Command, timeout time.Duration, noTimeout bool, tokenOverride, cookieOverride string, validateConfig bool) (*CommandContext, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
@@ -41,14 +60,40 @@ func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandConte
 	if err != nil {
 		return nil, errors.ConfigError("failed to load config: %w", err)
 	}
-	if err := cfg.Validate(); err != nil {
-		return nil, errors.ConfigError("invalid config (%s): %w", path, err)
+	if validateConfig {
+		if err := cfg.Validate(); err != nil {
+			return nil, errors.ConfigError("invalid config (%s): %w", path, err)
+		}
+	}
+	if !validateConfig && strings.TrimSpace(tokenOverride) == "" {
+		return nil, errors.ConfigError("invalid config (%s): token is required", path)
 	}
 
-	client := slack.NewAuto(cfg.UserToken, cfg.Cookie)
-	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+	apiToken, apiCookie, authRole, err := cfg.ActiveAuth()
+	if err != nil && validateConfig {
+		return nil, errors.ConfigError("invalid config (%s): %w", path, err)
+	}
+	if tokenOverride != "" {
+		apiToken = tokenOverride
+		apiCookie = cookieOverride
+		authRole = "override"
+	}
 
-	teamID, err := resolveTeamID(ctx, client)
+	client := slack.NewAuto(apiToken, apiCookie)
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if noTimeout {
+		ctx, cancel = context.WithCancel(cmd.Context())
+	} else {
+		ctx, cancel = context.WithTimeout(cmd.Context(), timeout)
+	}
+
+	setupCtx, setupCancel := context.WithTimeout(cmd.Context(), timeout)
+	defer setupCancel()
+
+	teamID, err := resolveTeamID(setupCtx, client)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -64,6 +109,9 @@ func NewCommandContext(cmd *cobra.Command, timeout time.Duration) (*CommandConte
 		Ctx:               ctx,
 		Cancel:            cancel,
 		Config:            cfg,
+		AuthRole:          authRole,
+		AuthToken:         apiToken,
+		AuthCookie:        apiCookie,
 		Client:            client,
 		CacheStore:        cacheStore,
 		ChannelResolver:   channels.NewCachedResolver(client, cacheStore),
@@ -84,9 +132,11 @@ func NewCommandContextWithToken(cmd *cobra.Command, timeout time.Duration, token
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 
 	return &CommandContext{
-		Ctx:    ctx,
-		Cancel: cancel,
-		Client: client,
+		Ctx:       ctx,
+		Cancel:    cancel,
+		AuthRole:  "override",
+		AuthToken: token,
+		Client:    client,
 	}, nil
 }
 
