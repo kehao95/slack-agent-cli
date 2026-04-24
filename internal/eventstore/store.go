@@ -54,6 +54,7 @@ type ClaimedEvent struct {
 type Filter struct {
 	Type              string
 	MessageKind       string
+	MentionUserID     string
 	ChannelID         string
 	ConversationTypes map[string]struct{}
 	ThreadTS          string
@@ -456,6 +457,10 @@ func buildWhere(filter Filter) (string, []interface{}) {
 		clauses = append(clauses, "type = 'message' AND (is_thread_reply = 1 OR subtype = 'thread_broadcast')")
 	case "thread":
 		clauses = append(clauses, "type = 'message' AND (is_thread_reply = 1 OR is_thread_root = 1 OR subtype IN ('message_replied', 'thread_broadcast'))")
+	}
+	if filter.MentionUserID != "" {
+		clauses = append(clauses, "type = 'message' AND text LIKE ?")
+		args = append(args, "%<@"+filter.MentionUserID+">%")
 	}
 	if len(filter.ConversationTypes) > 0 {
 		placeholders := make([]string, 0, len(filter.ConversationTypes))

@@ -37,7 +37,7 @@ Agent Event Loop:
      SLACK_CLI_ROLE=bot slk daemon run --channel "#support"
 
   2. Claim one event, process it, then ack the returned cursor:
-     slk events claim --type message --message-kind root --timeout 60s --lease 5m
+     slk events claim --type message --message-kind root --lease 5m
      slk events ack <cursor>
 
 Exit Codes:

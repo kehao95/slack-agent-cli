@@ -55,12 +55,15 @@ var eventsClaimCmd = &cobra.Command{
 	Short: "Claim the oldest eligible cached event for processing",
 	Long: `Atomically claim one eligible event from the local queue and return it.
 
-The command blocks until a claimable event exists or --timeout is reached.
+The command blocks until a claimable event exists or the process is interrupted.
 Claimed events are removed from the "pending" set until acked or the lease expires.
 Use the returned cursor field with "slk events ack <cursor>" after successful processing.
 If processing fails, do not ack; the event becomes claimable again after --lease.`,
-	Example: `  # Claim one message event and block up to 60s
-  slk events claim --type message --timeout 60s --lease 5m
+	Example: `  # Claim one message event and block until work is available
+  slk events claim --type message --lease 5m
+
+  # Claim only messages that mention the active auth user
+  slk events claim --type message --mentions-me
 
   # Claim only top-level channel messages for task assignment
   slk events claim --type message --message-kind root --channel "#_bot-testing"
@@ -116,11 +119,11 @@ func addEventClaimFlags(cmd *cobra.Command) {
 	cmd.Flags().String("channel", "", "Restrict to a single channel/conversation name or ID")
 	cmd.Flags().String("type", "", "Restrict to event type, for example message")
 	cmd.Flags().String("message-kind", "", "Restrict message events to root, reply, or thread")
+	cmd.Flags().Bool("mentions-me", false, "Only return message events that contain a Slack mention of the active auth user")
 	cmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
 	cmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
 	cmd.Flags().String("user", "", "Restrict to a Slack user ID")
 	cmd.Flags().Bool("exclude-self", false, "Exclude events produced by the active auth identity")
-	cmd.Flags().Duration("timeout", 0, "Maximum time to wait for a claimable event (0 waits forever)")
 }
 
 func runEventsList(cmd *cobra.Command, args []string) error {
@@ -204,12 +207,6 @@ func runEventsClaim(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --lease %q, must be greater than zero", lease)
 	}
 
-	timeout, _ := cmd.Flags().GetDuration("timeout")
-	deadline := time.Time{}
-	if timeout > 0 {
-		deadline = time.Now().Add(timeout)
-	}
-
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -220,10 +217,6 @@ func runEventsClaim(cmd *cobra.Command, args []string) error {
 		}
 		if ok {
 			return printClaimedEvent(cmd, claimed)
-		}
-		if !deadline.IsZero() && time.Now().After(deadline) {
-			cmd.SilenceUsage = true
-			return cerrors.TimeoutError("timed out waiting for claimable event")
 		}
 		select {
 		case <-cmdCtx.Ctx.Done():
@@ -258,11 +251,23 @@ func buildEventClaimFilter(cmd *cobra.Command, cmdCtx *CommandContext) (eventsto
 		return eventstore.Filter{}, err
 	}
 	excludeSelf, _ := cmd.Flags().GetBool("exclude-self")
+	mentionsMe, _ := cmd.Flags().GetBool("mentions-me")
+	mentionUserID := ""
+	if mentionsMe {
+		if err := cmdCtx.EnsureAuthIdentity(cmdCtx.Ctx); err != nil {
+			return eventstore.Filter{}, err
+		}
+		mentionUserID = strings.TrimSpace(cmdCtx.AuthUserID)
+		if mentionUserID == "" {
+			return eventstore.Filter{}, fmt.Errorf("--mentions-me requires an authenticated Slack user id")
+		}
+	}
 
 	return eventstore.Filter{
 		ChannelID:         channelID,
 		Type:              strings.TrimSpace(eventType),
 		MessageKind:       messageKind,
+		MentionUserID:     mentionUserID,
 		ConversationTypes: conversationTypes,
 		ThreadTS:          strings.TrimSpace(threadTS),
 		UserID:            strings.TrimSpace(userID),

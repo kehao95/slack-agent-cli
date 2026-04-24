@@ -322,3 +322,40 @@ func TestClaimMessageKindFilters(t *testing.T) {
 		t.Fatalf("expected reply cursor %d, got ok=%t cursor=%d", replyCursor, ok, reply.Cursor)
 	}
 }
+
+func TestClaimMentionsMeFilter(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "events.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	if _, err := store.Insert(ctx, Event{
+		Kind: "slack.event",
+		Type: "message",
+		Text: "hello <@U999>",
+	}); err != nil {
+		t.Fatalf("Insert non-mention returned error: %v", err)
+	}
+	mentionCursor, err := store.Insert(ctx, Event{
+		Kind: "slack.event",
+		Type: "message",
+		Text: "hello <@U123> please check this",
+	})
+	if err != nil {
+		t.Fatalf("Insert mention returned error: %v", err)
+	}
+
+	claimed, ok, err := store.Claim(ctx, Filter{
+		Type:          "message",
+		MentionUserID: "U123",
+		Limit:         1,
+	}, time.Minute)
+	if err != nil {
+		t.Fatalf("Claim mention returned error: %v", err)
+	}
+	if !ok || claimed.Cursor != mentionCursor {
+		t.Fatalf("expected mention cursor %d, got ok=%t cursor=%d", mentionCursor, ok, claimed.Cursor)
+	}
+}

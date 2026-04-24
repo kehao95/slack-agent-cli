@@ -206,19 +206,22 @@ SLACK_CLI_ROLE=bot slk daemon run --channel "#_bot-testing"
 
 # Agent loop (queue): claim top-level messages -> process -> ack
 while true; do
-  event=$(slk events claim --type message --message-kind root --channel "#_bot-testing" --lease 5m --timeout 60s)
+  event=$(slk events claim --type message --message-kind root --channel "#_bot-testing" --lease 5m)
   cursor=$(echo "$event" | jq -r '.cursor')
   # ... process event ...
   slk events ack "$cursor"
 done
 
 # Thread replies can be claimed separately, which is useful for subagent handoff.
-slk events claim --type message --message-kind reply --thread "$THREAD_TS" --lease 5m --timeout 60s
+slk events claim --type message --message-kind reply --thread "$THREAD_TS" --lease 5m
+
+# Only claim messages that explicitly mention the active Slack user.
+slk events claim --type message --mentions-me --lease 5m
 
 # If processing fails, do not ack; the lease expiry makes it claimable again.
 
 # Avoid reacting to the bot's own messages
-slk events claim --type message --exclude-self --lease 5m --timeout 5m | jq -r '.cursor'
+slk events claim --type message --exclude-self --lease 5m | jq -r '.cursor'
 ```
 
 ## Configuration
