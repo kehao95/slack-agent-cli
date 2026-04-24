@@ -135,7 +135,19 @@ slk
 │   ├── send        # Send a message
 │   ├── edit        # Edit a message
 │   ├── delete      # Delete a message
-│   └── search      # Search messages
+│   ├── search      # Search messages
+│   └── next        # Wait for the next cached message event
+│
+├── events          # Event stream/cache operations
+│   ├── stream      # Stream Socket Mode events as NDJSON
+│   ├── list        # Query cached daemon events
+│   ├── next        # Wait for the next matching cached event
+│   ├── claim       # Claim one pending event for processing
+│   └── ack         # Acknowledge processed cursor
+│
+├── daemon          # Local event cache daemon
+│   ├── run         # Cache Socket Mode events into SQLite
+│   └── status      # Inspect local event cache status
 │
 ├── reactions       # Reaction operations
 │   ├── add         # Add reaction to message
@@ -186,6 +198,29 @@ slk messages send --channel "#support" --thread "$THREAD_TS" --text "Here's the 
 slk reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
 ```
 
+### Daemon Event Loop Example
+
+```bash
+# Terminal/supervisor 1: cache visible Slack events for 24h by default
+SLACK_CLI_ROLE=bot slk daemon run --channel "#_bot-testing"
+
+# Agent loop (queue): claim top-level messages -> process -> ack
+while true; do
+  event=$(slk events claim --type message --message-kind root --channel "#_bot-testing" --lease 5m --timeout 60s)
+  cursor=$(echo "$event" | jq -r '.cursor')
+  # ... process event ...
+  slk events ack "$cursor"
+done
+
+# Thread replies can be claimed separately, which is useful for subagent handoff.
+slk events claim --type message --message-kind reply --thread "$THREAD_TS" --lease 5m --timeout 60s
+
+# If processing fails, do not ack; the lease expiry makes it claimable again.
+
+# Avoid reacting to the bot's own messages
+slk events claim --type message --exclude-self --lease 5m --timeout 5m | jq -r '.cursor'
+```
+
 ## Configuration
 
 ### Config File Location
@@ -219,6 +254,7 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 | 5 | Network error |
 | 6 | Permission denied (missing scopes) |
 | 7 | Resource not found (channel, user, message) |
+| 124 | Wait timeout, e.g. `events next --timeout` |
 
 ## License
 

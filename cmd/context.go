@@ -23,9 +23,12 @@ type CommandContext struct {
 	Ctx               context.Context
 	Cancel            context.CancelFunc
 	Config            *config.Config
+	TeamID            string
 	AuthRole          string
 	AuthToken         string
 	AuthCookie        string
+	AuthUserID        string
+	AuthBotID         string
 	Client            *slack.APIClient
 	CacheStore        *cache.Store
 	ChannelResolver   *channels.Resolver
@@ -93,13 +96,13 @@ func newCommandContext(cmd *cobra.Command, timeout time.Duration, noTimeout bool
 	setupCtx, setupCancel := context.WithTimeout(cmd.Context(), timeout)
 	defer setupCancel()
 
-	teamID, err := resolveTeamID(setupCtx, client)
+	authInfo, err := resolveAuthInfo(setupCtx, client)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 
-	cacheStore, err := cache.DefaultStore(teamID)
+	cacheStore, err := cache.DefaultStore(authInfo.TeamID)
 	if err != nil {
 		cancel()
 		return nil, errors.ConfigError("failed to initialize cache: %w", err)
@@ -109,9 +112,12 @@ func newCommandContext(cmd *cobra.Command, timeout time.Duration, noTimeout bool
 		Ctx:               ctx,
 		Cancel:            cancel,
 		Config:            cfg,
+		TeamID:            authInfo.TeamID,
 		AuthRole:          authRole,
 		AuthToken:         apiToken,
 		AuthCookie:        apiCookie,
+		AuthUserID:        authInfo.UserID,
+		AuthBotID:         authInfo.BotID,
 		Client:            client,
 		CacheStore:        cacheStore,
 		ChannelResolver:   channels.NewCachedResolver(client, cacheStore),
@@ -154,16 +160,34 @@ func (c *CommandContext) ResolveChannel(input string) (string, error) {
 	return c.ChannelResolver.ResolveID(c.Ctx, input)
 }
 
-func resolveTeamID(ctx context.Context, client *slack.APIClient) (string, error) {
+// EnsureAuthIdentity fills in the active Slack user/bot IDs when the context was created with
+// SLACK_TEAM_ID and skipped auth.test during setup.
+func (c *CommandContext) EnsureAuthIdentity(ctx context.Context) error {
+	if c == nil || c.Client == nil || (c.AuthUserID != "" && c.AuthBotID != "") {
+		return nil
+	}
+	resp, err := c.Client.AuthTest(ctx)
+	if err != nil {
+		return err
+	}
+	if c.TeamID == "" {
+		c.TeamID = resp.TeamID
+	}
+	c.AuthUserID = resp.UserID
+	c.AuthBotID = resp.BotID
+	return nil
+}
+
+func resolveAuthInfo(ctx context.Context, client *slack.APIClient) (*slack.AuthTestResponse, error) {
 	if envTeamID := strings.TrimSpace(os.Getenv("SLACK_TEAM_ID")); envTeamID != "" {
-		return envTeamID, nil
+		return &slack.AuthTestResponse{TeamID: envTeamID}, nil
 	}
 	resp, err := client.AuthTest(ctx)
 	if err != nil {
-		return "", errors.AuthError("auth test failed: %w", err)
+		return nil, errors.AuthError("auth test failed: %w", err)
 	}
 	if resp.TeamID == "" {
-		return "", errors.AuthError("auth test missing team id")
+		return nil, errors.AuthError("auth test missing team id")
 	}
-	return resp.TeamID, nil
+	return resp, nil
 }

@@ -19,7 +19,12 @@ import (
 var eventsCmd = &cobra.Command{
 	Use:   "events",
 	Short: "Event stream operations",
-	Long:  "Consume Slack Events API traffic over Socket Mode as a long-running NDJSON stream.",
+	Long: `Consume, cache, and query Slack Events API traffic for low-level event workflows.
+
+Best practice for agents:
+  1) run slk daemon run to keep a local event queue
+  2) process one item at a time with slk events claim
+  3) call slk events ack <cursor> after successful processing`,
 }
 
 var eventsStreamCmd = &cobra.Command{
@@ -54,6 +59,7 @@ func init() {
 	eventsStreamCmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
 	eventsStreamCmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
 	eventsStreamCmd.Flags().Bool("threads-only", false, "Only emit thread-related message events")
+	eventsStreamCmd.Flags().Bool("exclude-self", false, "Exclude events produced by the active auth identity")
 	eventsStreamCmd.Flags().Bool("raw", false, "Include the raw Slack payload in each emitted event")
 }
 
@@ -87,6 +93,9 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 	cmdCtx.AuthToken = token
 	cmdCtx.AuthCookie = cookie
 	defer cmdCtx.Close()
+	if err := cmdCtx.EnsureAuthIdentity(cmdCtx.Ctx); err != nil {
+		return err
+	}
 
 	channelInput, _ := cmd.Flags().GetString("channel")
 	channelID := ""
@@ -105,6 +114,7 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 
 	threadTS, _ := cmd.Flags().GetString("thread")
 	threadsOnly, _ := cmd.Flags().GetBool("threads-only")
+	excludeSelf, _ := cmd.Flags().GetBool("exclude-self")
 	includeRaw, _ := cmd.Flags().GetBool("raw")
 	human, _ := cmd.Flags().GetBool("human")
 
@@ -113,6 +123,7 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 		ConversationTypes: conversationTypes,
 		ThreadTS:          strings.TrimSpace(threadTS),
 		ThreadsOnly:       threadsOnly,
+		ExcludeSelf:       excludeSelf,
 	}
 
 	normalizer := newEventNormalizer(cmdCtx)

@@ -106,8 +106,7 @@ func TestNewCommandContext_BotRole(t *testing.T) {
 // TestNewCommandContext_MissingConfig verifies that NewCommandContext returns
 // an error when the config file doesn't exist and no env vars are set.
 func TestNewCommandContext_MissingConfig(t *testing.T) {
-	t.Setenv("SLACK_USER_TOKEN", "")
-	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	clearAuthEnvForTest(t)
 
 	// Point to non-existent config
 	cfgFile = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -133,8 +132,7 @@ func TestNewCommandContext_MissingConfig(t *testing.T) {
 // TestNewCommandContext_InvalidConfig verifies that NewCommandContext returns
 // an error when the config is invalid (missing user token).
 func TestNewCommandContext_InvalidConfig(t *testing.T) {
-	t.Setenv("SLACK_USER_TOKEN", "")
-	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	clearAuthEnvForTest(t)
 
 	// Create config without user token
 	configPath := filepath.Join(t.TempDir(), "config.json")
@@ -162,6 +160,16 @@ func TestNewCommandContext_InvalidConfig(t *testing.T) {
 	if err.Error() == "" {
 		t.Error("error message should not be empty")
 	}
+}
+
+func clearAuthEnvForTest(t *testing.T) {
+	t.Helper()
+	t.Setenv("SLACK_USER_TOKEN", "")
+	t.Setenv("SLACK_BOT_TOKEN", "")
+	t.Setenv("SLACK_APP_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_TOKEN", "")
+	t.Setenv("SLACK_CLIENT_COOKIE", "")
+	t.Setenv("SLACK_CLI_ROLE", "")
 }
 
 // TestNewCommandContext_DefaultTimeout verifies that passing timeout=0

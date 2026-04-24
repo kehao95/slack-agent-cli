@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/eventstore"
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
@@ -17,7 +18,9 @@ type streamFilter struct {
 	ChannelID         string
 	ConversationTypes map[string]struct{}
 	ThreadTS          string
+	UserID            string
 	ThreadsOnly       bool
+	ExcludeSelf       bool
 }
 
 func (f streamFilter) Match(event streamEvent) bool {
@@ -37,16 +40,26 @@ func (f streamFilter) Match(event streamEvent) bool {
 		}
 	}
 
+	if f.UserID != "" && event.UserID != f.UserID {
+		return false
+	}
+
 	if f.ThreadsOnly {
 		if !event.IsThreadReply && !event.IsThreadRoot && event.Subtype != "message_replied" && event.Subtype != "thread_broadcast" {
 			return false
 		}
 	}
 
+	if f.ExcludeSelf && event.IsSelf {
+		return false
+	}
+
 	return true
 }
 
 type streamEvent struct {
+	Cursor           int64           `json:"cursor,omitempty"`
+	ReceivedAt       time.Time       `json:"received_at,omitempty"`
 	Kind             string          `json:"kind"`
 	EnvelopeID       string          `json:"envelope_id,omitempty"`
 	EventID          string          `json:"event_id,omitempty"`
@@ -58,6 +71,7 @@ type streamEvent struct {
 	ConversationType string          `json:"conversation_type,omitempty"`
 	User             string          `json:"user,omitempty"`
 	UserID           string          `json:"user_id,omitempty"`
+	BotID            string          `json:"bot_id,omitempty"`
 	ItemUser         string          `json:"item_user,omitempty"`
 	ItemUserID       string          `json:"item_user_id,omitempty"`
 	Reaction         string          `json:"reaction,omitempty"`
@@ -66,6 +80,7 @@ type streamEvent struct {
 	Text             string          `json:"text,omitempty"`
 	IsThreadReply    bool            `json:"is_thread_reply,omitempty"`
 	IsThreadRoot     bool            `json:"is_thread_root,omitempty"`
+	IsSelf           bool            `json:"is_self,omitempty"`
 	Raw              json.RawMessage `json:"raw,omitempty"`
 }
 
@@ -75,6 +90,8 @@ type eventNormalizer struct {
 	userResolver         streamUserResolver
 	conversationProvider streamConversationInfoProvider
 	conversationTypeByID map[string]string
+	selfUserID           string
+	selfBotID            string
 }
 
 type streamChannelResolver interface {
@@ -96,6 +113,66 @@ func newEventNormalizer(cmdCtx *CommandContext) *eventNormalizer {
 		userResolver:         cmdCtx.UserResolver,
 		conversationProvider: cmdCtx.Client,
 		conversationTypeByID: map[string]string{},
+		selfUserID:           strings.TrimSpace(cmdCtx.AuthUserID),
+		selfBotID:            strings.TrimSpace(cmdCtx.AuthBotID),
+	}
+}
+
+func streamEventFromStore(event eventstore.Event) streamEvent {
+	return streamEvent{
+		Cursor:           event.Cursor,
+		ReceivedAt:       event.ReceivedAt,
+		Kind:             event.Kind,
+		EnvelopeID:       event.EnvelopeID,
+		EventID:          event.EventID,
+		EventTime:        event.EventTime,
+		Type:             event.Type,
+		Subtype:          event.Subtype,
+		Channel:          event.Channel,
+		ChannelID:        event.ChannelID,
+		ConversationType: event.ConversationType,
+		User:             event.User,
+		UserID:           event.UserID,
+		BotID:            event.BotID,
+		ItemUser:         event.ItemUser,
+		ItemUserID:       event.ItemUserID,
+		Reaction:         event.Reaction,
+		TS:               event.TS,
+		ThreadTS:         event.ThreadTS,
+		Text:             event.Text,
+		IsThreadReply:    event.IsThreadReply,
+		IsThreadRoot:     event.IsThreadRoot,
+		IsSelf:           event.IsSelf,
+		Raw:              event.Raw,
+	}
+}
+
+func streamEventToStore(event streamEvent) eventstore.Event {
+	return eventstore.Event{
+		Cursor:           event.Cursor,
+		ReceivedAt:       event.ReceivedAt,
+		Kind:             event.Kind,
+		EnvelopeID:       event.EnvelopeID,
+		EventID:          event.EventID,
+		EventTime:        event.EventTime,
+		Type:             event.Type,
+		Subtype:          event.Subtype,
+		Channel:          event.Channel,
+		ChannelID:        event.ChannelID,
+		ConversationType: event.ConversationType,
+		User:             event.User,
+		UserID:           event.UserID,
+		BotID:            event.BotID,
+		ItemUser:         event.ItemUser,
+		ItemUserID:       event.ItemUserID,
+		Reaction:         event.Reaction,
+		TS:               event.TS,
+		ThreadTS:         event.ThreadTS,
+		Text:             event.Text,
+		IsThreadReply:    event.IsThreadReply,
+		IsThreadRoot:     event.IsThreadRoot,
+		IsSelf:           event.IsSelf,
+		Raw:              event.Raw,
 	}
 }
 
@@ -158,6 +235,7 @@ func (n *eventNormalizer) normalizeMessageEvent(base streamEvent, eventType stri
 	userID := firstNonEmpty(payload.User, evt.User)
 	channelID := firstNonEmpty(payload.Channel, evt.Channel)
 	subtype := firstNonEmpty(evt.SubType, payload.SubType)
+	botID := firstNonEmpty(payload.BotID, evt.BotID)
 	conversationType := firstNonEmpty(normalizeConversationType(payload.ChannelType), normalizeConversationType(evt.ChannelType))
 	if conversationType == "" {
 		conversationType = n.resolveConversationType(channelID)
@@ -170,6 +248,8 @@ func (n *eventNormalizer) normalizeMessageEvent(base streamEvent, eventType stri
 	base.ConversationType = conversationType
 	base.UserID = userID
 	base.User = n.resolveUserRef(userID)
+	base.BotID = botID
+	base.IsSelf = n.isSelf(userID, botID)
 	base.TS = ts
 	base.ThreadTS = threadTS
 	base.Text = firstNonEmpty(payload.Text, evt.Text)
@@ -190,6 +270,7 @@ func (n *eventNormalizer) normalizeReactionEvent(base streamEvent, eventType, us
 	base.ConversationType = conversationType
 	base.UserID = userID
 	base.User = n.resolveUserRef(userID)
+	base.IsSelf = n.isSelf(userID, "")
 	base.ItemUserID = itemUserID
 	base.ItemUser = n.resolveUserRef(itemUserID)
 	base.Reaction = reaction
@@ -210,6 +291,7 @@ func (n *eventNormalizer) normalizePinEvent(base streamEvent, eventType, userID,
 	base.ConversationType = conversationType
 	base.UserID = userID
 	base.User = n.resolveUserRef(userID)
+	base.IsSelf = n.isSelf(userID, "")
 	base.TS = ts
 	base.Text = messageText(item.Message)
 
@@ -232,6 +314,13 @@ func (n *eventNormalizer) resolveUserRef(userID string) string {
 		return resolved
 	}
 	return "@" + resolved
+}
+
+func (n *eventNormalizer) isSelf(userID, botID string) bool {
+	userID = strings.TrimSpace(userID)
+	botID = strings.TrimSpace(botID)
+	return (userID != "" && n.selfUserID != "" && userID == n.selfUserID) ||
+		(botID != "" && n.selfBotID != "" && botID == n.selfBotID)
 }
 
 func (n *eventNormalizer) resolveChannelRef(channelID, conversationType string) string {

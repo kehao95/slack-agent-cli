@@ -32,6 +32,14 @@ Quick Start:
   4. Send a message:
      slk messages send --channel "#general" --text "Hello!"
 
+Agent Event Loop:
+  1. Run a Socket Mode event daemon:
+     SLACK_CLI_ROLE=bot slk daemon run --channel "#support"
+
+  2. Claim one event, process it, then ack the returned cursor:
+     slk events claim --type message --message-kind root --timeout 60s --lease 5m
+     slk events ack <cursor>
+
 Exit Codes:
   0 - Success
   1 - General error
@@ -41,6 +49,7 @@ Exit Codes:
   5 - Network error
   6 - Permission denied (missing OAuth scopes)
   7 - Resource not found (channel, user, message)
+  124 - Wait timeout (for example events next --timeout)
 
 Environment Variables:
   SLACK_CLI_ROLE       Active auth role: user or bot (default: user)

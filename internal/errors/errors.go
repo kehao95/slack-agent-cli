@@ -20,6 +20,7 @@ const (
 	ExitNetwork    = 5 // Network error
 	ExitPermission = 6 // Permission denied (missing scopes)
 	ExitNotFound   = 7 // Resource not found (channel, user, message)
+	ExitTimeout    = 124
 )
 
 // ErrorWithExitCode wraps an error with a specific exit code.
@@ -210,6 +211,11 @@ func RateLimitError(retryAfter string) error {
 		"Slack API rate limit exceeded\nRetry after: %s",
 		retryAfter,
 	)
+}
+
+// TimeoutError creates an error for commands that intentionally waited and timed out.
+func TimeoutError(msg string, args ...interface{}) error {
+	return NewErrorWithCode(ExitTimeout, msg, args...)
 }
 
 // IsMissingScopeError checks if an error is due to missing OAuth scopes.

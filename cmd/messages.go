@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	cerrors "github.com/kehao95/slack-agent-cli/internal/errors"
+	"github.com/kehao95/slack-agent-cli/internal/eventstore"
 	"github.com/kehao95/slack-agent-cli/internal/messages"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
@@ -198,6 +202,20 @@ Timestamp Format:
 	RunE: runMessagesDelete,
 }
 
+var messagesNextCmd = &cobra.Command{
+	Use:   "next",
+	Short: "Wait for the next cached message event",
+	Long: `Wait for the next message-shaped event in the local daemon cache.
+
+This is the agent-friendly blocking primitive for interactive loops. Run "slk daemon run" in a supervisor first.`,
+	Example: `  # Wait for the next new message in a channel
+  slk messages next --channel "#_bot-testing" --since latest --timeout 60s
+
+  # Wait for the next reply in a thread, ignoring the bot's own messages
+  slk messages next --channel "#_bot-testing" --thread "$THREAD_TS" --since "$CURSOR" --exclude-self --timeout 5m`,
+	RunE: runMessagesNext,
+}
+
 func init() {
 	rootCmd.AddCommand(messagesCmd)
 	messagesCmd.AddCommand(messagesListCmd)
@@ -205,6 +223,7 @@ func init() {
 	messagesCmd.AddCommand(messagesSendCmd)
 	messagesCmd.AddCommand(messagesEditCmd)
 	messagesCmd.AddCommand(messagesDeleteCmd)
+	messagesCmd.AddCommand(messagesNextCmd)
 
 	messagesListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
 	messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages to return")
@@ -243,6 +262,13 @@ func init() {
 	messagesDeleteCmd.Flags().String("ts", "", "Message timestamp (required)")
 	messagesDeleteCmd.MarkFlagRequired("channel")
 	messagesDeleteCmd.MarkFlagRequired("ts")
+
+	messagesNextCmd.Flags().StringP("channel", "c", "", "Channel name or ID")
+	messagesNextCmd.Flags().String("thread", "", "Thread timestamp to wait in")
+	messagesNextCmd.Flags().String("user", "", "Restrict to a Slack user ID")
+	messagesNextCmd.Flags().String("since", "", "Start after local cursor, or from duration/RFC3339 time (default: latest)")
+	messagesNextCmd.Flags().Bool("exclude-self", false, "Exclude messages produced by the active auth identity")
+	messagesNextCmd.Flags().Duration("timeout", 0, "Maximum time to wait for a matching message (0 waits forever)")
 }
 
 func runMessagesList(cmd *cobra.Command, args []string) error {
@@ -470,4 +496,76 @@ func runMessagesDelete(cmd *cobra.Command, args []string) error {
 	result.Channel = channelInput
 
 	return output.Print(cmd, result)
+}
+
+func runMessagesNext(cmd *cobra.Command, args []string) error {
+	cmdCtx, _, store, err := openEventQueryStore(cmd, true)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	defer store.Close()
+
+	filter, err := buildEventQueryFilter(cmd, cmdCtx, store, true)
+	if err != nil {
+		return err
+	}
+	filter.Type = "message"
+	filter.Limit = 1
+
+	timeout, _ := cmd.Flags().GetDuration("timeout")
+	deadline := time.Time{}
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		events, err := store.Query(cmdCtx.Ctx, filter)
+		if err != nil {
+			return err
+		}
+		if len(events) > 0 {
+			return printCachedMessageEvent(cmd, events[0])
+		}
+		if !deadline.IsZero() && time.Now().After(deadline) {
+			cmd.SilenceUsage = true
+			return cerrors.TimeoutError("timed out waiting for matching message")
+		}
+		select {
+		case <-cmdCtx.Ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
+func printCachedMessageEvent(cmd *cobra.Command, event eventstore.Event) error {
+	human, _ := cmd.Flags().GetBool("human")
+	if human {
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), formatHumanStreamEvent(streamEventFromStore(event)))
+		return err
+	}
+	message := map[string]interface{}{
+		"cursor":            event.Cursor,
+		"received_at":       event.ReceivedAt,
+		"type":              event.Type,
+		"subtype":           event.Subtype,
+		"channel":           event.Channel,
+		"channel_id":        event.ChannelID,
+		"conversation_type": event.ConversationType,
+		"user":              event.User,
+		"user_id":           event.UserID,
+		"bot_id":            event.BotID,
+		"ts":                event.TS,
+		"thread_ts":         event.ThreadTS,
+		"text":              event.Text,
+		"is_thread_reply":   event.IsThreadReply,
+		"is_thread_root":    event.IsThreadRoot,
+		"is_self":           event.IsSelf,
+	}
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	return encoder.Encode(message)
 }
