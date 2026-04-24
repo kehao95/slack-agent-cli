@@ -23,6 +23,17 @@ func readStdinIfPiped() (string, error) {
 	return "", nil
 }
 
+func readRequiredStdin(format string) (string, error) {
+	text, err := readStdinIfPiped()
+	if err != nil {
+		return "", err
+	}
+	if text == "" {
+		return "", fmt.Errorf("--%s - requires piped stdin", format)
+	}
+	return text, nil
+}
+
 // parseBlocksJSON parses a JSON array of Slack Block Kit blocks.
 // Returns nil if blocksJSON is empty.
 func parseBlocksJSON(blocksJSON string) ([]slackapi.Block, error) {

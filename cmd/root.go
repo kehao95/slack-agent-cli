@@ -30,7 +30,7 @@ Quick Start:
      slk messages list --channel "#general" --limit 10
 
   4. Send a message:
-     slk messages send --channel "#general" --text "Hello!"
+     slk messages send --channel "#general" --mrkdwn "Hello!"
 
 Agent Event Loop:
   1. Run a Socket Mode event daemon:

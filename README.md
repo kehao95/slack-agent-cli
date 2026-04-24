@@ -179,7 +179,7 @@ slk messages list --channel "#alerts" --since 1h | llm "Summarize these alerts"
 # Auto-reply to specific errors
 slk messages search --query "error: deployment" | \
   jq -r '.matches[].ts' | \
-  xargs -I {} slk messages send --channel "#ops" --thread {} --text "Investigating..."
+  xargs -I {} slk messages send --channel "#ops" --thread {} --mrkdwn "Investigating..."
 ```
 
 ### Agent Workflow Example
@@ -192,7 +192,7 @@ slk messages list --channel "#support" --since 1h
 slk messages search --query "error in:#support"
 
 # 3. Send a response
-slk messages send --channel "#support" --thread "$THREAD_TS" --text "Here's the answer..."
+slk messages send --channel "#support" --thread "$THREAD_TS" --mrkdwn "Here's the answer..."
 
 # 4. Add acknowledgment reaction
 slk reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"

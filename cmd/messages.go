@@ -136,20 +136,33 @@ Output (JSON):
   }
 
 Text Input:
-  - Use --text flag for simple messages
-  - Pipe from stdin for multi-line or dynamic content
-  - Use --blocks for rich formatting (Block Kit JSON)`,
+  - Choose exactly one of --mrkdwn, --text, or --blocks
+  - Use --mrkdwn for Slack-formatted message text
+  - Use --text only for plain text when you intentionally do not want Slack formatting
+  - Use --mrkdwn - or --text - to read that format from stdin
+  - The CLI does not validate or convert formatting; Slack receives the text as-is
+  - Slack mrkdwn is not GitHub/CommonMark Markdown
+  - Slack mrkdwn examples: *bold*, _italic_, ~strike~, inline code with backticks, triple-backtick code blocks, <https://example.com|link text>, <@USERID>
+  - Slack top-level message text has no real bullet-list syntax; mimic lists with plain lines like "- item"
+  - Use --blocks for true rich lists, headings, or more structured layouts
+  - Slack message text does not support Markdown headings or tables`,
 	Example: `  # Simple message
-  slk messages send --channel "#general" --text "Hello from CLI!"
+  slk messages send --channel "#general" --mrkdwn "Hello from CLI!"
+
+  # Slack mrkdwn formatting
+  slk messages send --channel "#general" --mrkdwn "*Done:* see <https://example.com|docs>"
 
   # Reply in thread
-  slk messages send --channel "#general" --thread "1705312365.000100" --text "Thread reply"
+  slk messages send --channel "#general" --thread "1705312365.000100" --mrkdwn "Thread reply"
 
-  # Pipe message content
-  echo "Multi-line\nmessage" | slk messages send --channel "#general"
+  # Read Slack mrkdwn from stdin
+  printf '*Done:* see <https://example.com|docs>\n' | slk messages send --channel "#general" --mrkdwn -
+
+  # Mimic a list in Slack mrkdwn
+  printf '*Plan:*\n- claim root messages\n- route thread replies\n' | slk messages send --channel "#general" --mrkdwn -
 
   # Send to user DM
-  slk messages send --channel "@alice" --text "Private message"`,
+  slk messages send --channel "@alice" --mrkdwn "Private message"`,
 	RunE: runMessagesSend,
 }
 
@@ -244,7 +257,8 @@ func init() {
 	messagesSearchCmd.MarkFlagRequired("query")
 
 	messagesSendCmd.Flags().StringP("channel", "c", "", "Target channel or @user (required)")
-	messagesSendCmd.Flags().StringP("text", "t", "", "Message text")
+	messagesSendCmd.Flags().StringP("mrkdwn", "m", "", "Slack mrkdwn message text (sent as-is)")
+	messagesSendCmd.Flags().StringP("text", "t", "", "Plain message text (sent as-is; no Slack formatting intent)")
 	messagesSendCmd.Flags().String("thread", "", "Thread timestamp to reply in")
 	messagesSendCmd.Flags().String("blocks", "", "Block Kit JSON")
 	messagesSendCmd.Flags().Bool("unfurl-links", true, "Unfurl URLs in message")
@@ -386,19 +400,11 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 func runMessagesSend(cmd *cobra.Command, args []string) error {
 	channelInput, _ := cmd.Flags().GetString("channel")
 	text, _ := cmd.Flags().GetString("text")
+	mrkdwn, _ := cmd.Flags().GetString("mrkdwn")
 	thread, _ := cmd.Flags().GetString("thread")
 	blocksJSON, _ := cmd.Flags().GetString("blocks")
 	unfurlLinks, _ := cmd.Flags().GetBool("unfurl-links")
 	unfurlMedia, _ := cmd.Flags().GetBool("unfurl-media")
-
-	// If no text flag, try reading from stdin
-	if text == "" {
-		stdinText, err := readStdinIfPiped()
-		if err != nil {
-			return err
-		}
-		text = stdinText
-	}
 
 	// Parse blocks if provided
 	blocks, err := parseBlocksJSON(blocksJSON)
@@ -406,9 +412,31 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Validate we have either text or blocks
-	if text == "" && len(blocks) == 0 {
-		return fmt.Errorf("message text is required (use --text, --blocks, or pipe via stdin)")
+	if mrkdwn == "-" {
+		mrkdwn, err = readRequiredStdin("mrkdwn")
+		if err != nil {
+			return err
+		}
+	}
+	if text == "-" {
+		text, err = readRequiredStdin("text")
+		if err != nil {
+			return err
+		}
+	}
+	inputCount := 0
+	if mrkdwn != "" {
+		inputCount++
+		text = mrkdwn
+	}
+	if text != "" && mrkdwn == "" {
+		inputCount++
+	}
+	if len(blocks) > 0 {
+		inputCount++
+	}
+	if inputCount != 1 {
+		return fmt.Errorf("choose exactly one message input: --mrkdwn, --text, or --blocks")
 	}
 
 	cmdCtx, err := NewCommandContext(cmd, 0)
