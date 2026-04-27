@@ -9,6 +9,7 @@ import (
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
+	"github.com/spf13/cobra"
 )
 
 type testChannelResolver struct {
@@ -60,6 +61,31 @@ func TestParseConversationTypes(t *testing.T) {
 func TestParseConversationTypesInvalid(t *testing.T) {
 	if _, err := parseConversationTypes("nope"); err == nil {
 		t.Fatal("expected invalid conversation type error")
+	}
+}
+
+func TestParseEventTypes(t *testing.T) {
+	types, err := parseEventTypes("message, reaction_added,member_joined_channel")
+	if err != nil {
+		t.Fatalf("parseEventTypes returned error: %v", err)
+	}
+	if len(types) != 3 {
+		t.Fatalf("expected 3 event types, got %d", len(types))
+	}
+	if _, ok := types["message"]; !ok {
+		t.Fatalf("expected message to be present")
+	}
+	if _, ok := types["reaction_added"]; !ok {
+		t.Fatalf("expected reaction_added to be present")
+	}
+	if _, ok := types["member_joined_channel"]; !ok {
+		t.Fatalf("expected member_joined_channel to be present")
+	}
+}
+
+func TestParseEventTypesInvalid(t *testing.T) {
+	if _, err := parseEventTypes("message, ,reaction_added"); err == nil {
+		t.Fatal("expected invalid event type error")
 	}
 }
 
@@ -164,6 +190,7 @@ func TestStreamFilterMatch(t *testing.T) {
 	}
 
 	if !filter.Match(streamEvent{
+		Type:             "message",
 		ChannelID:        "D123",
 		ConversationType: "dm",
 		ThreadTS:         "1705312365.000000",
@@ -174,6 +201,7 @@ func TestStreamFilterMatch(t *testing.T) {
 	}
 
 	if filter.Match(streamEvent{
+		Type:             "message",
 		ChannelID:        "C999",
 		ConversationType: "channel",
 		ThreadTS:         "1705312365.000000",
@@ -181,6 +209,115 @@ func TestStreamFilterMatch(t *testing.T) {
 		IsThreadReply:    true,
 	}) {
 		t.Fatal("did not expect mismatched channel to match")
+	}
+}
+
+func TestStreamFilterEventTypes(t *testing.T) {
+	filter := streamFilter{
+		EventTypes: map[string]struct{}{
+			"message": {},
+		},
+	}
+
+	if !filter.Match(streamEvent{Type: "message"}) {
+		t.Fatal("expected message event to match event-type filter")
+	}
+
+	if filter.Match(streamEvent{Type: "reaction_added"}) {
+		t.Fatal("did not expect non-matching event type to match filter")
+	}
+
+	if !(streamFilter{}).Match(streamEvent{Type: "reaction_added"}) {
+		t.Fatal("expected event to match when event-type filter is omitted")
+	}
+}
+
+func TestBuildEventsStreamFilterRejectsThreadsOnlyWithoutMessageEventType(t *testing.T) {
+	cmd := &cobra.Command{Use: "stream"}
+	addEventsStreamFlags(cmd)
+	if err := cmd.Flags().Set("threads-only", "true"); err != nil {
+		t.Fatalf("set threads-only: %v", err)
+	}
+	if err := cmd.Flags().Set("event-type", "reaction_added"); err != nil {
+		t.Fatalf("set event-type: %v", err)
+	}
+
+	_, err := buildEventsStreamFilter(cmd, nil)
+	if err == nil {
+		t.Fatal("expected threads-only with non-message event types to fail")
+	}
+	if !strings.Contains(err.Error(), "--threads-only only applies to message events") {
+		t.Fatalf("expected threads-only validation error, got %v", err)
+	}
+}
+
+func TestBuildEventsStreamFilterAllowsThreadsOnlyWhenMessageIncluded(t *testing.T) {
+	cmd := &cobra.Command{Use: "stream"}
+	addEventsStreamFlags(cmd)
+	if err := cmd.Flags().Set("threads-only", "true"); err != nil {
+		t.Fatalf("set threads-only: %v", err)
+	}
+	if err := cmd.Flags().Set("event-type", "message,reaction_added"); err != nil {
+		t.Fatalf("set event-type: %v", err)
+	}
+
+	filter, err := buildEventsStreamFilter(cmd, nil)
+	if err != nil {
+		t.Fatalf("buildEventsStreamFilter returned error: %v", err)
+	}
+	if _, ok := filter.EventTypes["message"]; !ok {
+		t.Fatalf("expected message to be present in filter")
+	}
+	if _, ok := filter.EventTypes["reaction_added"]; !ok {
+		t.Fatalf("expected reaction_added to be present in filter")
+	}
+}
+
+func TestStreamFilterThreadsOnlyAllowsExplicitNonMessageEventTypes(t *testing.T) {
+	filter := streamFilter{
+		EventTypes: map[string]struct{}{
+			"message":        {},
+			"reaction_added": {},
+		},
+		ThreadsOnly: true,
+	}
+
+	if !filter.Match(streamEvent{Type: "reaction_added"}) {
+		t.Fatal("expected explicitly requested non-message event type to pass threads-only filter")
+	}
+
+	if !filter.Match(streamEvent{Type: "message", IsThreadReply: true}) {
+		t.Fatal("expected thread reply message to pass threads-only filter")
+	}
+
+	if filter.Match(streamEvent{Type: "message", TS: "1705312365.000100"}) {
+		t.Fatal("did not expect non-thread message to pass threads-only filter")
+	}
+}
+
+func TestStreamFilterThreadsOnlyWithoutEventTypesRejectsNonMessageEvents(t *testing.T) {
+	filter := streamFilter{ThreadsOnly: true}
+	if filter.Match(streamEvent{Type: "reaction_added"}) {
+		t.Fatal("did not expect non-message event to pass threads-only filter without explicit event types")
+	}
+}
+
+func TestRunEventsStreamRejectsThreadsOnlyWithoutMessageBeforeConfig(t *testing.T) {
+	cmd := &cobra.Command{Use: "stream"}
+	addEventsStreamFlags(cmd)
+	if err := cmd.Flags().Set("threads-only", "true"); err != nil {
+		t.Fatalf("set threads-only: %v", err)
+	}
+	if err := cmd.Flags().Set("event-type", "reaction_added"); err != nil {
+		t.Fatalf("set event-type: %v", err)
+	}
+
+	err := runEventsStream(cmd, nil)
+	if err == nil {
+		t.Fatal("expected invalid event-type/threads-only combination to fail")
+	}
+	if !strings.Contains(err.Error(), "--threads-only only applies to message events") {
+		t.Fatalf("expected threads-only validation error, got %v", err)
 	}
 }
 

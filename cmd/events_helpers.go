@@ -17,6 +17,7 @@ import (
 type streamFilter struct {
 	ChannelID         string
 	ConversationTypes map[string]struct{}
+	EventTypes        map[string]struct{}
 	ThreadTS          string
 	UserID            string
 	ThreadsOnly       bool
@@ -34,6 +35,12 @@ func (f streamFilter) Match(event streamEvent) bool {
 		}
 	}
 
+	if len(f.EventTypes) > 0 {
+		if _, ok := f.EventTypes[event.Type]; !ok {
+			return false
+		}
+	}
+
 	if f.ThreadTS != "" {
 		if event.ThreadTS != f.ThreadTS && event.TS != f.ThreadTS {
 			return false
@@ -45,6 +52,9 @@ func (f streamFilter) Match(event streamEvent) bool {
 	}
 
 	if f.ThreadsOnly {
+		if event.Type != "message" {
+			return len(f.EventTypes) > 0
+		}
 		if !event.IsThreadReply && !event.IsThreadRoot && event.Subtype != "message_replied" && event.Subtype != "thread_broadcast" {
 			return false
 		}
@@ -409,6 +419,33 @@ func parseConversationTypes(raw string) (map[string]struct{}, error) {
 		result[value] = struct{}{}
 	}
 	return result, nil
+}
+
+func parseEventTypes(raw string) (map[string]struct{}, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+
+	result := make(map[string]struct{})
+	for _, part := range strings.Split(raw, ",") {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			return nil, fmt.Errorf("invalid --event-type %q: values must be non-empty comma-separated strings", raw)
+		}
+		result[value] = struct{}{}
+	}
+	return result, nil
+}
+
+func validateThreadsOnlyEventTypes(threadsOnly bool, eventTypes map[string]struct{}) error {
+	if !threadsOnly || len(eventTypes) == 0 {
+		return nil
+	}
+	if _, ok := eventTypes["message"]; ok {
+		return nil
+	}
+	return fmt.Errorf("--threads-only only applies to message events; include message in --event-type or remove --threads-only")
 }
 
 func normalizeConversationType(value string) string {

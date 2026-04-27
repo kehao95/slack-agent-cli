@@ -198,6 +198,16 @@ slk messages send --channel "#support" --thread "$THREAD_TS" --mrkdwn "Here's th
 slk reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"
 ```
 
+### Event Stream Filtering
+
+```bash
+# Only wake downstream workers for message events from one channel
+slk events stream --channel "#support" --exclude-self --event-type message
+
+# Keep multiple event classes in one stream
+slk events stream --channel "#support" --event-type message,reaction_added
+```
+
 ### Daemon Event Loop Example
 
 ```bash

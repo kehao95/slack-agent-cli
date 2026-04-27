@@ -43,6 +43,12 @@ Connection status and reconnect messages are written to stderr.`,
   # Stream one channel
   slk events stream --channel "#support"
 
+  # Stream only message events from one channel
+  slk events stream --channel "#support" --event-type message
+
+  # Stream multiple event types
+  slk events stream --channel "#support" --event-type message,reaction_added
+
   # Stream one thread
   slk events stream --channel "#support" --thread "1705312365.000100"
 
@@ -55,12 +61,17 @@ func init() {
 	rootCmd.AddCommand(eventsCmd)
 	eventsCmd.AddCommand(eventsStreamCmd)
 
-	eventsStreamCmd.Flags().String("channel", "", "Restrict to a single channel/conversation name or ID")
-	eventsStreamCmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
-	eventsStreamCmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
-	eventsStreamCmd.Flags().Bool("threads-only", false, "Only emit thread-related message events")
-	eventsStreamCmd.Flags().Bool("exclude-self", false, "Exclude events produced by the active auth identity")
-	eventsStreamCmd.Flags().Bool("raw", false, "Include the raw Slack payload in each emitted event")
+	addEventsStreamFlags(eventsStreamCmd)
+}
+
+func addEventsStreamFlags(cmd *cobra.Command) {
+	cmd.Flags().String("channel", "", "Restrict to a single channel/conversation name or ID")
+	cmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
+	cmd.Flags().String("event-type", "", "Restrict to Slack event types, comma-separated (for example message,reaction_added)")
+	cmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
+	cmd.Flags().Bool("threads-only", false, "Only emit thread-related message events")
+	cmd.Flags().Bool("exclude-self", false, "Exclude events produced by the active auth identity")
+	cmd.Flags().Bool("raw", false, "Include the raw Slack payload in each emitted event")
 }
 
 func loadConfigForEvents() (*config.Config, string, string, string, string, error) {
@@ -78,7 +89,55 @@ func loadConfigForEvents() (*config.Config, string, string, string, string, erro
 	return cfg, token, cookie, role, path, nil
 }
 
+func buildEventsStreamFilter(cmd *cobra.Command, resolveChannel func(string) (string, error)) (streamFilter, error) {
+	channelInput, _ := cmd.Flags().GetString("channel")
+	channelID := ""
+	if strings.TrimSpace(channelInput) != "" {
+		if resolveChannel == nil {
+			channelID = strings.TrimSpace(channelInput)
+		} else {
+			resolved, err := resolveChannel(channelInput)
+			if err != nil {
+				return streamFilter{}, err
+			}
+			channelID = resolved
+		}
+	}
+
+	conversationTypeArg, _ := cmd.Flags().GetString("conversation-type")
+	conversationTypes, err := parseConversationTypes(conversationTypeArg)
+	if err != nil {
+		return streamFilter{}, err
+	}
+
+	eventTypeArg, _ := cmd.Flags().GetString("event-type")
+	eventTypes, err := parseEventTypes(eventTypeArg)
+	if err != nil {
+		return streamFilter{}, err
+	}
+
+	threadTS, _ := cmd.Flags().GetString("thread")
+	threadsOnly, _ := cmd.Flags().GetBool("threads-only")
+	excludeSelf, _ := cmd.Flags().GetBool("exclude-self")
+	if err := validateThreadsOnlyEventTypes(threadsOnly, eventTypes); err != nil {
+		return streamFilter{}, err
+	}
+
+	return streamFilter{
+		ChannelID:         channelID,
+		ConversationTypes: conversationTypes,
+		EventTypes:        eventTypes,
+		ThreadTS:          strings.TrimSpace(threadTS),
+		ThreadsOnly:       threadsOnly,
+		ExcludeSelf:       excludeSelf,
+	}, nil
+}
+
 func runEventsStream(cmd *cobra.Command, args []string) error {
+	if _, err := buildEventsStreamFilter(cmd, nil); err != nil {
+		return err
+	}
+
 	cfg, token, cookie, role, _, err := loadConfigForEvents()
 	if err != nil {
 		return err
@@ -97,34 +156,13 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	channelInput, _ := cmd.Flags().GetString("channel")
-	channelID := ""
-	if strings.TrimSpace(channelInput) != "" {
-		channelID, err = cmdCtx.ResolveChannel(channelInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	conversationTypeArg, _ := cmd.Flags().GetString("conversation-type")
-	conversationTypes, err := parseConversationTypes(conversationTypeArg)
+	filter, err := buildEventsStreamFilter(cmd, cmdCtx.ResolveChannel)
 	if err != nil {
 		return err
 	}
 
-	threadTS, _ := cmd.Flags().GetString("thread")
-	threadsOnly, _ := cmd.Flags().GetBool("threads-only")
-	excludeSelf, _ := cmd.Flags().GetBool("exclude-self")
 	includeRaw, _ := cmd.Flags().GetBool("raw")
 	human, _ := cmd.Flags().GetBool("human")
-
-	filter := streamFilter{
-		ChannelID:         channelID,
-		ConversationTypes: conversationTypes,
-		ThreadTS:          strings.TrimSpace(threadTS),
-		ThreadsOnly:       threadsOnly,
-		ExcludeSelf:       excludeSelf,
-	}
 
 	normalizer := newEventNormalizer(cmdCtx)
 	socketClient := slack.NewSocketModeClient(cmdCtx.AuthToken, cmdCtx.AuthCookie, cmdCtx.Config.AppToken)
