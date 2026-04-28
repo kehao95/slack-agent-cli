@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/eventstore"
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
@@ -180,6 +182,67 @@ func TestEventNormalizerReactionConversationType(t *testing.T) {
 	}
 	if event.Channel != "#secret" {
 		t.Fatalf("expected resolved channel #secret, got %q", event.Channel)
+	}
+}
+
+func TestEventNormalizerIsSelfUsesUserRoleIdentity(t *testing.T) {
+	normalizer := &eventNormalizer{
+		conversationTypeByID: map[string]string{},
+		selfIdentity: eventstore.SelfIdentity{
+			Role:   config.RoleUser,
+			UserID: "USELF",
+			BotID:  "BSELF",
+		},
+	}
+
+	message := normalizer.normalizeMessageEvent(streamEvent{}, "message", &slackevents.MessageEvent{
+		Type:        "message",
+		User:        "UOTHER",
+		BotID:       "BSELF",
+		TimeStamp:   "1705312365.000100",
+		Channel:     "C123",
+		ChannelType: "channel",
+	})
+	if message.IsSelf {
+		t.Fatal("expected user-role self matching to ignore bot identity")
+	}
+
+	reaction := normalizer.normalizeReactionEvent(streamEvent{}, "reaction_added", "USELF", "", "eyes", slackevents.Item{})
+	if !reaction.IsSelf {
+		t.Fatal("expected user-role self matching to use authenticated user id")
+	}
+}
+
+func TestEventNormalizerIsSelfUsesBotRoleIdentity(t *testing.T) {
+	normalizer := &eventNormalizer{
+		conversationTypeByID: map[string]string{},
+		selfIdentity: eventstore.SelfIdentity{
+			Role:   config.RoleBot,
+			UserID: "UBOT",
+			BotID:  "BBOT",
+		},
+	}
+
+	message := normalizer.normalizeMessageEvent(streamEvent{}, "message", &slackevents.MessageEvent{
+		Type:        "message",
+		User:        "UOTHER",
+		BotID:       "BBOT",
+		TimeStamp:   "1705312365.000100",
+		Channel:     "C123",
+		ChannelType: "channel",
+	})
+	if !message.IsSelf {
+		t.Fatal("expected bot-role self matching to use bot_id")
+	}
+
+	reaction := normalizer.normalizeReactionEvent(streamEvent{}, "reaction_added", "UBOT", "", "eyes", slackevents.Item{})
+	if !reaction.IsSelf {
+		t.Fatal("expected bot-role self matching to use bot user id when bot_id is absent")
+	}
+
+	human := normalizer.normalizeReactionEvent(streamEvent{}, "reaction_added", "UHUMAN", "", "eyes", slackevents.Item{})
+	if human.IsSelf {
+		t.Fatal("did not expect unrelated human user to match bot-role identity")
 	}
 }
 

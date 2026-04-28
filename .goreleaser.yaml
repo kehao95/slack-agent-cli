@@ -1,7 +1,7 @@
 # GoReleaser configuration for slk
 # Documentation: https://goreleaser.com
 
-version: 1
+version: 2
 
 project_name: slk
 
@@ -85,8 +85,8 @@ brews:
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
     
-    # Folder to store the formula (creates Formula/slk.rb)
-    folder: Formula
+    # Directory to store the formula (creates Formula/slk.rb)
+    directory: Formula
     
     # Commit author
     commit_author:

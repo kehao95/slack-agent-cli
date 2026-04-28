@@ -50,6 +50,32 @@ type ClaimedEvent struct {
 	LeaseUntil time.Time `json:"lease_until,omitempty"`
 }
 
+// SelfIdentity describes the active Slack principal used for self filtering.
+type SelfIdentity struct {
+	Role   string
+	UserID string
+	BotID  string
+}
+
+// Matches reports whether an event actor belongs to this identity.
+func (s SelfIdentity) Matches(userID, botID string) bool {
+	userID = strings.TrimSpace(userID)
+	botID = strings.TrimSpace(botID)
+	selfUserID := strings.TrimSpace(s.UserID)
+	selfBotID := strings.TrimSpace(s.BotID)
+
+	switch strings.ToLower(strings.TrimSpace(s.Role)) {
+	case "user":
+		return userID != "" && selfUserID != "" && userID == selfUserID
+	case "bot":
+		return (botID != "" && selfBotID != "" && botID == selfBotID) ||
+			(userID != "" && selfUserID != "" && userID == selfUserID)
+	default:
+		return (userID != "" && selfUserID != "" && userID == selfUserID) ||
+			(botID != "" && selfBotID != "" && botID == selfBotID)
+	}
+}
+
 // Filter describes event query constraints.
 type Filter struct {
 	Type              string
@@ -61,6 +87,7 @@ type Filter struct {
 	UserID            string
 	ThreadsOnly       bool
 	ExcludeSelf       bool
+	SelfIdentity      SelfIdentity
 	SinceCursor       int64
 	SinceReceivedAt   time.Time
 	Limit             int
@@ -482,9 +509,49 @@ func buildWhere(filter Filter) (string, []interface{}) {
 		clauses = append(clauses, "(is_thread_reply = 1 OR is_thread_root = 1 OR subtype IN ('message_replied', 'thread_broadcast'))")
 	}
 	if filter.ExcludeSelf {
-		clauses = append(clauses, "is_self = 0")
+		if clause, clauseArgs, ok := buildExcludeSelfClause(filter.SelfIdentity); ok {
+			clauses = append(clauses, clause)
+			args = append(args, clauseArgs...)
+		} else {
+			clauses = append(clauses, "is_self = 0")
+		}
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func buildExcludeSelfClause(identity SelfIdentity) (string, []interface{}, bool) {
+	selfUserID := strings.TrimSpace(identity.UserID)
+	selfBotID := strings.TrimSpace(identity.BotID)
+
+	switch strings.ToLower(strings.TrimSpace(identity.Role)) {
+	case "user":
+		if selfUserID == "" {
+			return "", nil, false
+		}
+		return "COALESCE(user_id, '') != ?", []interface{}{selfUserID}, true
+	case "bot":
+		switch {
+		case selfBotID != "" && selfUserID != "":
+			return "NOT (COALESCE(bot_id, '') = ? OR (COALESCE(bot_id, '') = '' AND COALESCE(user_id, '') = ?))", []interface{}{selfBotID, selfUserID}, true
+		case selfBotID != "":
+			return "COALESCE(bot_id, '') != ?", []interface{}{selfBotID}, true
+		case selfUserID != "":
+			return "COALESCE(user_id, '') != ?", []interface{}{selfUserID}, true
+		default:
+			return "", nil, false
+		}
+	default:
+		switch {
+		case selfUserID != "" && selfBotID != "":
+			return "NOT (COALESCE(user_id, '') = ? OR COALESCE(bot_id, '') = ?)", []interface{}{selfUserID, selfBotID}, true
+		case selfUserID != "":
+			return "COALESCE(user_id, '') != ?", []interface{}{selfUserID}, true
+		case selfBotID != "":
+			return "COALESCE(bot_id, '') != ?", []interface{}{selfBotID}, true
+		default:
+			return "", nil, false
+		}
+	}
 }
 
 func buildClaimWhere(filter Filter, now time.Time) (string, []interface{}) {

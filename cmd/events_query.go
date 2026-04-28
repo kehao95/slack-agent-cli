@@ -251,6 +251,13 @@ func buildEventClaimFilter(cmd *cobra.Command, cmdCtx *CommandContext) (eventsto
 		return eventstore.Filter{}, err
 	}
 	excludeSelf, _ := cmd.Flags().GetBool("exclude-self")
+	selfIdentity := eventstore.SelfIdentity{}
+	if excludeSelf {
+		selfIdentity, err = resolveExcludeSelfIdentity(cmdCtx)
+		if err != nil {
+			return eventstore.Filter{}, err
+		}
+	}
 	mentionsMe, _ := cmd.Flags().GetBool("mentions-me")
 	mentionUserID := ""
 	if mentionsMe {
@@ -272,6 +279,7 @@ func buildEventClaimFilter(cmd *cobra.Command, cmdCtx *CommandContext) (eventsto
 		ThreadTS:          strings.TrimSpace(threadTS),
 		UserID:            strings.TrimSpace(userID),
 		ExcludeSelf:       excludeSelf,
+		SelfIdentity:      selfIdentity,
 		Limit:             1,
 	}, nil
 }
@@ -379,6 +387,13 @@ func buildEventQueryFilter(cmd *cobra.Command, cmdCtx *CommandContext, store *ev
 	limit, _ := cmd.Flags().GetInt("limit")
 	threadsOnly, _ := cmd.Flags().GetBool("threads-only")
 	excludeSelf, _ := cmd.Flags().GetBool("exclude-self")
+	selfIdentity := eventstore.SelfIdentity{}
+	if excludeSelf {
+		selfIdentity, err = resolveExcludeSelfIdentity(cmdCtx)
+		if err != nil {
+			return eventstore.Filter{}, err
+		}
+	}
 
 	filter := eventstore.Filter{
 		ChannelID:         channelID,
@@ -388,6 +403,7 @@ func buildEventQueryFilter(cmd *cobra.Command, cmdCtx *CommandContext, store *ev
 		UserID:            strings.TrimSpace(userID),
 		ThreadsOnly:       threadsOnly,
 		ExcludeSelf:       excludeSelf,
+		SelfIdentity:      selfIdentity,
 		Limit:             limit,
 	}
 	if strings.TrimSpace(since) == "" && nextMode {
@@ -402,6 +418,29 @@ func buildEventQueryFilter(cmd *cobra.Command, cmdCtx *CommandContext, store *ev
 		return eventstore.Filter{}, err
 	}
 	return filter, nil
+}
+
+func resolveExcludeSelfIdentity(cmdCtx *CommandContext) (eventstore.SelfIdentity, error) {
+	if err := cmdCtx.EnsureAuthIdentity(cmdCtx.Ctx); err != nil {
+		return eventstore.SelfIdentity{}, err
+	}
+
+	identity := activeSelfIdentity(cmdCtx)
+	switch identity.Role {
+	case config.RoleUser:
+		if strings.TrimSpace(identity.UserID) == "" {
+			return eventstore.SelfIdentity{}, fmt.Errorf("--exclude-self requires an authenticated Slack user id")
+		}
+	case config.RoleBot:
+		if strings.TrimSpace(identity.UserID) == "" && strings.TrimSpace(identity.BotID) == "" {
+			return eventstore.SelfIdentity{}, fmt.Errorf("--exclude-self requires an authenticated Slack bot identity")
+		}
+	default:
+		if strings.TrimSpace(identity.UserID) == "" && strings.TrimSpace(identity.BotID) == "" {
+			return eventstore.SelfIdentity{}, fmt.Errorf("--exclude-self requires an authenticated Slack identity")
+		}
+	}
+	return identity, nil
 }
 
 func applySince(ctx context.Context, store *eventstore.Store, filter *eventstore.Filter, raw string) error {

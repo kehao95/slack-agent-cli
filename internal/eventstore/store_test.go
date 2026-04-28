@@ -88,6 +88,73 @@ func TestStoreInsertQueryAndLatestCursor(t *testing.T) {
 	}
 }
 
+func TestStoreQueryExcludeSelfUsesRoleAwareIdentity(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "events.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	if _, err := store.Insert(ctx, Event{
+		Kind:   "slack.event",
+		Type:   "message",
+		UserID: "UUSER",
+		Text:   "user-self",
+		IsSelf: true,
+	}); err != nil {
+		t.Fatalf("Insert user event returned error: %v", err)
+	}
+	if _, err := store.Insert(ctx, Event{
+		Kind:   "slack.event",
+		Type:   "message",
+		UserID: "UBOT",
+		BotID:  "BBOT",
+		Text:   "bot-self",
+		IsSelf: true,
+	}); err != nil {
+		t.Fatalf("Insert bot event returned error: %v", err)
+	}
+	if _, err := store.Insert(ctx, Event{
+		Kind:   "slack.event",
+		Type:   "message",
+		UserID: "UOTHER",
+		Text:   "other",
+	}); err != nil {
+		t.Fatalf("Insert other event returned error: %v", err)
+	}
+
+	events, err := store.Query(ctx, Filter{
+		ExcludeSelf:  true,
+		SelfIdentity: SelfIdentity{Role: "bot", UserID: "UBOT", BotID: "BBOT"},
+		Limit:        10,
+	})
+	if err != nil {
+		t.Fatalf("Query bot role returned error: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events for bot role, got %d", len(events))
+	}
+	if events[0].Text != "user-self" || events[1].Text != "other" {
+		t.Fatalf("unexpected bot role results: %+v", events)
+	}
+
+	events, err = store.Query(ctx, Filter{
+		ExcludeSelf:  true,
+		SelfIdentity: SelfIdentity{Role: "user", UserID: "UUSER"},
+		Limit:        10,
+	})
+	if err != nil {
+		t.Fatalf("Query user role returned error: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events for user role, got %d", len(events))
+	}
+	if events[0].Text != "bot-self" || events[1].Text != "other" {
+		t.Fatalf("unexpected user role results: %+v", events)
+	}
+}
+
 func TestStorePruneOlderThan(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "events.db"))
 	if err != nil {

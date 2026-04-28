@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/eventstore"
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -100,8 +101,7 @@ type eventNormalizer struct {
 	userResolver         streamUserResolver
 	conversationProvider streamConversationInfoProvider
 	conversationTypeByID map[string]string
-	selfUserID           string
-	selfBotID            string
+	selfIdentity         eventstore.SelfIdentity
 }
 
 type streamChannelResolver interface {
@@ -123,9 +123,29 @@ func newEventNormalizer(cmdCtx *CommandContext) *eventNormalizer {
 		userResolver:         cmdCtx.UserResolver,
 		conversationProvider: cmdCtx.Client,
 		conversationTypeByID: map[string]string{},
-		selfUserID:           strings.TrimSpace(cmdCtx.AuthUserID),
-		selfBotID:            strings.TrimSpace(cmdCtx.AuthBotID),
+		selfIdentity:         activeSelfIdentity(cmdCtx),
 	}
+}
+
+func activeSelfIdentity(cmdCtx *CommandContext) eventstore.SelfIdentity {
+	if cmdCtx == nil {
+		return eventstore.SelfIdentity{}
+	}
+
+	identity := eventstore.SelfIdentity{
+		Role: strings.ToLower(strings.TrimSpace(cmdCtx.AuthRole)),
+	}
+	switch identity.Role {
+	case config.RoleUser:
+		identity.UserID = strings.TrimSpace(cmdCtx.AuthUserID)
+	case config.RoleBot:
+		identity.UserID = strings.TrimSpace(cmdCtx.AuthUserID)
+		identity.BotID = strings.TrimSpace(cmdCtx.AuthBotID)
+	default:
+		identity.UserID = strings.TrimSpace(cmdCtx.AuthUserID)
+		identity.BotID = strings.TrimSpace(cmdCtx.AuthBotID)
+	}
+	return identity
 }
 
 func streamEventFromStore(event eventstore.Event) streamEvent {
@@ -327,10 +347,7 @@ func (n *eventNormalizer) resolveUserRef(userID string) string {
 }
 
 func (n *eventNormalizer) isSelf(userID, botID string) bool {
-	userID = strings.TrimSpace(userID)
-	botID = strings.TrimSpace(botID)
-	return (userID != "" && n.selfUserID != "" && userID == n.selfUserID) ||
-		(botID != "" && n.selfBotID != "" && botID == n.selfBotID)
+	return n.selfIdentity.Matches(userID, botID)
 }
 
 func (n *eventNormalizer) resolveChannelRef(channelID, conversationType string) string {
