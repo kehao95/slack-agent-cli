@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -363,5 +367,96 @@ func TestFormatHumanStreamEventReaction(t *testing.T) {
 	}
 	if !strings.Contains(line, "@bob") {
 		t.Fatalf("expected target user in human output, got %q", line)
+	}
+}
+
+type mockFileAppenderOpener struct {
+	openCount  int
+	closeCount int
+	buffer     bytes.Buffer
+}
+
+func (o *mockFileAppenderOpener) Open(name string, flag int, perm os.FileMode) (io.WriteCloser, error) {
+	o.openCount++
+	return &mockWriteCloser{
+		buffer: &o.buffer,
+		onClose: func() {
+			o.closeCount++
+		},
+	}, nil
+}
+
+type mockWriteCloser struct {
+	buffer  *bytes.Buffer
+	onClose func()
+}
+
+func (w *mockWriteCloser) Write(p []byte) (int, error) {
+	return w.buffer.Write(p)
+}
+
+func (w *mockWriteCloser) Close() error {
+	if w.onClose != nil {
+		w.onClose()
+	}
+	return nil
+}
+
+func TestAppendFileLineSinkReopensFilePerWrite(t *testing.T) {
+	opener := &mockFileAppenderOpener{}
+	sink := appendFileLineSink{
+		path:   "events.log",
+		opener: opener,
+	}
+
+	if err := sink.WriteLine([]byte("first")); err != nil {
+		t.Fatalf("first write failed: %v", err)
+	}
+	if err := sink.WriteLine([]byte("second")); err != nil {
+		t.Fatalf("second write failed: %v", err)
+	}
+
+	if opener.openCount != 2 {
+		t.Fatalf("expected 2 file opens, got %d", opener.openCount)
+	}
+	if opener.closeCount != 2 {
+		t.Fatalf("expected 2 file closes, got %d", opener.closeCount)
+	}
+	if got := opener.buffer.String(); got != "first\nsecond\n" {
+		t.Fatalf("unexpected file contents %q", got)
+	}
+}
+
+func TestNewEventsStreamSinkWritesToStdoutAndFile(t *testing.T) {
+	cmd := &cobra.Command{Use: "stream"}
+	addEventsStreamFlags(cmd)
+
+	filePath := filepath.Join(t.TempDir(), "events.ndjson")
+	if err := cmd.Flags().Set("file", filePath); err != nil {
+		t.Fatalf("set file flag: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+
+	sink, err := newEventsStreamSink(cmd)
+	if err != nil {
+		t.Fatalf("newEventsStreamSink returned error: %v", err)
+	}
+
+	if err := sink.WriteLine([]byte(`{"type":"message"}`)); err != nil {
+		t.Fatalf("WriteLine returned error: %v", err)
+	}
+
+	if got := stdout.String(); got != "{\"type\":\"message\"}\n" {
+		t.Fatalf("unexpected stdout output %q", got)
+	}
+
+	contents, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	if got := string(contents); got != "{\"type\":\"message\"}\n" {
+		t.Fatalf("unexpected file output %q", got)
 	}
 }

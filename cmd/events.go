@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -69,6 +68,7 @@ func addEventsStreamFlags(cmd *cobra.Command) {
 	cmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
 	cmd.Flags().String("event-type", "", "Restrict to Slack event types, comma-separated (for example message,reaction_added)")
 	cmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
+	cmd.Flags().StringP("file", "f", "", "Also append each matching event to this file (open/write/close per event)")
 	cmd.Flags().Bool("threads-only", false, "Only emit thread-related message events")
 	cmd.Flags().Bool("exclude-self", false, "Exclude events produced by the active auth identity")
 	cmd.Flags().Bool("raw", false, "Include the raw Slack payload in each emitted event")
@@ -166,7 +166,10 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 
 	normalizer := newEventNormalizer(cmdCtx)
 	socketClient := slack.NewSocketModeClient(cmdCtx.AuthToken, cmdCtx.AuthCookie, cmdCtx.Config.AppToken)
-	encoder := json.NewEncoder(cmd.OutOrStdout())
+	sink, err := newEventsStreamSink(cmd)
+	if err != nil {
+		return err
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -211,14 +214,12 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 				if !emit || !filter.Match(normalized) {
 					continue
 				}
-				if human {
-					if _, err := fmt.Fprintln(cmd.OutOrStdout(), formatHumanStreamEvent(normalized)); err != nil {
-						return fmt.Errorf("print event: %w", err)
-					}
-					continue
+				line, err := formatStreamEventLine(normalized, human)
+				if err != nil {
+					return err
 				}
-				if err := encoder.Encode(normalized); err != nil {
-					return fmt.Errorf("encode event: %w", err)
+				if err := sink.WriteLine(line); err != nil {
+					return fmt.Errorf("write event: %w", err)
 				}
 			}
 		}

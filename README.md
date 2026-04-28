@@ -206,6 +206,9 @@ slk events stream --channel "#support" --exclude-self --event-type message
 
 # Keep multiple event classes in one stream
 slk events stream --channel "#support" --event-type message,reaction_added
+
+# Also append each matching event to a local NDJSON file
+slk events stream --channel "#support" --event-type message -f /tmp/support.events.ndjson
 ```
 
 ### Daemon Event Loop Example
