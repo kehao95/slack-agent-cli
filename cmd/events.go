@@ -151,6 +151,7 @@ func runEventsStream(cmd *cobra.Command, args []string) error {
 	cmdCtx.AuthRole = role
 	cmdCtx.AuthToken = token
 	cmdCtx.AuthCookie = cookie
+	sanitizeRuntimeContextForRole(cmdCtx)
 	defer cmdCtx.Close()
 	if err := cmdCtx.EnsureAuthIdentity(cmdCtx.Ctx); err != nil {
 		return err

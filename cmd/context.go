@@ -101,6 +101,8 @@ func newCommandContext(cmd *cobra.Command, timeout time.Duration, noTimeout bool
 		cancel()
 		return nil, err
 	}
+	authInfo = authInfoForRole(authInfo, authRole)
+	sanitizeRuntimeConfigForRole(cfg, authRole)
 
 	cacheStore, err := cache.DefaultStore(authInfo.TeamID)
 	if err != nil {
@@ -163,19 +165,67 @@ func (c *CommandContext) ResolveChannel(input string) (string, error) {
 // EnsureAuthIdentity fills in the active Slack user/bot IDs when the context was created with
 // SLACK_TEAM_ID and skipped auth.test during setup.
 func (c *CommandContext) EnsureAuthIdentity(ctx context.Context) error {
-	if c == nil || c.Client == nil || (c.AuthUserID != "" && c.AuthBotID != "") {
+	if c == nil || c.Client == nil || c.hasAuthIdentity() {
 		return nil
 	}
 	resp, err := c.Client.AuthTest(ctx)
 	if err != nil {
 		return err
 	}
+	resp = authInfoForRole(resp, c.AuthRole)
 	if c.TeamID == "" {
 		c.TeamID = resp.TeamID
 	}
 	c.AuthUserID = resp.UserID
 	c.AuthBotID = resp.BotID
 	return nil
+}
+
+func (c *CommandContext) hasAuthIdentity() bool {
+	if c == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(c.AuthRole)) {
+	case config.RoleUser:
+		return strings.TrimSpace(c.AuthUserID) != ""
+	case config.RoleBot:
+		return strings.TrimSpace(c.AuthUserID) != "" || strings.TrimSpace(c.AuthBotID) != ""
+	default:
+		return strings.TrimSpace(c.AuthUserID) != "" && strings.TrimSpace(c.AuthBotID) != ""
+	}
+}
+
+func authInfoForRole(authInfo *slack.AuthTestResponse, role string) *slack.AuthTestResponse {
+	if authInfo == nil {
+		return nil
+	}
+	if strings.ToLower(strings.TrimSpace(role)) == config.RoleUser {
+		authInfo.BotID = ""
+	}
+	return authInfo
+}
+
+func sanitizeRuntimeConfigForRole(cfg *config.Config, role string) {
+	if cfg == nil {
+		return
+	}
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case config.RoleUser:
+		cfg.BotToken = ""
+	case config.RoleBot:
+		cfg.UserToken = ""
+		cfg.Cookie = ""
+	}
+}
+
+func sanitizeRuntimeContextForRole(cmdCtx *CommandContext) {
+	if cmdCtx == nil {
+		return
+	}
+	if strings.ToLower(strings.TrimSpace(cmdCtx.AuthRole)) == config.RoleUser {
+		cmdCtx.AuthBotID = ""
+	}
+	sanitizeRuntimeConfigForRole(cmdCtx.Config, cmdCtx.AuthRole)
 }
 
 func resolveAuthInfo(ctx context.Context, client *slack.APIClient) (*slack.AuthTestResponse, error) {

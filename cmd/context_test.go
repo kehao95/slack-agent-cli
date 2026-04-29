@@ -103,6 +103,62 @@ func TestNewCommandContext_BotRole(t *testing.T) {
 	}
 }
 
+func TestSanitizeRuntimeContextForUserRole(t *testing.T) {
+	cmdCtx := &CommandContext{
+		AuthRole:   config.RoleUser,
+		AuthUserID: "UUSER",
+		AuthBotID:  "BBOT",
+		Config: &config.Config{
+			UserToken: "xoxp-user",
+			BotToken:  "xoxb-bot",
+			Cookie:    "xoxd-cookie",
+		},
+	}
+
+	sanitizeRuntimeContextForRole(cmdCtx)
+
+	if cmdCtx.AuthBotID != "" {
+		t.Fatalf("expected user role to clear runtime bot id, got %q", cmdCtx.AuthBotID)
+	}
+	if cmdCtx.Config.BotToken != "" {
+		t.Fatalf("expected user role to clear runtime bot token, got %q", cmdCtx.Config.BotToken)
+	}
+	if cmdCtx.Config.UserToken != "xoxp-user" {
+		t.Fatalf("expected user token to remain available, got %q", cmdCtx.Config.UserToken)
+	}
+	if cmdCtx.Config.Cookie != "xoxd-cookie" {
+		t.Fatalf("expected user cookie to remain available, got %q", cmdCtx.Config.Cookie)
+	}
+}
+
+func TestSanitizeRuntimeContextForBotRole(t *testing.T) {
+	cmdCtx := &CommandContext{
+		AuthRole:   config.RoleBot,
+		AuthUserID: "UBOT",
+		AuthBotID:  "BBOT",
+		Config: &config.Config{
+			UserToken: "xoxp-user",
+			BotToken:  "xoxb-bot",
+			Cookie:    "xoxd-cookie",
+		},
+	}
+
+	sanitizeRuntimeContextForRole(cmdCtx)
+
+	if cmdCtx.AuthBotID != "BBOT" {
+		t.Fatalf("expected bot role to keep runtime bot id, got %q", cmdCtx.AuthBotID)
+	}
+	if cmdCtx.Config.UserToken != "" {
+		t.Fatalf("expected bot role to clear runtime user token, got %q", cmdCtx.Config.UserToken)
+	}
+	if cmdCtx.Config.Cookie != "" {
+		t.Fatalf("expected bot role to clear runtime user cookie, got %q", cmdCtx.Config.Cookie)
+	}
+	if cmdCtx.Config.BotToken != "xoxb-bot" {
+		t.Fatalf("expected bot token to remain available, got %q", cmdCtx.Config.BotToken)
+	}
+}
+
 // TestNewCommandContext_MissingConfig verifies that NewCommandContext returns
 // an error when the config file doesn't exist and no env vars are set.
 func TestNewCommandContext_MissingConfig(t *testing.T) {
