@@ -79,6 +79,8 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
 - Format: `xoxp-...` 
 - Represents **you** (the user)
 - Perfect for automation, scripts, and AI agents acting on your behalf
+- Message sending requires `chat:write:user`; `chat:write` alone can still
+  produce app-attributed messages with a `bot_id`
 
 **Bot Token** (NOT used by this CLI):
 - Format: `xoxb-...`

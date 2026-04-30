@@ -4,6 +4,36 @@ display_information:
   background_color: "#2c2d30"
 oauth_config:
   scopes:
+    user:
+      # Channel access (read-only, user perspective)
+      - identify
+      - channels:read
+      - channels:history
+      - groups:read
+      - groups:history
+      - im:read
+      - im:history
+      - mpim:read
+      - mpim:history
+
+      # Users
+      - users:read
+
+      # Search
+      - search:read
+
+      # Reactions (read-only)
+      - reactions:read
+
+      # Pins (read-only)
+      - pins:read
+
+      # Files (read-only)
+      - files:read
+
+      # Emoji
+      - emoji:read
+
     bot:
       # Channel access (read-only, bot perspective)
       - channels:read

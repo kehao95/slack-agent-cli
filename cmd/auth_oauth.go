@@ -52,7 +52,7 @@ func init() {
 	authOAuthCmd.Flags().StringVar(&oauthClientID, "client-id", "", "Slack app client ID (or SLACK_CLIENT_ID env)")
 	authOAuthCmd.Flags().StringVar(&oauthClientSecret, "client-secret", "", "Slack app client secret (or SLACK_CLIENT_SECRET env)")
 	authOAuthCmd.Flags().StringVar(&oauthRedirectURI, "redirect-uri", "", "OAuth redirect URI (optional, for token exchange)")
-	authOAuthCmd.Flags().StringVar(&oauthScopes, "scopes", "channels:read,channels:history,chat:write,users:read,search:read,reactions:read,reactions:write,pins:read,pins:write,emoji:read", "OAuth scopes to request")
+	authOAuthCmd.Flags().StringVar(&oauthScopes, "scopes", "channels:read,channels:history,chat:write:user,users:read,search:read,reactions:read,reactions:write,pins:read,pins:write,emoji:read", "OAuth user scopes to request")
 	authOAuthCmd.Flags().BoolVar(&oauthSaveConfig, "save", false, "Save token to config file after successful exchange")
 }
 

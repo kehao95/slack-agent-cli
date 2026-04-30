@@ -617,7 +617,7 @@ Configure these scopes in your Slack App under **OAuth & Permissions → User To
 | `im:history` | Read direct messages | `messages list` (DMs) |
 | `mpim:read` | List group direct messages | `channels list --types mpim` |
 | `mpim:history` | Read group DMs | `messages list` (group DMs) |
-| `chat:write` | Send messages as yourself | `messages send`, `messages reply` |
+| `chat:write:user` | Send messages as yourself without app/bot attribution | `messages send`, `messages reply` |
 | `users:read` | List workspace members | `users list`, `users info` |
 | `reactions:read` | Read reactions on messages | `reactions list` |
 | `reactions:write` | Add/remove reactions | `reactions add`, `reactions remove` |

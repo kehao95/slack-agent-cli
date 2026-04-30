@@ -52,3 +52,12 @@ func TestParseBlocksJSON_MultipleBlocks(t *testing.T) {
 		t.Errorf("expected 3 blocks, got %d", len(blocks))
 	}
 }
+
+func TestContainsCSVScope(t *testing.T) {
+	if !containsCSVScope("identify, chat:write:user,channels:read", "chat:write:user") {
+		t.Fatal("expected scope to be found")
+	}
+	if containsCSVScope("identify,chat:write,channels:read", "chat:write:user") {
+		t.Fatal("did not expect chat:write to satisfy chat:write:user")
+	}
+}
