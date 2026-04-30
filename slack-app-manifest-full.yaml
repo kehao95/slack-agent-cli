@@ -18,7 +18,7 @@ oauth_config:
       - mpim:history
 
       # Messaging as the authenticated user.
-      - chat:write:user
+      - chat:write
 
       # Users
       - users:read

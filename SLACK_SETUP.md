@@ -91,7 +91,7 @@ Go to **"OAuth & Permissions"** → **"User Token Scopes"** and add:
 Add these additional scopes:
 
 - `channels:write` - Join/leave channels
-- `chat:write:user` - Send/edit/delete messages as the authenticated user
+- `chat:write` - Send/edit/delete messages as the authenticated user
 - `reactions:write` - Add/remove reactions
 - `pins:write` - Pin/unpin messages
 - `files:write` - Upload files

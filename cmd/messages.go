@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -448,12 +446,6 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	}
 	defer cmdCtx.Close()
 
-	if cmdCtx.AuthRole == config.RoleUser {
-		if err := ensureUserRoleCanPostWithoutBotAttribution(cmdCtx); err != nil {
-			return err
-		}
-	}
-
 	// Resolve channel name to ID
 	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
@@ -477,55 +469,6 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	result.Channel = channelInput
 
 	return output.Print(cmd, result)
-}
-
-func ensureUserRoleCanPostWithoutBotAttribution(cmdCtx *CommandContext) error {
-	if strings.HasPrefix(strings.TrimSpace(cmdCtx.AuthToken), "xoxc-") {
-		return nil
-	}
-
-	scopes, err := fetchTokenScopes(cmdCtx.Ctx, cmdCtx.AuthToken, cmdCtx.AuthCookie)
-	if err != nil {
-		return fmt.Errorf("verify user token scopes before sending: %w", err)
-	}
-	if containsCSVScope(scopes, "chat:write:user") {
-		return nil
-	}
-
-	return fmt.Errorf(
-		"role=user message sending requires Slack user scope chat:write:user to avoid app/bot attribution; current token scopes are %q. Reauthorize the Slack app with chat:write:user and run slk auth login with the new xoxp token",
-		scopes,
-	)
-}
-
-func fetchTokenScopes(ctx context.Context, token, cookie string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://slack.com/api/auth.test", nil)
-	if err != nil {
-		return "", fmt.Errorf("create auth.test request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	if cookie != "" {
-		req.Header.Set("Cookie", "d="+cookie)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("call auth.test: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("auth.test returned HTTP %d", resp.StatusCode)
-	}
-	return resp.Header.Get("x-oauth-scopes"), nil
-}
-
-func containsCSVScope(scopes string, want string) bool {
-	for _, scope := range strings.Split(scopes, ",") {
-		if strings.TrimSpace(scope) == want {
-			return true
-		}
-	}
-	return false
 }
 
 func runMessagesEdit(cmd *cobra.Command, args []string) error {
