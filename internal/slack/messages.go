@@ -123,6 +123,10 @@ func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMe
 		msgOpts = append(msgOpts, slackapi.MsgOptionBlocks(opts.Blocks...))
 	}
 
+	if opts.AsUser {
+		msgOpts = append(msgOpts, slackapi.MsgOptionAsUser(true))
+	}
+
 	// Only add disable options if unfurl is explicitly false
 	if !opts.UnfurlLinks {
 		msgOpts = append(msgOpts, slackapi.MsgOptionDisableLinkUnfurl())

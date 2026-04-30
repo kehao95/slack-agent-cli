@@ -3,6 +3,8 @@ package slack
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	slackapi "github.com/slack-go/slack"
@@ -333,6 +335,34 @@ func TestPostMessageValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPostMessageAsUserOption(t *testing.T) {
+	var gotAsUser string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat.postMessage" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		gotAsUser = r.Form.Get("as_user")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true,"channel":"C123ABC","ts":"1705312365.000100","message":{"text":"Hello"}}`))
+	}))
+	defer server.Close()
+
+	client := New("xoxp-test-token", slackapi.OptionAPIURL(server.URL+"/"))
+	_, err := client.PostMessage(context.Background(), "C123ABC", PostMessageOptions{
+		Text:   "Hello",
+		AsUser: true,
+	})
+	if err != nil {
+		t.Fatalf("post message: %v", err)
+	}
+	if gotAsUser != "true" {
+		t.Fatalf("expected as_user=true, got %q", gotAsUser)
 	}
 }
 

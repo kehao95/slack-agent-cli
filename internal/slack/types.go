@@ -16,6 +16,7 @@ type PostMessageOptions struct {
 	Blocks      []slackapi.Block
 	UnfurlLinks bool
 	UnfurlMedia bool
+	AsUser      bool
 }
 
 // PostMessageResult represents the result of posting a message.

@@ -15,8 +15,8 @@ type APIClient struct {
 
 // New creates a new APIClient using the provided user token.
 // For xoxc- tokens (client tokens), use NewWithCookie instead.
-func New(userToken string) *APIClient {
-	return &APIClient{sdk: slackapi.New(userToken)}
+func New(userToken string, options ...slackapi.Option) *APIClient {
+	return &APIClient{sdk: slackapi.New(userToken, options...)}
 }
 
 // NewWithCookie creates a new APIClient for xoxc- tokens that require a cookie.

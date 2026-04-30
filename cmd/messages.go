@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/config"
 	cerrors "github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/eventstore"
 	"github.com/kehao95/slack-agent-cli/internal/messages"
@@ -458,6 +459,7 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 		Blocks:      blocks,
 		UnfurlLinks: unfurlLinks,
 		UnfurlMedia: unfurlMedia,
+		AsUser:      cmdCtx.AuthRole == config.RoleUser,
 	})
 	if err != nil {
 		return err
