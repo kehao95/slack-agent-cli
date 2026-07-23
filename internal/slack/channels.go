@@ -8,11 +8,12 @@ import (
 	slackapi "github.com/slack-go/slack"
 )
 
-// ListChannels fetches channels the calling user is a member of.
-// Uses users.conversations API which works with channels:read scope on user tokens.
+// ListChannels fetches conversations visible to the calling user.
+// conversations.list includes public channels the user has not joined, including
+// archived public channels when IncludeArchived is true.
 // Note: private_channel type requires groups:read scope, im type requires im:read scope.
 func (c *APIClient) ListChannels(ctx context.Context, params ListChannelsParams) ([]slackapi.Channel, string, error) {
-	convParams := &slackapi.GetConversationsForUserParameters{
+	convParams := &slackapi.GetConversationsParameters{
 		Limit:           params.Limit,
 		Cursor:          params.Cursor,
 		ExcludeArchived: !params.IncludeArchived,
@@ -22,7 +23,7 @@ func (c *APIClient) ListChannels(ctx context.Context, params ListChannelsParams)
 	if len(params.Types) > 0 {
 		convParams.Types = append(convParams.Types, params.Types...)
 	}
-	channels, nextCursor, err := c.sdk.GetConversationsForUserContext(ctx, convParams)
+	channels, nextCursor, err := c.sdk.GetConversationsContext(ctx, convParams)
 	return channels, nextCursor, err
 }
 
@@ -43,7 +44,7 @@ func (c *APIClient) GetConversationInfo(ctx context.Context, channelID string) (
 }
 
 // ListChannelsPaginated provides a simpler interface for cache population.
-// Returns channels the user is a member of (uses users.conversations API).
+// Returns visible public channels and private channels the user can access.
 // Automatically includes private_channel type if groups:read scope is available.
 func (c *APIClient) ListChannelsPaginated(ctx context.Context, cursor string, limit int) ([]slackapi.Channel, string, int, error) {
 	// Try to fetch both public and private channels
