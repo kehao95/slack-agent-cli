@@ -602,7 +602,7 @@ Configure these scopes in your Slack App under **OAuth & Permissions → User To
 
 | Scope | Purpose | Commands Enabled |
 |-------|---------|------------------|
-| `channels:read` | List public channels user is member of | `channels list` |
+| `channels:read` | List public channels visible to the user | `channels list` |
 | `search:read` | Search messages across workspace | `messages search` |
 | `identify` | Verify user identity | `auth test`, `auth whoami` |
 
