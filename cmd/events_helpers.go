@@ -255,9 +255,26 @@ func (n *eventNormalizer) Normalize(eventsAPIEvent slackevents.EventsAPIEvent, r
 }
 
 func (n *eventNormalizer) normalizeMessageEvent(base streamEvent, eventType string, evt *slackevents.MessageEvent) streamEvent {
-	payload := evt
+	payload := normalizedMessagePayload{
+		Text:            evt.Text,
+		TimeStamp:       evt.TimeStamp,
+		ThreadTimeStamp: evt.ThreadTimeStamp,
+		User:            evt.User,
+		Channel:         evt.Channel,
+		SubType:         evt.SubType,
+		BotID:           evt.BotID,
+		ChannelType:     evt.ChannelType,
+	}
 	if evt.Message != nil {
-		payload = evt.Message
+		payload = normalizedMessagePayload{
+			Text:            evt.Message.Text,
+			TimeStamp:       evt.Message.Timestamp,
+			ThreadTimeStamp: evt.Message.ThreadTimestamp,
+			User:            evt.Message.User,
+			Channel:         evt.Message.Channel,
+			SubType:         evt.Message.SubType,
+			BotID:           evt.Message.BotID,
+		}
 	}
 
 	ts := firstNonEmpty(payload.TimeStamp, evt.TimeStamp)
@@ -287,6 +304,17 @@ func (n *eventNormalizer) normalizeMessageEvent(base streamEvent, eventType stri
 	base.IsThreadRoot = threadTS != "" && ts != "" && threadTS == ts
 
 	return base
+}
+
+type normalizedMessagePayload struct {
+	Text            string
+	TimeStamp       string
+	ThreadTimeStamp string
+	User            string
+	Channel         string
+	SubType         string
+	BotID           string
+	ChannelType     string
 }
 
 func (n *eventNormalizer) normalizeReactionEvent(base streamEvent, eventType, userID, itemUserID, reaction string, item slackevents.Item) streamEvent {

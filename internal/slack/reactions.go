@@ -71,8 +71,8 @@ func (c *APIClient) GetReactions(ctx context.Context, channel, timestamp string)
 	}
 
 	// Convert slack-go ItemReaction to our ReactionItem structure
-	reactionItems := make([]ReactionItem, 0, len(reactions))
-	for _, reaction := range reactions {
+	reactionItems := make([]ReactionItem, 0, len(reactions.Reactions))
+	for _, reaction := range reactions.Reactions {
 		reactionItems = append(reactionItems, ReactionItem{
 			Name:  reaction.Name,
 			Count: reaction.Count,

@@ -20,6 +20,7 @@ Humans want a UI, we just want a clean pipe.
 - **Pipe-First Design** - Output is always pure JSON (stdout) while logs go to stderr.
 - **Agent-Ready** - Stateless authentication, perfect for LLMs, scripts, and cron jobs.
 - **Smart Caching** - Resolves channel names (`#general`) to IDs (`C123...`) locally for speed.
+- **Image Uploads** - Send local images into channels or threads with Slack's current external upload API.
 
 ## Quick Start
 
@@ -193,6 +194,9 @@ slk messages search --query "error in:#support"
 
 # 3. Send a response
 slk messages send --channel "#support" --thread "$THREAD_TS" --mrkdwn "Here's the answer..."
+
+# Send a screenshot with an optional caption
+slk messages send --channel "#support" --image ./screenshot.png --mrkdwn "Latest screenshot"
 
 # 4. Add acknowledgment reaction
 slk reactions add --channel "#support" --ts "$MESSAGE_TS" --emoji "white_check_mark"

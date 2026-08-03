@@ -146,7 +146,12 @@ Text Input:
   - Slack mrkdwn examples: *bold*, _italic_, ~strike~, inline code with backticks, triple-backtick code blocks, <https://example.com|link text>, <@USERID>
   - Slack top-level message text has no real bullet-list syntax; mimic lists with plain lines like "- item"
   - Use --blocks for true rich lists, headings, or more structured layouts
-  - Slack message text does not support Markdown headings or tables`,
+  - Slack message text does not support Markdown headings or tables
+
+Image Input:
+  - Use --image to upload and share a local image file
+  - --image can be used by itself, with one text input as a caption, or with --blocks
+  - Use --thread to share the image as a reply in an existing thread`,
 	Example: `  # Simple message
   slk messages send --channel "#general" --mrkdwn "Hello from CLI!"
 
@@ -163,7 +168,14 @@ Text Input:
   printf '*Plan:*\n- claim root messages\n- route thread replies\n' | slk messages send --channel "#general" --mrkdwn -
 
   # Send to user DM
-  slk messages send --channel "@alice" --mrkdwn "Private message"`,
+  slk messages send --channel "@alice" --mrkdwn "Private message"
+
+  # Send an image
+  slk messages send --channel "#general" --image ./screenshot.png
+
+  # Send an image with a caption in a thread
+  slk messages send --channel "#general" --thread "1705312365.000100" \
+    --image ./screenshot.png --mrkdwn "*Latest screenshot:*"`,
 	RunE: runMessagesSend,
 }
 
@@ -262,6 +274,8 @@ func init() {
 	messagesSendCmd.Flags().StringP("text", "t", "", "Plain message text (sent as-is; no Slack formatting intent)")
 	messagesSendCmd.Flags().String("thread", "", "Thread timestamp to reply in")
 	messagesSendCmd.Flags().String("blocks", "", "Block Kit JSON")
+	messagesSendCmd.Flags().String("image", "", "Local image file to upload and share")
+	messagesSendCmd.Flags().String("alt-text", "", "Accessible alt text for the uploaded image")
 	messagesSendCmd.Flags().Bool("unfurl-links", true, "Unfurl URLs in message")
 	messagesSendCmd.Flags().Bool("unfurl-media", true, "Unfurl media in message")
 	messagesSendCmd.MarkFlagRequired("channel")
@@ -404,6 +418,8 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	mrkdwn, _ := cmd.Flags().GetString("mrkdwn")
 	thread, _ := cmd.Flags().GetString("thread")
 	blocksJSON, _ := cmd.Flags().GetString("blocks")
+	imagePath, _ := cmd.Flags().GetString("image")
+	altText, _ := cmd.Flags().GetString("alt-text")
 	unfurlLinks, _ := cmd.Flags().GetBool("unfurl-links")
 	unfurlMedia, _ := cmd.Flags().GetBool("unfurl-media")
 
@@ -428,16 +444,21 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	inputCount := 0
 	if mrkdwn != "" {
 		inputCount++
-		text = mrkdwn
 	}
-	if text != "" && mrkdwn == "" {
+	if text != "" {
 		inputCount++
 	}
 	if len(blocks) > 0 {
 		inputCount++
 	}
-	if inputCount != 1 {
-		return fmt.Errorf("choose exactly one message input: --mrkdwn, --text, or --blocks")
+	if imagePath == "" && inputCount != 1 {
+		return fmt.Errorf("choose exactly one message input: --mrkdwn, --text, --blocks, or --image")
+	}
+	if imagePath != "" && inputCount > 1 {
+		return fmt.Errorf("--image accepts at most one caption input: --mrkdwn, --text, or --blocks")
+	}
+	if mrkdwn != "" {
+		text = mrkdwn
 	}
 
 	cmdCtx, err := NewCommandContext(cmd, 0)
@@ -450,6 +471,19 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	channelID, err := cmdCtx.ResolveChannel(channelInput)
 	if err != nil {
 		return err
+	}
+	if imagePath != "" {
+		result, err := cmdCtx.Client.UploadImage(cmdCtx.Ctx, channelID, imagePath, slack.UploadImageOptions{
+			ThreadTS:       thread,
+			InitialComment: text,
+			AltText:        altText,
+			Blocks:         blocks,
+		})
+		if err != nil {
+			return err
+		}
+		result.Channel = channelInput
+		return output.Print(cmd, result)
 	}
 
 	// Send the message

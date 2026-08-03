@@ -192,6 +192,8 @@ Options:
   --text <message>       Message text (can also be piped via stdin)
   --thread <ts>          Reply in thread
   --blocks <json>        Block Kit JSON (for rich formatting)
+  --image <path>         Upload and share a local image
+  --alt-text <text>      Accessible alt text for the uploaded image
   --unfurl-links         Unfurl URLs (default: true)
   --unfurl-media         Unfurl media (default: true)
   --json                 Output sent message details as JSON
@@ -210,7 +212,19 @@ echo "Multi-line\nmessage" | slk messages send --channel "#general"
 
 # Send to user DM
 slk messages send --channel "@alice" --text "Private message"
+
+# Send an image with an optional caption
+slk messages send --channel "#general" --image ./screenshot.png --mrkdwn "Latest screenshot"
+
+# Send an image as a thread reply
+slk messages send --channel "#general" --thread "1705312365.000100" --image ./screenshot.png
 ```
+
+When `--image` is used, the command uploads the local file and shares it in
+the target channel using Slack's external upload sequence. It may be used by
+itself, with one text input as a caption, or with `--blocks`. JSON output
+contains `file_id`, `filename`, `channel`, and optional `thread_ts`; Slack does
+not return a message timestamp from the external upload completion endpoint.
 
 ---
 

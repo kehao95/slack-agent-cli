@@ -96,6 +96,11 @@ Add these additional scopes:
 - `pins:write` - Pin/unpin messages
 - `files:write` - Upload files
 
+Image uploads require `files:write` and use Slack's current
+`files.getUploadURLExternal` / `files.completeUploadExternal` sequence. The
+read-only manifest cannot send images; reinstall the full-access manifest after
+adding the scope.
+
 ### 3. Install and Get Token
 
 1. Click **"Install to Workspace"**
