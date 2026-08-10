@@ -167,3 +167,49 @@ func TestGetSlackListItemRequiresRecordID(t *testing.T) {
 		t.Fatalf("expected record id required error, got %v", err)
 	}
 }
+
+func TestGetSlackList(t *testing.T) {
+	var gotForm map[string]string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/files.info" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		gotForm = map[string]string{
+			"file": r.Form.Get("file"),
+		}
+		writeJSON(t, w, map[string]interface{}{
+			"ok": true,
+			"file": map[string]interface{}{
+				"id":    "F0BFMJY6ZTQ",
+				"title": "VOC Helpdesk tracker",
+				"list_metadata": map[string]interface{}{
+					"schema": []map[string]interface{}{
+						{"id": "Col1", "name": "Request", "key": "name", "type": "text"},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := &APIClient{
+		token:         "xoxp-test-token",
+		endpoint:      server.URL + "/",
+		rawHTTPClient: server.Client(),
+	}
+
+	resp, err := client.GetSlackList(context.Background(), "F0BFMJY6ZTQ")
+	if err != nil {
+		t.Fatalf("GetSlackList returned error: %v", err)
+	}
+	if gotForm["file"] != "F0BFMJY6ZTQ" {
+		t.Fatalf("unexpected form payload: %+v", gotForm)
+	}
+	if resp.File["title"] != "VOC Helpdesk tracker" {
+		t.Fatalf("unexpected response: %+v", resp.File)
+	}
+}

@@ -123,6 +123,31 @@ func TestResolver_GetDisplayName_NotInCache_FallbackToAPI(t *testing.T) {
 	}
 }
 
+func TestResolver_GetDisplayName_CachedEntryWithoutNames_RehydratesFromAPI(t *testing.T) {
+	dir := t.TempDir()
+	store := cache.New(dir, cache.DefaultTTL)
+
+	users := map[string]CachedUser{
+		"U2": {ID: "U2"},
+	}
+	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+		t.Fatalf("failed to pre-populate cache: %v", err)
+	}
+
+	client := &mockUserClient{
+		singleUser: &slackapi.User{ID: "U2", Name: "bob", RealName: "Bob Jones", Profile: slackapi.UserProfile{DisplayName: "Bobby"}},
+	}
+	resolver := NewCachedResolver(client, store)
+
+	name := resolver.GetDisplayName(context.Background(), "U2")
+	if name != "Bobby" {
+		t.Fatalf("expected Bobby, got %s", name)
+	}
+	if client.callsGetOne != 1 {
+		t.Fatalf("expected 1 API rehydration call, got %d", client.callsGetOne)
+	}
+}
+
 func TestResolver_GetDisplayName_NoCache_APIOnly(t *testing.T) {
 	client := &mockUserClient{
 		singleUser: &slackapi.User{ID: "U3", Name: "charlie", RealName: "Charlie", Profile: slackapi.UserProfile{DisplayName: "Chuck"}},
@@ -235,6 +260,31 @@ func TestResolver_GetDisplayName_PartialCache(t *testing.T) {
 	name2 := resolver.GetDisplayName(context.Background(), "U2")
 	if name2 != "Bobby" {
 		t.Errorf("expected Bobby from partial cache, got %s", name2)
+	}
+}
+
+func TestResolver_GetMentionName_CachedEntryWithoutNames_RehydratesFromAPI(t *testing.T) {
+	dir := t.TempDir()
+	store := cache.New(dir, cache.DefaultTTL)
+
+	users := map[string]CachedUser{
+		"U2": {ID: "U2"},
+	}
+	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+		t.Fatalf("failed to pre-populate cache: %v", err)
+	}
+
+	client := &mockUserClient{
+		singleUser: &slackapi.User{ID: "U2", Name: "bob", RealName: "Bob Jones", Profile: slackapi.UserProfile{DisplayName: "Bobby"}},
+	}
+	resolver := NewCachedResolver(client, store)
+
+	name := resolver.GetMentionName(context.Background(), "U2")
+	if name != "bob" {
+		t.Fatalf("expected bob, got %s", name)
+	}
+	if client.callsGetOne != 1 {
+		t.Fatalf("expected 1 API rehydration call, got %d", client.callsGetOne)
 	}
 }
 

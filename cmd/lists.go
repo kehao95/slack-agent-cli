@@ -83,7 +83,7 @@ func runListsItems(cmd *cobra.Command, args []string) error {
 	archived, _ := cmd.Flags().GetBool("archived")
 	allPages, _ := cmd.Flags().GetBool("all")
 
-	service := lists.NewService(cmdCtx.Client)
+	service := lists.NewService(cmdCtx.Client, cmdCtx.UserResolver)
 	result, err := service.ListItems(cmdCtx.Ctx, lists.Params{
 		List:     listRef,
 		Limit:    limit,
@@ -109,7 +109,7 @@ func runListsItem(cmd *cobra.Command, args []string) error {
 	recordID, _ := cmd.Flags().GetString("id")
 	includeSubscribed, _ := cmd.Flags().GetBool("include-is-subscribed")
 
-	service := lists.NewService(cmdCtx.Client)
+	service := lists.NewService(cmdCtx.Client, cmdCtx.UserResolver)
 	result, err := service.GetItem(cmdCtx.Ctx, lists.ItemParams{
 		List:                listRef,
 		ID:                  recordID,

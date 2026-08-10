@@ -2,23 +2,33 @@ package lists
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 )
 
-// Fetcher retrieves Slack List items.
+// Fetcher retrieves Slack List data.
 type Fetcher interface {
 	ListSlackListItems(context.Context, slack.ListItemsParams) (*slack.ListItemsResponse, error)
 	GetSlackListItem(context.Context, slack.ListItemInfoParams) (*slack.ListItemInfoResponse, error)
+	GetSlackList(context.Context, string) (*slack.ListInfoResponse, error)
+}
+
+// UserResolver resolves Slack user IDs for display.
+type UserResolver interface {
+	GetDisplayName(ctx context.Context, userID string) string
+	GetMentionName(ctx context.Context, userID string) string
 }
 
 // Service coordinates list item retrieval.
 type Service struct {
-	fetcher Fetcher
+	fetcher      Fetcher
+	userResolver UserResolver
 }
 
 // Params describes input for listing Slack List items.
@@ -32,9 +42,12 @@ type Params struct {
 
 // Result represents list item output.
 type Result struct {
+	List       map[string]interface{}   `json:"list,omitempty"`
 	ListID     string                   `json:"list_id"`
 	Items      []map[string]interface{} `json:"items"`
 	NextCursor string                   `json:"next_cursor,omitempty"`
+	ctx        context.Context          `json:"-"`
+	resolver   UserResolver             `json:"-"`
 }
 
 // ItemParams describes input for fetching one Slack List item.
@@ -49,11 +62,17 @@ type ItemResult struct {
 	List     map[string]interface{}   `json:"list"`
 	Record   map[string]interface{}   `json:"record"`
 	Subtasks []map[string]interface{} `json:"subtasks,omitempty"`
+	ctx      context.Context          `json:"-"`
+	resolver UserResolver             `json:"-"`
 }
 
 // NewService constructs a Service.
-func NewService(fetcher Fetcher) *Service {
-	return &Service{fetcher: fetcher}
+func NewService(fetcher Fetcher, userResolvers ...UserResolver) *Service {
+	var resolver UserResolver
+	if len(userResolvers) > 0 {
+		resolver = userResolvers[0]
+	}
+	return &Service{fetcher: fetcher, userResolver: resolver}
 }
 
 // ListItems resolves the list reference and fetches items from Slack.
@@ -62,6 +81,8 @@ func (s *Service) ListItems(ctx context.Context, params Params) (Result, error) 
 	if err != nil {
 		return Result{}, err
 	}
+
+	listMeta := s.fetchListMetadata(ctx, listID)
 
 	if !params.All {
 		resp, err := s.fetcher.ListSlackListItems(ctx, slack.ListItemsParams{
@@ -74,9 +95,12 @@ func (s *Service) ListItems(ctx context.Context, params Params) (Result, error) 
 			return Result{}, err
 		}
 		return Result{
+			List:       listMeta,
 			ListID:     listID,
 			Items:      resp.Items,
 			NextCursor: resp.ResponseMetadata.NextCursor,
+			ctx:        ctx,
+			resolver:   s.userResolver,
 		}, nil
 	}
 
@@ -100,8 +124,11 @@ func (s *Service) ListItems(ctx context.Context, params Params) (Result, error) 
 	}
 
 	return Result{
-		ListID: listID,
-		Items:  allItems,
+		List:     listMeta,
+		ListID:   listID,
+		Items:    allItems,
+		ctx:      ctx,
+		resolver: s.userResolver,
 	}, nil
 }
 
@@ -123,20 +150,39 @@ func (s *Service) GetItem(ctx context.Context, params ItemParams) (ItemResult, e
 		List:     resp.List,
 		Record:   resp.Record,
 		Subtasks: resp.Subtasks,
+		ctx:      ctx,
+		resolver: s.userResolver,
 	}, nil
+}
+
+func (s *Service) fetchListMetadata(ctx context.Context, listID string) map[string]interface{} {
+	if s == nil || s.fetcher == nil {
+		return nil
+	}
+	resp, err := s.fetcher.GetSlackList(ctx, listID)
+	if err != nil || resp == nil {
+		return nil
+	}
+	return resp.File
 }
 
 // Lines implements human-readable output for list items.
 func (r Result) Lines() []string {
-	title := fmt.Sprintf("List %s - %d items", r.ListID, len(r.Items))
+	listTitle := stringValue(r.List["title"])
+	if listTitle == "" {
+		listTitle = r.ListID
+	}
+	title := fmt.Sprintf("List %s - %d items", listTitle, len(r.Items))
 	lines := []string{title, strings.Repeat("-", len(title))}
 	if len(r.Items) == 0 {
 		lines = append(lines, "No items found.")
 		return lines
 	}
+
+	schema := schemaByColumnID(r.List)
 	for _, item := range r.Items {
 		itemID, _ := item["id"].(string)
-		summary := summarizeRecord(item, nil)
+		summary := summarizeRecord(r.ctx, r.resolver, item, schema)
 		if itemID == "" {
 			lines = append(lines, summary)
 			continue
@@ -169,18 +215,24 @@ func (r ItemResult) Lines() []string {
 	if permalink := stringValue(r.List["permalink"]); permalink != "" {
 		lines = append(lines, fmt.Sprintf("List URL: %s", permalink))
 	}
-	if created := formatUnixValue(r.Record["date_created"]); created != "" {
+	if created := formatUnixValueHuman(r.Record["date_created"]); created != "" {
 		lines = append(lines, fmt.Sprintf("Created: %s", created))
 	}
-	if updated := formatUnixLikeValue(r.Record["updated_timestamp"]); updated != "" {
+	if createdBy := resolveUserValue(r.ctx, r.resolver, stringValue(r.Record["created_by"])); createdBy != "" {
+		lines = append(lines, fmt.Sprintf("Created By: %s", createdBy))
+	}
+	if updated := formatUnixLikeValueHuman(r.Record["updated_timestamp"]); updated != "" {
 		lines = append(lines, fmt.Sprintf("Updated: %s", updated))
+	}
+	if updatedBy := resolveUserValue(r.ctx, r.resolver, stringValue(r.Record["updated_by"])); updatedBy != "" {
+		lines = append(lines, fmt.Sprintf("Updated By: %s", updatedBy))
 	}
 	if subscribed, ok := r.Record["is_subscribed"].(bool); ok {
 		lines = append(lines, fmt.Sprintf("Subscribed: %t", subscribed))
 	}
 
 	lines = append(lines, "", "Fields:")
-	fieldLines := fieldDetailLines(r.Record, schemaByColumnID(r.List))
+	fieldLines := fieldDetailLines(r.ctx, r.resolver, r.Record, schemaByColumnID(r.List))
 	if len(fieldLines) == 0 {
 		lines = append(lines, "(none)")
 	} else {
@@ -229,23 +281,64 @@ func isListID(input string) bool {
 	return true
 }
 
-func summarizeRecord(record map[string]interface{}, schema map[string]schemaColumn) string {
-	fieldLines := fieldDetailLines(record, schema)
-	if len(fieldLines) == 0 {
+func summarizeRecord(ctx context.Context, resolver UserResolver, record map[string]interface{}, schema map[string]schemaColumn) string {
+	fields := collectFields(ctx, resolver, record, schema)
+	if len(fields) == 0 {
 		return "item"
 	}
-	if len(fieldLines) == 1 {
-		return trimFieldPrefix(fieldLines[0])
+
+	var first, second string
+	for _, field := range fields {
+		if field.primary && first == "" {
+			first = field.value
+			break
+		}
 	}
-	return trimFieldPrefix(fieldLines[0]) + " | " + trimFieldPrefix(fieldLines[1])
+	if first == "" {
+		first = fields[0].value
+	}
+	for _, preferred := range []string{"Status", "Assignee", "Priority", "Category", "Details", "Submitted by"} {
+		for _, field := range fields {
+			if field.value == first {
+				continue
+			}
+			if strings.EqualFold(field.label, preferred) {
+				second = field.value
+				break
+			}
+		}
+		if second != "" {
+			break
+		}
+	}
+	if second == "" {
+		for _, field := range fields {
+			if field.value == first {
+				continue
+			}
+			second = field.value
+			break
+		}
+	}
+	if second == "" {
+		return first
+	}
+	return first + " | " + second
 }
 
 type schemaColumn struct {
-	ID      string
-	Name    string
-	Key     string
-	Type    string
-	Options map[string]string
+	ID        string
+	Name      string
+	Key       string
+	Type      string
+	Options   map[string]string
+	IsPrimary bool
+}
+
+type fieldView struct {
+	label   string
+	value   string
+	primary bool
 }
 
 func schemaByColumnID(list map[string]interface{}) map[string]schemaColumn {
@@ -265,11 +358,12 @@ func schemaByColumnID(list map[string]interface{}) map[string]schemaColumn {
 			continue
 		}
 		column := schemaColumn{
-			ID:      stringValue(colMap["id"]),
-			Name:    stringValue(colMap["name"]),
-			Key:     stringValue(colMap["key"]),
-			Type:    stringValue(colMap["type"]),
-			Options: make(map[string]string),
+			ID:        stringValue(colMap["id"]),
+			Name:      stringValue(colMap["name"]),
+			Key:       stringValue(colMap["key"]),
+			Type:      stringValue(colMap["type"]),
+			IsPrimary: boolValue(colMap["is_primary_column"]),
+			Options:   make(map[string]string),
 		}
 		if options, ok := colMap["options"].(map[string]interface{}); ok {
 			if choices, ok := options["choices"].([]interface{}); ok {
@@ -293,25 +387,45 @@ func schemaByColumnID(list map[string]interface{}) map[string]schemaColumn {
 	return result
 }
 
-func fieldDetailLines(record map[string]interface{}, schema map[string]schemaColumn) []string {
+func fieldDetailLines(ctx context.Context, resolver UserResolver, record map[string]interface{}, schema map[string]schemaColumn) []string {
+	views := collectFields(ctx, resolver, record, schema)
+	if len(views) == 0 {
+		return nil
+	}
+	lines := make([]string, 0, len(views))
+	for _, view := range views {
+		lines = append(lines, fmt.Sprintf("- %s: %s", view.label, view.value))
+	}
+	return lines
+}
+
+func collectFields(ctx context.Context, resolver UserResolver, record map[string]interface{}, schema map[string]schemaColumn) []fieldView {
 	fields, ok := record["fields"].([]interface{})
 	if !ok || len(fields) == 0 {
 		return nil
 	}
-	lines := make([]string, 0, len(fields))
+	views := make([]fieldView, 0, len(fields))
 	for _, rawField := range fields {
 		field, ok := rawField.(map[string]interface{})
 		if !ok {
 			continue
 		}
 		label := fieldLabel(field, schema)
-		value := formatFieldValue(field, schema)
+		value := formatFieldValue(ctx, resolver, field, schema)
 		if value == "" {
 			value = "(empty)"
 		}
-		lines = append(lines, fmt.Sprintf("- %s: %s", label, value))
+		primary := false
+		if col, ok := schema[stringValue(field["column_id"])]; ok {
+			primary = col.IsPrimary
+		}
+		views = append(views, fieldView{
+			label:   label,
+			value:   value,
+			primary: primary,
+		})
 	}
-	return lines
+	return views
 }
 
 func fieldLabel(field map[string]interface{}, schema map[string]schemaColumn) string {
@@ -335,7 +449,7 @@ func fieldLabel(field map[string]interface{}, schema map[string]schemaColumn) st
 	return "field"
 }
 
-func formatFieldValue(field map[string]interface{}, schema map[string]schemaColumn) string {
+func formatFieldValue(ctx context.Context, resolver UserResolver, field map[string]interface{}, schema map[string]schemaColumn) string {
 	if text := strings.TrimSpace(stringValue(field["text"])); text != "" {
 		return text
 	}
@@ -358,7 +472,7 @@ func formatFieldValue(field map[string]interface{}, schema map[string]schemaColu
 		}
 		return strings.Join(values, ", ")
 	case hasSliceField(field, "user"):
-		return strings.Join(stringSlice(field["user"]), ", ")
+		return resolveUserValues(ctx, resolver, stringSlice(field["user"]))
 	case hasSliceField(field, "channel"):
 		return strings.Join(stringSlice(field["channel"]), ", ")
 	case hasSliceField(field, "date"):
@@ -382,7 +496,7 @@ func formatFieldValue(field map[string]interface{}, schema map[string]schemaColu
 			return numbers[0]
 		}
 	case hasSliceField(field, "timestamp"):
-		values := numberSlice(field["timestamp"])
+		values := timestampSliceHuman(field["timestamp"])
 		if len(values) > 0 {
 			return strings.Join(values, ", ")
 		}
@@ -505,6 +619,38 @@ func formatReferenceValues(raw interface{}) string {
 	return strings.Join(values, ", ")
 }
 
+func resolveUserValues(ctx context.Context, resolver UserResolver, ids []string) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	values := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if value := resolveUserValue(ctx, resolver, id); value != "" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, ", ")
+}
+
+func resolveUserValue(ctx context.Context, resolver UserResolver, id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	if resolver == nil || ctx == nil {
+		return id
+	}
+	mention := strings.TrimSpace(resolver.GetMentionName(ctx, id))
+	if mention != "" && mention != id {
+		return "@" + mention
+	}
+	display := strings.TrimSpace(resolver.GetDisplayName(ctx, id))
+	if display != "" && display != id {
+		return display
+	}
+	return id
+}
+
 func stringSlice(raw interface{}) []string {
 	items, ok := raw.([]interface{})
 	if !ok {
@@ -552,25 +698,41 @@ func numberSlice(raw interface{}) []string {
 	return values
 }
 
-func formatUnixValue(raw interface{}) string {
-	switch value := raw.(type) {
-	case float64:
-		return strconv.FormatInt(int64(value), 10)
-	case int64:
-		return strconv.FormatInt(value, 10)
-	case int:
-		return strconv.Itoa(value)
-	default:
-		return ""
+func timestampSliceHuman(raw interface{}) []string {
+	items, ok := raw.([]interface{})
+	if !ok {
+		return nil
 	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		if formatted := formatUnixValueHuman(item); formatted != "" {
+			values = append(values, formatted)
+		}
+	}
+	return values
 }
 
-func formatUnixLikeValue(raw interface{}) string {
+func formatUnixValueHuman(raw interface{}) string {
+	sec, ok := toInt64(raw)
+	if !ok {
+		return ""
+	}
+	return time.Unix(sec, 0).UTC().Format("2006-01-02 15:04 UTC")
+}
+
+func formatUnixLikeValueHuman(raw interface{}) string {
 	switch value := raw.(type) {
 	case string:
-		return strings.TrimSpace(value)
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return ""
+		}
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return time.Unix(parsed, 0).UTC().Format("2006-01-02 15:04 UTC")
+		}
+		return value
 	default:
-		return formatUnixValue(raw)
+		return formatUnixValueHuman(raw)
 	}
 }
 
@@ -583,10 +745,30 @@ func stringValue(raw interface{}) string {
 	}
 }
 
-func trimFieldPrefix(line string) string {
-	trimmed := strings.TrimPrefix(line, "- ")
-	if strings.HasPrefix(trimmed, "field: ") {
-		return strings.TrimPrefix(trimmed, "field: ")
+func boolValue(raw interface{}) bool {
+	switch value := raw.(type) {
+	case bool:
+		return value
+	default:
+		return false
 	}
-	return trimmed
+}
+
+func toInt64(raw interface{}) (int64, bool) {
+	switch value := raw.(type) {
+	case float64:
+		return int64(value), true
+	case int:
+		return int64(value), true
+	case int64:
+		return value, true
+	case json.Number:
+		parsed, err := value.Int64()
+		return parsed, err == nil
+	case string:
+		parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
 }

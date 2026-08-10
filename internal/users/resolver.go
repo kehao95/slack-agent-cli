@@ -59,12 +59,12 @@ func (r *Resolver) RefreshCache(ctx context.Context) error {
 // GetDisplayName returns a human-friendly name for a user ID.
 // If the cache is empty, it will fetch all users from the API first.
 func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
-	users, err := r.loadOrFetchUsers(ctx)
+	users, err := r.loadUsers(ctx)
 	if err != nil || users == nil {
-		// Fallback to single lookup if bulk fetch failed
 		if r.client != nil {
 			info, err := r.client.GetUserInfo(ctx, userID)
 			if err == nil {
+				r.cacheSingleUser(userID, toCachedUser(info), users)
 				return displayName(toCachedUser(info))
 			}
 		}
@@ -72,19 +72,17 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 	}
 
 	if u, ok := users[userID]; ok {
-		return displayName(u)
+		if name := displayName(u); name != "" && name != userID {
+			return name
+		}
 	}
 
-	// Not in cache, try single lookup and add to cache
+	// Not in cache or cache entry lacked usable names; try single lookup and add/update cache
 	if r.client != nil {
 		info, err := r.client.GetUserInfo(ctx, userID)
 		if err == nil {
 			cu := toCachedUser(info)
-			users[userID] = cu
-			// Update cache with new user
-			if r.cache != nil {
-				_ = r.cache.Save(cache.CacheKeyUsers, users)
-			}
+			r.cacheSingleUser(userID, cu, users)
 			return displayName(cu)
 		}
 	}
@@ -94,11 +92,12 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 
 // GetMentionName returns a handle-like value suitable for @-style references.
 func (r *Resolver) GetMentionName(ctx context.Context, userID string) string {
-	users, err := r.loadOrFetchUsers(ctx)
+	users, err := r.loadUsers(ctx)
 	if err != nil || users == nil {
 		if r.client != nil {
 			info, err := r.client.GetUserInfo(ctx, userID)
 			if err == nil {
+				r.cacheSingleUser(userID, toCachedUser(info), users)
 				return mentionName(toCachedUser(info))
 			}
 		}
@@ -106,17 +105,17 @@ func (r *Resolver) GetMentionName(ctx context.Context, userID string) string {
 	}
 
 	if u, ok := users[userID]; ok {
-		return mentionName(u)
+		if name := mentionName(u); name != "" && name != userID {
+			return name
+		}
 	}
 
+	// Not in cache or cache entry lacked usable names; try single lookup and add/update cache
 	if r.client != nil {
 		info, err := r.client.GetUserInfo(ctx, userID)
 		if err == nil {
 			cu := toCachedUser(info)
-			users[userID] = cu
-			if r.cache != nil {
-				_ = r.cache.Save(cache.CacheKeyUsers, users)
-			}
+			r.cacheSingleUser(userID, cu, users)
 			return mentionName(cu)
 		}
 	}
@@ -126,7 +125,7 @@ func (r *Resolver) GetMentionName(ctx context.Context, userID string) string {
 
 // GetUser returns cached user info or fetches it.
 func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, error) {
-	users, err := r.loadOrFetchUsers(ctx)
+	users, err := r.loadUsers(ctx)
 	if err != nil {
 		return CachedUser{}, err
 	}
@@ -144,11 +143,18 @@ func (r *Resolver) GetUser(ctx context.Context, userID string) (CachedUser, erro
 		return CachedUser{}, fmt.Errorf("get user %s: %w", userID, err)
 	}
 	cu := toCachedUser(info)
+	r.cacheSingleUser(userID, cu, users)
+	return cu, nil
+}
+
+func (r *Resolver) cacheSingleUser(userID string, cu CachedUser, users map[string]CachedUser) {
+	if users == nil {
+		users = make(map[string]CachedUser)
+	}
 	users[userID] = cu
 	if r.cache != nil {
 		_ = r.cache.Save(cache.CacheKeyUsers, users)
 	}
-	return cu, nil
 }
 
 // loadOrFetchUsers returns the cached user map, fetching all users if cache is empty.
