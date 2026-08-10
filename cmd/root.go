@@ -18,16 +18,15 @@ var (
 		Short: "Slack for Non-Humans™",
 		Long: `Slack for Non-Humans™ - Machine-first CLI for Slack. JSON by default.
 
-Quick Start:
-  1. Verify authentication:
-     slk auth test
+	Quick Start:
+	  1. Verify authentication:
+	     slk auth test
 
-  2. Pre-warm cache (optional but recommended):
-     slk cache populate channels --all
-     slk cache populate users --all
+	  2. Pre-warm cache (optional but recommended):
+	     slk cache populate channels --all
 
-  3. List recent messages:
-     slk messages list --channel "#general" --limit 10
+	  3. List recent messages:
+	     slk messages list --channel "#general" --limit 10
 
   4. Send a message:
      slk messages send --channel "#general" --mrkdwn "Hello!"

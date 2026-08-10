@@ -202,7 +202,7 @@ func TestUserNotFoundError(t *testing.T) {
 	}
 
 	errMsg := err.Error()
-	if !containsAll(errMsg, "@alice", "cache populate users") {
+	if !containsAll(errMsg, "@alice", "slk users list") {
 		t.Errorf("Error message missing expected hint: %q", errMsg)
 	}
 }

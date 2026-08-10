@@ -12,17 +12,18 @@ import (
 	"github.com/kehao95/slack-agent-cli/internal/cache"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
+	"github.com/kehao95/slack-agent-cli/internal/users"
 	"github.com/spf13/cobra"
 )
 
 var cacheCmd = &cobra.Command{
 	Use:   "cache",
 	Short: "Manage metadata cache",
-	Long:  "Populate, inspect, and clear the local metadata cache for channels and users.",
+	Long:  "Populate, inspect, and clear the local metadata cache for channels and on-demand user lookups.",
 }
 
 var cachePopulateCmd = &cobra.Command{
-	Use:   "populate <channels|users>",
+	Use:   "populate <channels>",
 	Short: "Populate cache incrementally",
 	Long: `Fetch metadata from Slack and save to local cache.
 
@@ -35,9 +36,6 @@ resumes from where it left off.`,
   # Fetch all channels with progress output
   slk cache populate channels --all
 
-  # Fetch all users
-  slk cache populate users --all
-
   # Custom page size and delay
   slk cache populate channels --all --page-size 100 --page-delay 2s`,
 	Args: cobra.ExactArgs(1),
@@ -47,7 +45,7 @@ resumes from where it left off.`,
 var cacheStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show cache status",
-	Long: `Display information about cached channels and users.
+	Long: `Display information about cached channel metadata.
 
 Output (JSON):
   {
@@ -60,18 +58,12 @@ Output (JSON):
         "fetched_at": "2024-01-15T10:00:00Z",
         "expires_at": "2024-01-22T10:00:00Z"
       },
-      {
-        "key": "users",
-        "cached": true,
-        "count": 125,
-        "complete": false,
-        "fetched_at": "2024-01-15T09:30:00Z",
-        "next_cursor": "dXNlcl9pZDo..."
-      }
     ]
   }
 
-Cache TTL: 7 days (automatically refreshed when stale)`,
+Cache TTL: 7 days (automatically refreshed when stale).
+
+Note: user lookups use per-user read-through caching and are not summarized here.`,
 	Example: `  # Check cache status
   slk cache status
 
@@ -109,19 +101,10 @@ func (a *channelFetcherAdapter) ListChannels(ctx context.Context, cursor string,
 	return a.client.ListChannelsPaginated(ctx, cursor, limit)
 }
 
-// userFetcherAdapter adapts APIClient to cache.UserFetcher interface.
-type userFetcherAdapter struct {
-	client *slack.APIClient
-}
-
-func (a *userFetcherAdapter) ListUsers(ctx context.Context, cursor string, limit int) ([]slackapi.User, string, error) {
-	return a.client.ListUsers(ctx, cursor, limit)
-}
-
 func runCachePopulate(cmd *cobra.Command, args []string) error {
 	target := args[0]
-	if target != "channels" && target != "users" {
-		return fmt.Errorf("invalid target: %s (must be 'channels' or 'users')", target)
+	if target != cache.CacheKeyChannels {
+		return fmt.Errorf("invalid target: %s (must be 'channels')", target)
 	}
 
 	fetchAll, _ := cmd.Flags().GetBool("all")
@@ -152,14 +135,8 @@ func runCachePopulate(cmd *cobra.Command, args []string) error {
 
 	var result cache.PopulateResult
 
-	switch target {
-	case "channels":
-		fmt.Fprintf(os.Stderr, "Populating channels cache...\n")
-		result, err = cmdCtx.CacheStore.PopulateChannels(cmdCtx.Ctx, &channelFetcherAdapter{cmdCtx.Client}, popCfg)
-	case "users":
-		fmt.Fprintf(os.Stderr, "Populating users cache...\n")
-		result, err = cmdCtx.CacheStore.PopulateUsers(cmdCtx.Ctx, &userFetcherAdapter{cmdCtx.Client}, popCfg)
-	}
+	fmt.Fprintf(os.Stderr, "Populating channels cache...\n")
+	result, err = cmdCtx.CacheStore.PopulateChannels(cmdCtx.Ctx, &channelFetcherAdapter{cmdCtx.Client}, popCfg)
 
 	if err != nil && err != context.DeadlineExceeded && err != context.Canceled {
 		return err
@@ -248,7 +225,7 @@ func runCacheStatus(cmd *cobra.Command, args []string) error {
 		Items: make([]cacheStatusItem, 0),
 	}
 
-	for _, key := range []string{cache.CacheKeyChannels, cache.CacheKeyUsers} {
+	for _, key := range []string{cache.CacheKeyChannels} {
 		status, found := cmdCtx.CacheStore.GetStatus(key)
 		if !found {
 			response.Items = append(response.Items, cacheStatusItem{
@@ -326,11 +303,18 @@ func runCacheClear(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, key := range targets {
-		if err := cmdCtx.CacheStore.Expire(key); err != nil {
-			return fmt.Errorf("clear %s: %w", key, err)
-		}
-		if err := cmdCtx.CacheStore.ExpirePartial(key); err != nil {
-			return fmt.Errorf("clear %s partial: %w", key, err)
+		switch key {
+		case cache.CacheKeyUsers:
+			if err := users.NewCachedResolver(nil, cmdCtx.CacheStore).RefreshCache(cmdCtx.Ctx); err != nil {
+				return fmt.Errorf("clear %s: %w", key, err)
+			}
+		default:
+			if err := cmdCtx.CacheStore.Expire(key); err != nil {
+				return fmt.Errorf("clear %s: %w", key, err)
+			}
+			if err := cmdCtx.CacheStore.ExpirePartial(key); err != nil {
+				return fmt.Errorf("clear %s partial: %w", key, err)
+			}
 		}
 		response.Results = append(response.Results, cacheClearResult{
 			Key:     key,

@@ -347,7 +347,8 @@ Or via `SLACK_CLI_CONFIG` environment variable.
 ~/.config/slk/cache/
 ```
 
-- Separate JSON files per domain (e.g., `channels.json`, `users.json`).
+- Separate JSON files per domain (for example `channels.json`).
+- User lookups use per-user read-through cache entries instead of a workspace-wide user snapshot.
 - Stored alongside the config directory with directories created at `0700` and files at `0600` permissions.
 - Each file contains a payload of Slack metadata plus a `fetched_at` ISO 8601 timestamp used for TTL checks.
 - Cache entries default to a 7-day TTL and are refreshed automatically when stale or when commands are invoked with `--refresh-cache`.
@@ -362,10 +363,10 @@ The `cache` command group provides explicit control over metadata caching with i
 
 #### `slk cache populate`
 
-Fetch and cache channels or users from Slack with incremental pagination.
+Fetch and cache channels from Slack with incremental pagination.
 
 ```bash
-slk cache populate <channels|users> [options]
+slk cache populate <channels> [options]
 
 Options:
   --all                  Fetch all pages (default: fetch one page)
@@ -390,8 +391,6 @@ slk cache populate channels  # Continues until done
 # Or fetch all at once with rate limiting
 slk cache populate channels --all --page-delay 2s
 
-# Populate users cache
-slk cache populate users --all
 ```
 
 **Output (Human-readable):**

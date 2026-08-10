@@ -65,11 +65,7 @@ func TestResolver_GetDisplayName_FromCache(t *testing.T) {
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	// Pre-populate cache with user data
-	users := map[string]CachedUser{
-		"U1": {ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice"},
-	}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+	if err := store.Save(userCacheKey("U1"), CachedUser{ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice"}); err != nil {
 		t.Fatalf("failed to pre-populate cache: %v", err)
 	}
 
@@ -90,11 +86,7 @@ func TestResolver_GetDisplayName_NotInCache_FallbackToAPI(t *testing.T) {
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	// Pre-populate cache with different user
-	users := map[string]CachedUser{
-		"U1": {ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice"},
-	}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+	if err := store.Save(userCacheKey("U1"), CachedUser{ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice"}); err != nil {
 		t.Fatalf("failed to pre-populate cache: %v", err)
 	}
 
@@ -121,16 +113,22 @@ func TestResolver_GetDisplayName_NotInCache_FallbackToAPI(t *testing.T) {
 	if client.callsGetOne != 1 {
 		t.Errorf("expected no additional API call after caching, got %d", client.callsGetOne)
 	}
+
+	var cached CachedUser
+	found, err := store.Load(userCacheKey("U2"), &cached)
+	if err != nil {
+		t.Fatalf("load per-user cache: %v", err)
+	}
+	if !found || cached.DisplayName != "Bobby" {
+		t.Fatalf("expected per-user cache entry for U2, got found=%v user=%+v", found, cached)
+	}
 }
 
 func TestResolver_GetDisplayName_CachedEntryWithoutNames_RehydratesFromAPI(t *testing.T) {
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	users := map[string]CachedUser{
-		"U2": {ID: "U2"},
-	}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+	if err := store.Save(userCacheKey("U2"), CachedUser{ID: "U2"}); err != nil {
 		t.Fatalf("failed to pre-populate cache: %v", err)
 	}
 
@@ -178,12 +176,6 @@ func TestResolver_GetDisplayName_UnknownUser(t *testing.T) {
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	// Empty cache
-	users := map[string]CachedUser{}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
-		t.Fatalf("failed to pre-populate cache: %v", err)
-	}
-
 	client := &mockUserClient{
 		err: errors.New("user_not_found"),
 	}
@@ -201,12 +193,11 @@ func TestResolver_RefreshCache(t *testing.T) {
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	// Pre-populate cache
-	users := map[string]CachedUser{
-		"U1": {ID: "U1", Name: "alice", DisplayName: "Alice"},
-	}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+	if err := store.Save(userCacheKey("U1"), CachedUser{ID: "U1", Name: "alice", DisplayName: "Alice"}); err != nil {
 		t.Fatalf("failed to pre-populate cache: %v", err)
+	}
+	if err := store.Save(userCacheKey("U1"), CachedUser{ID: "U1", Name: "alice", DisplayName: "Alice"}); err != nil {
+		t.Fatalf("failed to pre-populate per-user cache: %v", err)
 	}
 
 	client := &mockUserClient{}
@@ -229,37 +220,14 @@ func TestResolver_RefreshCache(t *testing.T) {
 	if name2 != "U1" {
 		t.Errorf("expected U1 (fallback after cache clear), got %s", name2)
 	}
-}
 
-func TestResolver_GetDisplayName_PartialCache(t *testing.T) {
-	dir := t.TempDir()
-	store := cache.New(dir, cache.DefaultTTL)
-
-	// Simulate partial cache from populate command
-	partialUsers := []slackapi.User{
-		{ID: "U1", Name: "alice", RealName: "Alice Smith", Profile: slackapi.UserProfile{DisplayName: "Alice"}},
-		{ID: "U2", Name: "bob", RealName: "Bob Jones", Profile: slackapi.UserProfile{DisplayName: "Bobby"}},
+	var cached CachedUser
+	found, err := store.Load(userCacheKey("U1"), &cached)
+	if err != nil {
+		t.Fatalf("load per-user cache after refresh: %v", err)
 	}
-	if err := store.SavePartial(cache.CacheKeyUsers, partialUsers, "next_page_cursor", false, len(partialUsers)); err != nil {
-		t.Fatalf("failed to save partial cache: %v", err)
-	}
-
-	client := &mockUserClient{}
-	resolver := NewCachedResolver(client, store)
-
-	// Should find U1 in partial cache
-	name := resolver.GetDisplayName(context.Background(), "U1")
-	if name != "Alice" {
-		t.Errorf("expected Alice from partial cache, got %s", name)
-	}
-	if client.callsGetOne != 0 {
-		t.Errorf("expected 0 API calls for cached user, got %d", client.callsGetOne)
-	}
-
-	// Should find U2 in partial cache
-	name2 := resolver.GetDisplayName(context.Background(), "U2")
-	if name2 != "Bobby" {
-		t.Errorf("expected Bobby from partial cache, got %s", name2)
+	if found {
+		t.Fatalf("expected per-user cache to be cleared, got %+v", cached)
 	}
 }
 
@@ -267,10 +235,7 @@ func TestResolver_GetMentionName_CachedEntryWithoutNames_RehydratesFromAPI(t *te
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	users := map[string]CachedUser{
-		"U2": {ID: "U2"},
-	}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+	if err := store.Save(userCacheKey("U2"), CachedUser{ID: "U2"}); err != nil {
 		t.Fatalf("failed to pre-populate cache: %v", err)
 	}
 
@@ -292,11 +257,7 @@ func TestResolver_GetUser(t *testing.T) {
 	dir := t.TempDir()
 	store := cache.New(dir, cache.DefaultTTL)
 
-	// Pre-populate cache
-	users := map[string]CachedUser{
-		"U1": {ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice", IsBot: false},
-	}
-	if err := store.Save(cache.CacheKeyUsers, users); err != nil {
+	if err := store.Save(userCacheKey("U1"), CachedUser{ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice", IsBot: false}); err != nil {
 		t.Fatalf("failed to pre-populate cache: %v", err)
 	}
 
@@ -324,5 +285,46 @@ func TestResolver_GetUser(t *testing.T) {
 	}
 	if client.callsGetOne != 1 {
 		t.Errorf("expected 1 API call for uncached user, got %d", client.callsGetOne)
+	}
+}
+
+func TestResolver_GetDisplayName_PerUserCachePreferredOverLegacySnapshot(t *testing.T) {
+	dir := t.TempDir()
+	store := cache.New(dir, cache.DefaultTTL)
+
+	snapshot := map[string]CachedUser{
+		"U1": {ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice"},
+	}
+	if err := store.Save(cache.CacheKeyUsers, snapshot); err != nil {
+		t.Fatalf("failed to pre-populate snapshot cache: %v", err)
+	}
+	if err := store.Save(userCacheKey("U1"), CachedUser{ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alicia"}); err != nil {
+		t.Fatalf("failed to pre-populate per-user cache: %v", err)
+	}
+
+	resolver := NewCachedResolver(&mockUserClient{}, store)
+
+	name := resolver.GetDisplayName(context.Background(), "U1")
+	if name != "Alicia" {
+		t.Fatalf("expected per-user cache to win, got %s", name)
+	}
+}
+
+func TestResolver_GetDisplayName_LegacySnapshotIgnoredWithoutPerUserEntry(t *testing.T) {
+	dir := t.TempDir()
+	store := cache.New(dir, cache.DefaultTTL)
+
+	snapshot := map[string]CachedUser{
+		"U1": {ID: "U1", Name: "alice", RealName: "Alice Smith", DisplayName: "Alice"},
+	}
+	if err := store.Save(cache.CacheKeyUsers, snapshot); err != nil {
+		t.Fatalf("failed to pre-populate snapshot cache: %v", err)
+	}
+
+	resolver := NewCachedResolver(&mockUserClient{err: errors.New("user_not_found")}, store)
+
+	name := resolver.GetDisplayName(context.Background(), "U1")
+	if name != "U1" {
+		t.Fatalf("expected legacy snapshot to be ignored, got %s", name)
 	}
 }
