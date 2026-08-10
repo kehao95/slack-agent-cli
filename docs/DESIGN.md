@@ -75,6 +75,10 @@ slk
 │   ├── status      # Show cache state
 │   └── clear       # Clear cached data
 │
+├── lists           # Slack List operations
+│   ├── items       # Fetch rows/items from a Slack List
+│   └── item        # Fetch one row/item with list metadata
+│
 ├── channels        # Channel operations
 │   ├── list        # List accessible channels
 │   ├── info        # Get channel details
@@ -218,6 +222,57 @@ slk messages send --channel "#general" --image ./screenshot.png --mrkdwn "Latest
 
 # Send an image as a thread reply
 slk messages send --channel "#general" --thread "1705312365.000100" --image ./screenshot.png
+```
+
+#### `slk lists items`
+
+Fetch items from a Slack List via `slackLists.items.list`.
+
+```bash
+slk lists items [options]
+
+Options:
+  --list <id|url>       Slack List ID or URL (required)
+  --limit <n>           Max items to return (default: 100)
+  --cursor <cursor>     Pagination cursor
+  --all                 Fetch all pages of items
+  --archived            Return archived items instead of active items
+  --json                Output as JSON
+```
+
+**Examples:**
+```bash
+# Read items by ID
+slk lists items --list F0BFMJY6ZTQ
+
+# Read items by Slack URL
+slk lists items --list https://contentsquare.slack.com/lists/T027K0ZC9/F0BFMJY6ZTQ
+
+# Read all pages
+slk lists items --list F0BFMJY6ZTQ --all
+```
+
+#### `slk lists item`
+
+Fetch one item from a Slack List via `slackLists.items.info`.
+
+```bash
+slk lists item [options]
+
+Options:
+  --list <id|url>                 Slack List ID or URL (required)
+  --id <record-id>                Slack List record/item ID (required)
+  --include-is-subscribed         Include subscription state when Slack provides it
+  --json                          Output as JSON
+```
+
+**Examples:**
+```bash
+# Read one item by record id
+slk lists item --list F0BFMJY6ZTQ --id Rec018B8RR603
+
+# Include subscription state
+slk lists item --list F0BFMJY6ZTQ --id Rec018B8RR603 --include-is-subscribed
 ```
 
 When `--image` is used, the command uploads the local file and shares it in

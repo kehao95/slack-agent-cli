@@ -8,6 +8,12 @@ var (
 	// ErrChannelRequired indicates a channel parameter is required but was empty.
 	ErrChannelRequired = errors.New("channel is required")
 
+	// ErrListRequired indicates a list parameter is required but was empty.
+	ErrListRequired = errors.New("list is required")
+
+	// ErrRecordRequired indicates a list record/item id is required but was empty.
+	ErrRecordRequired = errors.New("record id is required")
+
 	// ErrTextRequired indicates message text or blocks are required but were empty.
 	ErrTextRequired = errors.New("text or blocks is required")
 

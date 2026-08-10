@@ -10,13 +10,24 @@ import (
 
 // APIClient implements Client by wrapping slack-go's Client.
 type APIClient struct {
-	sdk *slackapi.Client
+	sdk           *slackapi.Client
+	token         string
+	cookie        string
+	endpoint      string
+	rawHTTPClient *http.Client
 }
 
 // New creates a new APIClient using the provided user token.
 // For xoxc- tokens (client tokens), use NewWithCookie instead.
 func New(userToken string, options ...slackapi.Option) *APIClient {
-	return &APIClient{sdk: slackapi.New(userToken, options...)}
+	httpClient := &http.Client{}
+	sdkOptions := append([]slackapi.Option{slackapi.OptionHTTPClient(httpClient)}, options...)
+	return &APIClient{
+		sdk:           slackapi.New(userToken, sdkOptions...),
+		token:         userToken,
+		endpoint:      slackapi.APIURL,
+		rawHTTPClient: httpClient,
+	}
 }
 
 // NewWithCookie creates a new APIClient for xoxc- tokens that require a cookie.
@@ -28,7 +39,13 @@ func NewWithCookie(token, cookie string) *APIClient {
 			base:   http.DefaultTransport,
 		},
 	}
-	return &APIClient{sdk: slackapi.New(token, slackapi.OptionHTTPClient(httpClient))}
+	return &APIClient{
+		sdk:           slackapi.New(token, slackapi.OptionHTTPClient(httpClient)),
+		token:         token,
+		cookie:        cookie,
+		endpoint:      slackapi.APIURL,
+		rawHTTPClient: httpClient,
+	}
 }
 
 // NewAuto automatically creates the appropriate client based on token type.

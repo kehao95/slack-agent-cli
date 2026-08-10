@@ -150,6 +150,10 @@ slk
 │   ├── run         # Cache Socket Mode events into SQLite
 │   └── status      # Inspect local event cache status
 │
+├── lists           # Slack List operations
+│   ├── items       # Fetch items from a Slack List
+│   └── item        # Fetch one item with list metadata
+│
 ├── reactions       # Reaction operations
 │   ├── add         # Add reaction to message
 │   ├── remove      # Remove reaction
@@ -176,6 +180,15 @@ slk
 ```bash
 # Summarize the last hour of #alerts using an LLM
 slk messages list --channel "#alerts" --since 1h | llm "Summarize these alerts"
+
+# Pull the latest helpdesk rows from a Slack List
+slk lists items --list https://contentsquare.slack.com/lists/T027K0ZC9/F0BFMJY6ZTQ | jq '.items'
+
+# Fetch the entire list across all pages
+slk lists items --list F0BFMJY6ZTQ --all
+
+# Inspect one record with schema-aware field output
+slk lists item --list F0BFMJY6ZTQ --id Rec018B8RR603 --human
 
 # Auto-reply to specific errors
 slk messages search --query "error: deployment" | \

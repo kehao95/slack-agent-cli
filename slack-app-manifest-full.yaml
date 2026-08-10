@@ -38,6 +38,9 @@ oauth_config:
       - files:read
       - files:write
 
+      # Lists (read-only for inspection)
+      - lists:read
+
       # Emoji
       - emoji:read
 
@@ -69,6 +72,9 @@ oauth_config:
       # Files (upload/download)
       - files:read
       - files:write
+
+      # Lists (read-only for inspection)
+      - lists:read
 
       # Emoji
       - emoji:read
