@@ -13,8 +13,7 @@ import (
 	slackapi "github.com/slack-go/slack"
 )
 
-func TestCallAPIUsesJSONAuthAndCookie(t *testing.T) {
-	var got map[string]interface{}
+func TestCallAPIUsesFormAuthAndCookie(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/conversations.info" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -25,23 +24,26 @@ func TestCallAPIUsesJSONAuthAndCookie(t *testing.T) {
 		if r.Header.Get("Cookie") != "d=xoxd-cookie" {
 			t.Fatalf("unexpected cookie: %q", r.Header.Get("Cookie"))
 		}
-		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 			t.Fatalf("unexpected content type: %q", r.Header.Get("Content-Type"))
 		}
-		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
-			t.Fatalf("decode body: %v", err)
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		if r.Form.Get("channel") != "C123" || r.Form.Get("include_num_members") != "true" || r.Form.Get("users") != `["U1","U2"]` {
+			t.Fatalf("unexpected form: %v", r.Form)
 		}
 		writeJSON(t, w, map[string]interface{}{"ok": true, "channel": map[string]interface{}{"id": "C123"}})
 	}))
 	defer server.Close()
 
 	client := &APIClient{token: "xoxp-test", cookie: "xoxd-cookie", endpoint: server.URL, rawHTTPClient: server.Client()}
-	response, err := client.CallAPI(context.Background(), "conversations.info", map[string]interface{}{"channel": "C123"}, CallAPIOptions{})
+	response, err := client.CallAPI(context.Background(), "conversations.info", map[string]interface{}{"channel": "C123", "include_num_members": true, "users": []string{"U1", "U2"}}, CallAPIOptions{})
 	if err != nil {
 		t.Fatalf("CallAPI: %v", err)
 	}
-	if got["channel"] != "C123" || !strings.Contains(string(response), `"C123"`) {
-		t.Fatalf("unexpected request/response: got=%v response=%s", got, response)
+	if !strings.Contains(string(response), `"C123"`) {
+		t.Fatalf("unexpected response: %s", response)
 	}
 }
 

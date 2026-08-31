@@ -83,6 +83,7 @@ func ClassifySlackError(err error) int {
 	// Check for permission/scope errors
 	if strings.Contains(errStr, "missing_scope") ||
 		strings.Contains(errStr, "not_allowed") ||
+		strings.Contains(errStr, "not_authorized") ||
 		strings.Contains(errStr, "cannot_dm_bot") ||
 		strings.Contains(errStr, "access_denied") {
 		return ExitPermission
@@ -99,6 +100,7 @@ func ClassifySlackError(err error) int {
 
 	// Check for network errors
 	if strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "deadline exceeded") ||
 		strings.Contains(errStr, "connection refused") ||
 		strings.Contains(errStr, "dial tcp") ||
 		strings.Contains(errStr, "no such host") {
@@ -144,8 +146,12 @@ func HandleCommandError(cmd *cobra.Command, err error) error {
 // Execute runs a cobra command and exits with the appropriate code.
 // This should be used in main.go to ensure proper exit codes.
 func Execute(rootCmd *cobra.Command) {
+	// Usage belongs to explicit --help, not routine machine failures. Keeping it
+	// out of stderr makes errors concise and stable for agents.
+	rootCmd.SilenceUsage = true
 	err := rootCmd.Execute()
 	if err != nil {
+		err = HandleCommandError(rootCmd, err)
 		var errWithCode *ErrorWithExitCode
 		if errors.As(err, &errWithCode) {
 			os.Exit(errWithCode.ExitCode)

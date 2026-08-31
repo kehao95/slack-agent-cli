@@ -55,6 +55,11 @@ func TestClassifySlackError(t *testing.T) {
 			expected: ExitPermission,
 		},
 		{
+			name:     "not authorized",
+			err:      fmt.Errorf("not_authorized"),
+			expected: ExitPermission,
+		},
+		{
 			name:     "channel not found",
 			err:      fmt.Errorf("channel_not_found"),
 			expected: ExitNotFound,
@@ -77,6 +82,11 @@ func TestClassifySlackError(t *testing.T) {
 		{
 			name:     "network timeout",
 			err:      fmt.Errorf("context deadline exceeded: timeout"),
+			expected: ExitNetwork,
+		},
+		{
+			name:     "context deadline",
+			err:      fmt.Errorf("context deadline exceeded"),
 			expected: ExitNetwork,
 		},
 		{

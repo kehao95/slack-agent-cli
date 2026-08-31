@@ -31,7 +31,7 @@ func TestExtendedMessageLifecycle(t *testing.T) {
 		case "/chat.scheduledMessages.list":
 			_, _ = w.Write([]byte(`{"ok":true,"scheduled_messages":[{"id":"Q1","channel_id":"C1","post_at":1700000060,"text":"later"}],"response_metadata":{"next_cursor":"next"}}`))
 		case "/chat.deleteScheduledMessage":
-			if r.Form.Get("scheduled_message_id") != "Q1" {
+			if r.Form.Get("scheduled_message_id") != "Q1" || r.Form.Get("as_user") != "true" {
 				t.Fatalf("unexpected delete form: %v", r.Form)
 			}
 			_, _ = w.Write([]byte(`{"ok":true}`))
@@ -74,7 +74,7 @@ func TestExtendedMessageLifecycle(t *testing.T) {
 	if err != nil || len(listed.Messages) != 1 || listed.NextCursor != "next" {
 		t.Fatalf("ListScheduledMessages: result=%+v err=%v", listed, err)
 	}
-	deleted, err := client.DeleteScheduledMessage(ctx, "C1", "Q1", false)
+	deleted, err := client.DeleteScheduledMessage(ctx, "C1", "Q1", true)
 	if err != nil || !deleted.OK {
 		t.Fatalf("DeleteScheduledMessage: result=%+v err=%v", deleted, err)
 	}
@@ -89,5 +89,26 @@ func TestExtendedMessageLifecycle(t *testing.T) {
 	stopped, err := client.StopMessageStream(ctx, "C1", "2.0", StreamUpdateOptions{Markdown: "final"})
 	if err != nil || stopped.Action != "stopped" {
 		t.Fatalf("StopMessageStream: result=%+v err=%v", stopped, err)
+	}
+}
+
+func TestDeleteScheduledMessageBotOmitsAsUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		if r.Form.Get("channel") != "C1" || r.Form.Get("scheduled_message_id") != "Q1" {
+			t.Fatalf("unexpected delete form: %v", r.Form)
+		}
+		if _, present := r.Form["as_user"]; present {
+			t.Fatalf("bot delete must omit as_user: %v", r.Form)
+		}
+		writeJSON(t, w, map[string]interface{}{"ok": true})
+	}))
+	defer server.Close()
+	client := &APIClient{token: "xoxb-test", endpoint: server.URL, rawHTTPClient: server.Client()}
+	deleted, err := client.DeleteScheduledMessage(context.Background(), "C1", "Q1", false)
+	if err != nil || !deleted.OK {
+		t.Fatalf("DeleteScheduledMessage: result=%+v err=%v", deleted, err)
 	}
 }

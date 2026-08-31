@@ -208,7 +208,8 @@ func streamEventToStore(event streamEvent) eventstore.Event {
 
 func (n *eventNormalizer) Normalize(eventsAPIEvent slackevents.EventsAPIEvent, req *socketmode.Request, includeRaw bool) (streamEvent, bool, error) {
 	event := streamEvent{
-		Kind: "slack.event",
+		Kind:       "slack.event",
+		ReceivedAt: time.Now().UTC(),
 	}
 	if req != nil {
 		event.EnvelopeID = req.EnvelopeID

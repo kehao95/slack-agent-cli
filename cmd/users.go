@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -191,7 +192,7 @@ func runUsersInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Resolve user ID from @username or user ID
-	userID, err := resolveUserID(cmd.Context(), cmdCtx.Client, userInput)
+	userID, err := resolveUserID(cmdCtx.Ctx, cmdCtx.Client, userInput)
 	if err != nil {
 		return fmt.Errorf("resolve user: %w", err)
 	}
@@ -219,7 +220,7 @@ func runUsersPresence(cmd *cobra.Command, args []string) error {
 	}
 
 	// Resolve user ID from @username or user ID
-	userID, err := resolveUserID(cmd.Context(), cmdCtx.Client, userInput)
+	userID, err := resolveUserID(cmdCtx.Ctx, cmdCtx.Client, userInput)
 	if err != nil {
 		return fmt.Errorf("resolve user: %w", err)
 	}
@@ -434,5 +435,9 @@ func splitNonEmpty(value string) []string {
 // resolveUserID accepts IDs, mentions, handles, names, and emails. The shared
 // resolver rejects ambiguous names instead of silently selecting an account.
 func resolveUserID(ctx context.Context, client *slack.APIClient, input string) (string, error) {
-	return client.ResolveUserReference(ctx, input)
+	userID, err := client.ResolveUserReference(ctx, input)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "", fmt.Errorf("resolve user %q timed out; use a Slack user ID in large workspaces: %w", input, err)
+	}
+	return userID, err
 }

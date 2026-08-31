@@ -142,13 +142,24 @@ func (c *APIClient) DeleteScheduledMessage(ctx context.Context, channelID, sched
 	if channelID == "" || scheduledID == "" {
 		return nil, fmt.Errorf("channel and scheduled message ID are required")
 	}
-	ok, err := c.sdk.DeleteScheduledMessageContext(ctx, &slackapi.DeleteScheduledMessageParameters{
-		Channel: channelID, ScheduledMessageID: scheduledID, AsUser: asUser,
-	})
-	if err != nil {
+	if asUser {
+		ok, err := c.sdk.DeleteScheduledMessageContext(ctx, &slackapi.DeleteScheduledMessageParameters{
+			Channel: channelID, ScheduledMessageID: scheduledID, AsUser: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("delete scheduled message: %w", err)
+		}
+		return &DeleteScheduledMessageResult{OK: ok, ChannelID: channelID, ScheduledMessageID: scheduledID}, nil
+	}
+
+	// slack-go v0.29 always sends as_user=false for bot calls, which Slack
+	// rejects as invalid_arguments. Bot tokens must omit the legacy field.
+	if _, err := c.CallAPI(ctx, "chat.deleteScheduledMessage", map[string]interface{}{
+		"channel": channelID, "scheduled_message_id": scheduledID,
+	}, CallAPIOptions{MaxRetries: 3}); err != nil {
 		return nil, fmt.Errorf("delete scheduled message: %w", err)
 	}
-	return &DeleteScheduledMessageResult{OK: ok, ChannelID: channelID, ScheduledMessageID: scheduledID}, nil
+	return &DeleteScheduledMessageResult{OK: true, ChannelID: channelID, ScheduledMessageID: scheduledID}, nil
 }
 
 func (c *APIClient) StartMessageStream(ctx context.Context, channelID string, opts StreamStartOptions) (*StreamMessageResult, error) {

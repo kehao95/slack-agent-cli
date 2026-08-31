@@ -128,6 +128,9 @@ func TestEventNormalizerMessageThread(t *testing.T) {
 	if !emit {
 		t.Fatal("expected event to emit")
 	}
+	if event.ReceivedAt.IsZero() {
+		t.Fatal("expected receive timestamp for agent ordering and latency tracking")
+	}
 	if event.Channel != "#support" {
 		t.Fatalf("expected resolved channel #support, got %q", event.Channel)
 	}

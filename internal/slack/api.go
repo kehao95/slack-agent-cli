@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,9 +65,9 @@ func (c *APIClient) CallAPI(ctx context.Context, method string, payload map[stri
 		payload = map[string]interface{}{}
 	}
 
-	body, err := json.Marshal(payload)
+	body, err := encodeAPIForm(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshal %s request: %w", method, err)
+		return nil, fmt.Errorf("encode %s request: %w", method, err)
 	}
 
 	for attempt := 0; ; attempt++ {
@@ -86,6 +87,30 @@ func (c *APIClient) CallAPI(ctx context.Context, method string, payload map[stri
 			return nil, err
 		}
 	}
+}
+
+// encodeAPIForm keeps the CLI's JSON-object input contract while using Slack's
+// universally supported form transport. Slack endpoints in some workspaces and
+// token modes ignore application/json bodies and report required fields as
+// missing. Structured values remain JSON strings, matching Slack's form API
+// convention for blocks, attachments, and other composite parameters.
+func encodeAPIForm(payload map[string]interface{}) ([]byte, error) {
+	values := url.Values{}
+	for key, value := range payload {
+		if strings.TrimSpace(key) == "" {
+			return nil, fmt.Errorf("request field name cannot be empty")
+		}
+		if text, ok := value.(string); ok {
+			values.Set(key, text)
+			continue
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, fmt.Errorf("field %s: %w", key, err)
+		}
+		values.Set(key, string(encoded))
+	}
+	return []byte(values.Encode()), nil
 }
 
 func (c *APIClient) waitForRetry(ctx context.Context, delay time.Duration) error {
@@ -109,7 +134,7 @@ func (c *APIClient) callAPIAttempt(ctx context.Context, method string, body []by
 		return nil, 0, fmt.Errorf("build %s request: %w", method, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 	if strings.TrimSpace(c.cookie) != "" {
 		req.Header.Set("Cookie", "d="+c.cookie)
