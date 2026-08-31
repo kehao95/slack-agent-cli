@@ -18,6 +18,11 @@ oauth_config:
 
       # Users
       - users:read
+      - users:read.email
+      - users.profile:read
+
+      # User groups
+      - usergroups:read
 
       # Search
       - search:read
@@ -50,6 +55,11 @@ oauth_config:
 
       # Users
       - users:read
+      - users:read.email
+      - users.profile:read
+
+      # User groups
+      - usergroups:read
 
       # Reactions (read-only)
       - reactions:read

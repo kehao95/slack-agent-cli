@@ -9,7 +9,7 @@ A CLI tool for AI coding agents to interact with Slack workspaces via command li
 | Language | Go |
 | CLI Framework | Cobra + Viper |
 | Slack SDK | slack-go/slack |
-| Config Location | `~/.config/slk/config.json` |
+| Config Location | `~/.config/slack-cli/config.json` |
 
 ## Quick Reference
 
@@ -391,7 +391,8 @@ Go is not installed or not in PATH. Install from https://go.dev/dl/
 Run `go mod tidy` to sync dependencies.
 
 ### "Slack API error: not_authed"
-Config file missing or tokens invalid. Run `slk config init`.
+Config file missing or tokens invalid. Run `slk auth login --token <token> --verify`
+or set the matching `SLACK_USER_TOKEN` / `SLACK_BOT_TOKEN` environment variable.
 
 ### Tests fail with "no test files"
 Create `*_test.go` files in the package directory.

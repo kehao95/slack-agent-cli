@@ -19,11 +19,12 @@ var (
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Save authentication token to config",
-	Long: `Save a Slack user token to the config file.
+	Long: `Save a Slack user, bot, or client token to the config file.
 
-The token should be a user token starting with 'xoxp-' obtained through OAuth.
-Use 'slk auth oauth' to obtain a token through the OAuth flow, or paste one
-directly using the --token flag.`,
+User tokens start with 'xoxp-', bot tokens with 'xoxb-', and client tokens with
+'xoxc-'. Client tokens also require SLACK_CLIENT_COOKIE when used. Use
+'slk auth oauth' to obtain tokens through the OAuth flow, or pass one directly
+with --token. Saving a token selects its matching user or bot role.`,
 	Example: `  # Save a token to config
   slk auth login --token xoxp-xxx-xxx-xxx
 
@@ -35,7 +36,7 @@ directly using the --token flag.`,
 func init() {
 	authCmd.AddCommand(authLoginCmd)
 
-	authLoginCmd.Flags().StringVar(&loginToken, "token", "", "Slack user token (xoxp-...)")
+	authLoginCmd.Flags().StringVar(&loginToken, "token", "", "Slack token (xoxp-..., xoxb-..., or xoxc-...)")
 	authLoginCmd.Flags().BoolVar(&loginVerify, "verify", false, "Verify the token works by calling Slack API")
 	authLoginCmd.MarkFlagRequired("token")
 }
@@ -69,9 +70,27 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		TokenType: tokenType,
 	}
 
+	// Load first so xoxc verification can use an existing cookie. Load applies
+	// SLACK_CLIENT_COOKIE as an environment override as well.
+	cfg, configPath, err := config.Load(cfgFile)
+	if err != nil {
+		cfg = config.DefaultConfig()
+		configPath, err = config.DefaultPath()
+		if err != nil {
+			return fmt.Errorf("determine config path: %w", err)
+		}
+	}
+
 	// Optionally verify token by calling auth.test
 	if loginVerify {
-		cmdCtx, err := NewCommandContextWithToken(cmd, 10*time.Second, loginToken)
+		cookie := ""
+		if strings.HasPrefix(loginToken, "xoxc-") {
+			cookie = strings.TrimSpace(cfg.Cookie)
+			if cookie == "" {
+				return fmt.Errorf("xoxc client token verification requires SLACK_CLIENT_COOKIE or a cookie in the existing config")
+			}
+		}
+		cmdCtx, err := NewCommandContextWithCredentials(cmd, 10*time.Second, loginToken, cookie)
 		if err != nil {
 			return fmt.Errorf("create client: %w", err)
 		}
@@ -86,18 +105,10 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		result.TeamID = authResult.TeamID
 	}
 
-	// Load existing config or create default
-	cfg, configPath, err := config.Load(cfgFile)
-	if err != nil {
-		cfg = config.DefaultConfig()
-		configPath, err = config.DefaultPath()
-		if err != nil {
-			return fmt.Errorf("determine config path: %w", err)
-		}
-	}
-
-	// Save token
-	cfg.UserToken = loginToken
+	// Save the token in the slot selected by its type. Keeping bot credentials
+	// in user_token makes role=bot unusable and can accidentally select the
+	// wrong identity on the next invocation.
+	applyLoginToken(cfg, loginToken)
 
 	savedPath, err := config.Save(configPath, cfg)
 	if err != nil {
@@ -112,6 +123,17 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.Print(cmd, result)
+}
+
+func applyLoginToken(cfg *config.Config, token string) {
+	if strings.HasPrefix(token, "xoxb-") {
+		cfg.BotToken = token
+		cfg.Role = config.RoleBot
+		return
+	}
+
+	cfg.UserToken = token
+	cfg.Role = config.RoleUser
 }
 
 func validateTokenFormat(token string) error {

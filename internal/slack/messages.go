@@ -111,29 +111,7 @@ func (c *APIClient) PostMessage(ctx context.Context, channel string, opts PostMe
 		return nil, ErrTextRequired
 	}
 
-	msgOpts := []slackapi.MsgOption{
-		slackapi.MsgOptionText(opts.Text, false),
-	}
-
-	if opts.ThreadTS != "" {
-		msgOpts = append(msgOpts, slackapi.MsgOptionTS(opts.ThreadTS))
-	}
-
-	if len(opts.Blocks) > 0 {
-		msgOpts = append(msgOpts, slackapi.MsgOptionBlocks(opts.Blocks...))
-	}
-
-	if opts.AsUser {
-		msgOpts = append(msgOpts, slackapi.MsgOptionAsUser(true))
-	}
-
-	// Only add disable options if unfurl is explicitly false
-	if !opts.UnfurlLinks {
-		msgOpts = append(msgOpts, slackapi.MsgOptionDisableLinkUnfurl())
-	}
-	if !opts.UnfurlMedia {
-		msgOpts = append(msgOpts, slackapi.MsgOptionDisableMediaUnfurl())
-	}
+	msgOpts := standardMessageOptions(opts)
 
 	respChannel, respTimestamp, err := c.sdk.PostMessageContext(ctx, channel, msgOpts...)
 	if err != nil {

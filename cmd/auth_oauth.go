@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,11 +13,17 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/spf13/cobra"
+)
+
+const (
+	defaultOAuthUserScopes = "identify,channels:read,channels:history,channels:write,groups:read,groups:history,groups:write,im:read,im:history,im:write,mpim:read,mpim:history,mpim:write,chat:write,users:read,users:read.email,users.profile:read,users.profile:write,usergroups:read,usergroups:write,search:read,reactions:read,reactions:write,pins:read,pins:write,files:read,files:write,lists:read,emoji:read"
+	defaultOAuthBotScopes  = "channels:manage,channels:read,channels:history,groups:read,groups:history,groups:write,im:read,im:history,im:write,mpim:read,mpim:history,mpim:write,chat:write,users:read,users:read.email,users.profile:read,usergroups:read,usergroups:write,reactions:read,reactions:write,pins:read,pins:write,files:read,files:write,lists:read,emoji:read"
 )
 
 var (
@@ -23,6 +32,7 @@ var (
 	oauthClientSecret string
 	oauthRedirectURI  string
 	oauthScopes       string
+	oauthBotScopes    string
 	oauthSaveConfig   bool
 )
 
@@ -33,15 +43,16 @@ var authOAuthCmd = &cobra.Command{
 
 This server receives the authorization code from Slack and exchanges it
 for an access token. Expose the server publicly and configure your Slack
-app's redirect URI to point to the /callback endpoint.`,
+app's redirect URI to point to the /callback endpoint. The flow validates a
+single-use state value and saves credentials without displaying raw tokens.`,
 	Example: `  # Start OAuth server on default port
   slk auth oauth --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 
   # With custom port and redirect URI
   slk auth oauth --port 9000 --client-id ID --client-secret SECRET --redirect-uri https://example.com/callback
 
-  # Auto-save token to config after successful exchange
-  slk auth oauth --client-id ID --client-secret SECRET --save`,
+  # Exchange credentials but intentionally discard them
+  slk auth oauth --client-id ID --client-secret SECRET --save=false`,
 	RunE: runAuthOAuth,
 }
 
@@ -52,8 +63,9 @@ func init() {
 	authOAuthCmd.Flags().StringVar(&oauthClientID, "client-id", "", "Slack app client ID (or SLACK_CLIENT_ID env)")
 	authOAuthCmd.Flags().StringVar(&oauthClientSecret, "client-secret", "", "Slack app client secret (or SLACK_CLIENT_SECRET env)")
 	authOAuthCmd.Flags().StringVar(&oauthRedirectURI, "redirect-uri", "", "OAuth redirect URI (optional, for token exchange)")
-	authOAuthCmd.Flags().StringVar(&oauthScopes, "scopes", "channels:read,channels:history,chat:write,users:read,search:read,reactions:read,reactions:write,pins:read,pins:write,emoji:read", "OAuth user scopes to request")
-	authOAuthCmd.Flags().BoolVar(&oauthSaveConfig, "save", false, "Save token to config file after successful exchange")
+	authOAuthCmd.Flags().StringVar(&oauthScopes, "scopes", defaultOAuthUserScopes, "Comma-separated OAuth user scopes to request")
+	authOAuthCmd.Flags().StringVar(&oauthBotScopes, "bot-scopes", defaultOAuthBotScopes, "Comma-separated OAuth bot scopes to request; empty disables bot-token installation")
+	authOAuthCmd.Flags().BoolVar(&oauthSaveConfig, "save", true, "Save user and bot tokens to config (use --save=false only to discard them)")
 }
 
 // OAuthTokenResponse represents Slack's oauth.v2.access response
@@ -77,6 +89,44 @@ type OAuthTokenResponse struct {
 	} `json:"authed_user,omitempty"`
 }
 
+type oauthCallbackOptions struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
+	State        *oneTimeOAuthState
+	Save         bool
+	ConfigPath   string
+	Exchange     func(code, clientID, clientSecret, redirectURI string) (*OAuthTokenResponse, error)
+	Log          io.Writer
+}
+
+type oneTimeOAuthState struct {
+	value    string
+	mu       sync.Mutex
+	consumed bool
+}
+
+func newOAuthState() (*oneTimeOAuthState, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, fmt.Errorf("generate OAuth state: %w", err)
+	}
+	return &oneTimeOAuthState{value: base64.RawURLEncoding.EncodeToString(buf)}, nil
+}
+
+func (s *oneTimeOAuthState) validateAndConsume(candidate string) bool {
+	if s == nil || candidate == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.consumed || subtle.ConstantTimeCompare([]byte(candidate), []byte(s.value)) != 1 {
+		return false
+	}
+	s.consumed = true
+	return true
+}
+
 func runAuthOAuth(cmd *cobra.Command, args []string) error {
 	// Get credentials from flags or environment
 	clientID := oauthClientID
@@ -91,6 +141,10 @@ func runAuthOAuth(cmd *cobra.Command, args []string) error {
 	if clientID == "" || clientSecret == "" {
 		return fmt.Errorf("client-id and client-secret are required (use flags or SLACK_CLIENT_ID/SLACK_CLIENT_SECRET env vars)")
 	}
+	state, err := newOAuthState()
+	if err != nil {
+		return err
+	}
 
 	mux := http.NewServeMux()
 
@@ -102,7 +156,16 @@ func runAuthOAuth(cmd *cobra.Command, args []string) error {
 
 	// OAuth callback endpoint
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		handleOAuthCallback(w, r, clientID, clientSecret)
+		handleOAuthCallback(w, r, oauthCallbackOptions{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURI:  oauthRedirectURI,
+			State:        state,
+			Save:         oauthSaveConfig,
+			ConfigPath:   cfgFile,
+			Exchange:     exchangeCodeForToken,
+			Log:          os.Stderr,
+		})
 	})
 
 	// Root endpoint - shows instructions
@@ -112,7 +175,7 @@ func runAuthOAuth(cmd *cobra.Command, args []string) error {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		authURL := buildAuthURL(clientID, oauthRedirectURI, oauthScopes)
+		authURL := buildAuthURL(clientID, oauthRedirectURI, oauthScopes, oauthBotScopes, state.value)
 		fmt.Fprintf(w, `<!DOCTYPE html>
 <html>
 <head><title>Slack OAuth</title></head>
@@ -161,88 +224,121 @@ func runAuthOAuth(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func handleOAuthCallback(w http.ResponseWriter, r *http.Request, clientID, clientSecret string) {
+func handleOAuthCallback(w http.ResponseWriter, r *http.Request, options oauthCallbackOptions) {
+	log := options.Log
+	if log == nil {
+		log = os.Stderr
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if !options.State.validateAndConsume(r.URL.Query().Get("state")) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    false,
+			"error": "invalid_state",
+		})
+		fmt.Fprintln(log, "OAuth callback rejected: invalid or reused state")
+		return
+	}
+
 	code := r.URL.Query().Get("code")
 	errorParam := r.URL.Query().Get("error")
 
 	if errorParam != "" {
 		errorDesc := r.URL.Query().Get("error_description")
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"ok":          "false",
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":          false,
 			"error":       errorParam,
 			"description": errorDesc,
 		})
-		fmt.Fprintf(os.Stderr, "OAuth error: %s - %s\n", errorParam, errorDesc)
+		fmt.Fprintf(log, "OAuth error: %s - %s\n", errorParam, errorDesc)
 		return
 	}
 
 	if code == "" {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"ok":    "false",
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    false,
 			"error": "missing_code",
 		})
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "Received authorization code, exchanging for token...\n")
+	fmt.Fprintln(log, "Received authorization code, exchanging for token...")
 
 	// Exchange code for token
-	tokenResp, err := exchangeCodeForToken(code, clientID, clientSecret, oauthRedirectURI)
+	exchange := options.Exchange
+	if exchange == nil {
+		exchange = exchangeCodeForToken
+	}
+	tokenResp, err := exchange(code, options.ClientID, options.ClientSecret, options.RedirectURI)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"ok":    "false",
-			"error": err.Error(),
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    false,
+			"error": "token_exchange_failed",
 		})
-		fmt.Fprintf(os.Stderr, "Token exchange error: %v\n", err)
+		fmt.Fprintf(log, "Token exchange error: %v\n", err)
+		return
+	}
+	if tokenResp == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": "token_exchange_failed"})
+		fmt.Fprintln(log, "Token exchange returned an empty response")
 		return
 	}
 
 	if !tokenResp.OK {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(tokenResp)
-		fmt.Fprintf(os.Stderr, "Slack API error: %s\n", tokenResp.Error)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    false,
+			"error": tokenResp.Error,
+		})
+		fmt.Fprintf(log, "Slack API error: %s\n", tokenResp.Error)
 		return
 	}
 
-	// Determine which token to use (user token preferred)
-	token := tokenResp.AuthedUser.AccessToken
-	if token == "" {
-		token = tokenResp.AccessToken
-	}
-
 	// Save to config if requested
-	if oauthSaveConfig && token != "" {
-		if err := saveTokenToConfig(token); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to save token to config: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "Token saved to config file\n")
+	saved := false
+	if options.Save {
+		if tokenResp.AuthedUser.AccessToken == "" && tokenResp.AccessToken == "" {
+			w.WriteHeader(http.StatusBadGateway)
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": "missing_access_token"})
+			fmt.Fprintln(log, "OAuth token exchange succeeded without an access token")
+			return
 		}
+		if err := saveOAuthTokensToConfig(options.ConfigPath, tokenResp.AuthedUser.AccessToken, tokenResp.AccessToken); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": "save_failed"})
+			fmt.Fprintf(log, "Failed to save OAuth credentials: %v\n", err)
+			return
+		}
+		saved = true
+		fmt.Fprintln(log, "OAuth credentials saved to config file")
 	}
 
-	// Output success
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tokenResp)
+	// Return metadata only. Access and refresh tokens must never reach the browser or logs.
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"ok":          true,
+		"team_id":     tokenResp.Team.ID,
+		"team_name":   tokenResp.Team.Name,
+		"user_id":     tokenResp.AuthedUser.ID,
+		"bot_user_id": tokenResp.BotUserID,
+		"saved":       saved,
+	})
 
-	// Also print to stderr for easy copying
-	fmt.Fprintf(os.Stderr, "\n=== OAuth Success ===\n")
-	fmt.Fprintf(os.Stderr, "Team: %s (%s)\n", tokenResp.Team.Name, tokenResp.Team.ID)
+	// Print non-sensitive metadata to stderr for operator visibility.
+	fmt.Fprintln(log, "\n=== OAuth Success ===")
+	fmt.Fprintf(log, "Team: %s (%s)\n", tokenResp.Team.Name, tokenResp.Team.ID)
 	if tokenResp.AuthedUser.ID != "" {
-		fmt.Fprintf(os.Stderr, "User ID: %s\n", tokenResp.AuthedUser.ID)
-		fmt.Fprintf(os.Stderr, "User Token: %s\n", tokenResp.AuthedUser.AccessToken)
-		fmt.Fprintf(os.Stderr, "User Scopes: %s\n", tokenResp.AuthedUser.Scope)
+		fmt.Fprintf(log, "User ID: %s\n", tokenResp.AuthedUser.ID)
+		fmt.Fprintf(log, "User Scopes: %s\n", tokenResp.AuthedUser.Scope)
 	}
-	if tokenResp.AccessToken != "" {
-		fmt.Fprintf(os.Stderr, "Bot Token: %s\n", tokenResp.AccessToken)
-		fmt.Fprintf(os.Stderr, "Bot Scopes: %s\n", tokenResp.Scope)
+	if tokenResp.BotUserID != "" {
+		fmt.Fprintf(log, "Bot User ID: %s\n", tokenResp.BotUserID)
+		fmt.Fprintf(log, "Bot Scopes: %s\n", tokenResp.Scope)
 	}
-	fmt.Fprintf(os.Stderr, "=====================\n")
+	fmt.Fprintln(log, "=====================")
 }
 
 func exchangeCodeForToken(code, clientID, clientSecret, redirectURI string) (*OAuthTokenResponse, error) {
@@ -280,24 +376,36 @@ func exchangeCodeForToken(code, clientID, clientSecret, redirectURI string) (*OA
 	return &tokenResp, nil
 }
 
-func buildAuthURL(clientID, redirectURI, scopes string) string {
+func buildAuthURL(clientID, redirectURI, userScopes, botScopes, state string) string {
 	params := url.Values{}
 	params.Set("client_id", clientID)
-	params.Set("user_scope", scopes)
+	params.Set("user_scope", userScopes)
+	if strings.TrimSpace(botScopes) != "" {
+		params.Set("scope", botScopes)
+	}
+	params.Set("state", state)
 	if redirectURI != "" {
 		params.Set("redirect_uri", redirectURI)
 	}
 	return "https://slack.com/oauth/v2/authorize?" + params.Encode()
 }
 
-func saveTokenToConfig(token string) error {
-	cfg, path, err := config.Load("")
+func saveOAuthTokensToConfig(path, userToken, botToken string) error {
+	cfg, resolvedPath, err := config.Load(path)
 	if err != nil {
-		// If config doesn't exist, create default
-		cfg = config.DefaultConfig()
+		return err
 	}
-	cfg.UserToken = token
+	if userToken != "" {
+		cfg.UserToken = userToken
+		cfg.Role = config.RoleUser
+	}
+	if botToken != "" {
+		cfg.BotToken = botToken
+		if userToken == "" {
+			cfg.Role = config.RoleBot
+		}
+	}
 
-	_, err = config.Save(path, cfg)
+	_, err = config.Save(resolvedPath, cfg)
 	return err
 }

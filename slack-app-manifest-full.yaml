@@ -12,16 +12,26 @@ oauth_config:
       - channels:write
       - groups:read
       - groups:history
+      - groups:write
       - im:read
       - im:history
+      - im:write
       - mpim:read
       - mpim:history
+      - mpim:write
 
       # Messaging as the authenticated user.
       - chat:write
 
       # Users
       - users:read
+      - users:read.email
+      - users.profile:read
+      - users.profile:write
+
+      # User groups
+      - usergroups:read
+      - usergroups:write
 
       # Search
       - search:read
@@ -46,20 +56,30 @@ oauth_config:
 
     bot:
       # Channel access (read, bot perspective)
+      - channels:manage
       - channels:read
       - channels:history
       - groups:read
       - groups:history
+      - groups:write
       - im:read
       - im:history
+      - im:write
       - mpim:read
       - mpim:history
+      - mpim:write
 
       # Messaging (send/edit/delete)
       - chat:write
 
       # Users
       - users:read
+      - users:read.email
+      - users.profile:read
+
+      # User groups
+      - usergroups:read
+      - usergroups:write
 
       # Reactions (add/remove)
       - reactions:read

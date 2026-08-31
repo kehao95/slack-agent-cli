@@ -3,6 +3,7 @@ package messages
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -43,12 +44,16 @@ func NewService(fetcher Fetcher) *Service {
 
 // Params describes input for List.
 type Params struct {
-	Channel string
-	Limit   int
-	Since   string
-	Until   string
-	Thread  string
-	Cursor  string
+	Channel         string
+	Limit           int
+	Since           string
+	Until           string
+	Thread          string
+	Cursor          string
+	All             bool
+	PageDelay       time.Duration
+	RetryRateLimits bool
+	MaxRetries      int
 }
 
 // Result represents list output.
@@ -156,31 +161,86 @@ func (s *Service) List(ctx context.Context, params Params) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if params.Thread != "" {
-		msgs, cursor, more, err := s.fetcher.ListThread(ctx, slack.ThreadParams{
-			Channel: params.Channel,
-			Limit:   params.Limit,
-			Latest:  latest,
-			Oldest:  oldest,
-			Thread:  params.Thread,
-		})
+
+	cursor := params.Cursor
+	seen := map[string]bool{}
+	result := Result{Channel: params.Channel, ThreadTS: params.Thread}
+	for {
+		msgs, nextCursor, more, err := s.fetchPage(ctx, params, cursor, oldest, latest)
 		if err != nil {
 			return Result{}, err
 		}
-		return Result{Channel: params.Channel, ThreadTS: params.Thread, Messages: msgs, HasMore: more, NextCursor: cursor}, nil
+		result.Messages = append(result.Messages, msgs...)
+		result.HasMore = more
+		result.NextCursor = nextCursor
+		if !params.All || nextCursor == "" {
+			break
+		}
+		if seen[nextCursor] {
+			return Result{}, fmt.Errorf("Slack returned repeated message cursor %q", nextCursor)
+		}
+		seen[nextCursor] = true
+		if err := waitFor(ctx, params.PageDelay); err != nil {
+			return Result{}, err
+		}
+		cursor = nextCursor
 	}
-	msgs, cursor, more, err := s.fetcher.ListMessages(ctx, slack.HistoryParams{
-		Channel:   params.Channel,
-		Limit:     params.Limit,
-		Cursor:    params.Cursor,
-		Latest:    latest,
-		Oldest:    oldest,
-		Inclusive: false,
-	})
-	if err != nil {
-		return Result{}, err
+	if params.All {
+		result.HasMore = false
+		result.NextCursor = ""
 	}
-	return Result{Channel: params.Channel, Messages: msgs, HasMore: more, NextCursor: cursor}, nil
+	return result, nil
+}
+
+func (s *Service) fetchPage(ctx context.Context, params Params, cursor, oldest, latest string) ([]slackapi.Message, string, bool, error) {
+	maxRetries := params.MaxRetries
+	if maxRetries < 0 {
+		maxRetries = 0
+	}
+	for attempt := 0; ; attempt++ {
+		var (
+			msgs       []slackapi.Message
+			nextCursor string
+			more       bool
+			err        error
+		)
+		if params.Thread != "" {
+			msgs, nextCursor, more, err = s.fetcher.ListThread(ctx, slack.ThreadParams{
+				Channel: params.Channel, Limit: params.Limit, Cursor: cursor,
+				Latest: latest, Oldest: oldest, Thread: params.Thread,
+			})
+		} else {
+			msgs, nextCursor, more, err = s.fetcher.ListMessages(ctx, slack.HistoryParams{
+				Channel: params.Channel, Limit: params.Limit, Cursor: cursor,
+				Latest: latest, Oldest: oldest, Inclusive: false,
+			})
+		}
+		if err == nil {
+			return msgs, nextCursor, more, nil
+		}
+
+		var rateLimited *slackapi.RateLimitedError
+		if !params.RetryRateLimits || attempt >= maxRetries || !errors.As(err, &rateLimited) {
+			return nil, "", false, err
+		}
+		if err := waitFor(ctx, rateLimited.RetryAfter); err != nil {
+			return nil, "", false, err
+		}
+	}
+}
+
+func waitFor(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // Lines returns human-readable lines for Result.

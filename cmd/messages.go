@@ -252,10 +252,15 @@ func init() {
 	messagesCmd.AddCommand(messagesNextCmd)
 
 	messagesListCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
-	messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages to return")
+	messagesListCmd.Flags().IntP("limit", "l", 50, "Maximum messages per Slack page")
 	messagesListCmd.Flags().String("since", "", "Messages after this time (ISO or relative like 1h)")
 	messagesListCmd.Flags().String("until", "", "Messages before this time")
 	messagesListCmd.Flags().String("thread", "", "Thread timestamp to fetch replies")
+	messagesListCmd.Flags().String("cursor", "", "Continuation cursor for history or thread replies")
+	messagesListCmd.Flags().Bool("all", false, "Fetch all pages")
+	messagesListCmd.Flags().Duration("page-delay", 0, "Delay between pages (for rate-sensitive workspaces)")
+	messagesListCmd.Flags().Bool("retry-rate-limit", true, "Honor Slack Retry-After responses")
+	messagesListCmd.Flags().Int("max-retries", 3, "Maximum rate-limit retries per page")
 	messagesListCmd.Flags().Bool("refresh-cache", false, "Force refresh of cached channel/user metadata")
 	messagesListCmd.Flags().Bool("resolved-json", true, "Resolve channel and user references in JSON output")
 	messagesListCmd.Flags().Bool("raw-json", false, "Preserve raw Slack IDs in JSON output")
@@ -273,7 +278,7 @@ func init() {
 	messagesSendCmd.Flags().StringP("mrkdwn", "m", "", "Slack mrkdwn message text (sent as-is)")
 	messagesSendCmd.Flags().StringP("text", "t", "", "Plain message text (sent as-is; no Slack formatting intent)")
 	messagesSendCmd.Flags().String("thread", "", "Thread timestamp to reply in")
-	messagesSendCmd.Flags().String("blocks", "", "Block Kit JSON")
+	messagesSendCmd.Flags().String("blocks", "", "Block Kit JSON, @file, or - for stdin")
 	messagesSendCmd.Flags().String("image", "", "Local image file to upload and share")
 	messagesSendCmd.Flags().String("alt-text", "", "Accessible alt text for the uploaded image")
 	messagesSendCmd.Flags().Bool("unfurl-links", true, "Unfurl URLs in message")
@@ -301,7 +306,13 @@ func init() {
 }
 
 func runMessagesList(cmd *cobra.Command, args []string) error {
-	cmdCtx, err := NewCommandContext(cmd, 0)
+	all, _ := cmd.Flags().GetBool("all")
+	retryRateLimits, _ := cmd.Flags().GetBool("retry-rate-limit")
+	timeout := time.Duration(0)
+	if all || retryRateLimits {
+		timeout = 15 * time.Minute
+	}
+	cmdCtx, err := NewCommandContext(cmd, timeout)
 	if err != nil {
 		return err
 	}
@@ -315,6 +326,9 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	since, _ := cmd.Flags().GetString("since")
 	until, _ := cmd.Flags().GetString("until")
 	thread, _ := cmd.Flags().GetString("thread")
+	cursor, _ := cmd.Flags().GetString("cursor")
+	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
+	maxRetries, _ := cmd.Flags().GetInt("max-retries")
 	refreshCache, _ := cmd.Flags().GetBool("refresh-cache")
 	rawJSON, _ := cmd.Flags().GetBool("raw-json")
 	resolvedJSON, _ := cmd.Flags().GetBool("resolved-json")
@@ -337,11 +351,16 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	result, err := service.List(cmdCtx.Ctx, messages.Params{
-		Channel: channelID,
-		Limit:   limit,
-		Since:   since,
-		Until:   until,
-		Thread:  thread,
+		Channel:         channelID,
+		Limit:           limit,
+		Since:           since,
+		Until:           until,
+		Thread:          thread,
+		Cursor:          cursor,
+		All:             all,
+		PageDelay:       pageDelay,
+		RetryRateLimits: retryRateLimits,
+		MaxRetries:      maxRetries,
 	})
 	if err != nil {
 		return err

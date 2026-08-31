@@ -45,21 +45,84 @@ func TestServiceListChannel(t *testing.T) {
 }
 
 func TestServiceListThread(t *testing.T) {
+	var received slack.ThreadParams
 	fetcher := mockFetcher{
 		listMessages: func(ctx context.Context, params slack.HistoryParams) ([]slackapi.Message, string, bool, error) {
 			return nil, "", false, errors.New("unexpected messages call")
 		},
 		listThread: func(ctx context.Context, params slack.ThreadParams) ([]slackapi.Message, string, bool, error) {
+			received = params
 			return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "1", Text: "thread", User: "U1"}}}, "next", false, nil
 		},
 	}
 	service := NewService(fetcher)
-	result, err := service.List(context.Background(), Params{Channel: "C", Thread: "1"})
+	result, err := service.List(context.Background(), Params{Channel: "C", Thread: "1", Cursor: "thread-cursor"})
 	if err != nil {
 		t.Fatalf("List returned error: %v", err)
 	}
 	if result.NextCursor != "next" || result.HasMore {
 		t.Fatalf("unexpected result: %+v", result)
+	}
+	if received.Cursor != "thread-cursor" {
+		t.Fatalf("expected thread cursor to be forwarded, got %q", received.Cursor)
+	}
+}
+
+func TestServiceListAllPages(t *testing.T) {
+	calls := 0
+	fetcher := mockFetcher{
+		listMessages: func(ctx context.Context, params slack.HistoryParams) ([]slackapi.Message, string, bool, error) {
+			calls++
+			switch calls {
+			case 1:
+				if params.Cursor != "start" {
+					t.Fatalf("expected initial cursor start, got %q", params.Cursor)
+				}
+				return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "1"}}}, "next", true, nil
+			case 2:
+				if params.Cursor != "next" {
+					t.Fatalf("expected next cursor, got %q", params.Cursor)
+				}
+				return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "2"}}}, "", false, nil
+			default:
+				return nil, "", false, errors.New("unexpected extra call")
+			}
+		},
+		listThread: func(context.Context, slack.ThreadParams) ([]slackapi.Message, string, bool, error) {
+			return nil, "", false, errors.New("unexpected thread call")
+		},
+	}
+	result, err := NewService(fetcher).List(context.Background(), Params{Channel: "C1", Cursor: "start", All: true})
+	if err != nil {
+		t.Fatalf("List returned error: %v", err)
+	}
+	if calls != 2 || len(result.Messages) != 2 || result.HasMore || result.NextCursor != "" {
+		t.Fatalf("unexpected all-pages result: calls=%d result=%+v", calls, result)
+	}
+}
+
+func TestServiceListRetriesRateLimit(t *testing.T) {
+	calls := 0
+	fetcher := mockFetcher{
+		listMessages: func(context.Context, slack.HistoryParams) ([]slackapi.Message, string, bool, error) {
+			calls++
+			if calls == 1 {
+				return nil, "", false, &slackapi.RateLimitedError{}
+			}
+			return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "1"}}}, "", false, nil
+		},
+		listThread: func(context.Context, slack.ThreadParams) ([]slackapi.Message, string, bool, error) {
+			return nil, "", false, errors.New("unexpected thread call")
+		},
+	}
+	result, err := NewService(fetcher).List(context.Background(), Params{
+		Channel: "C1", RetryRateLimits: true, MaxRetries: 1,
+	})
+	if err != nil {
+		t.Fatalf("List returned error: %v", err)
+	}
+	if calls != 2 || len(result.Messages) != 1 {
+		t.Fatalf("expected one retry, calls=%d result=%+v", calls, result)
 	}
 }
 

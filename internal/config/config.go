@@ -88,6 +88,11 @@ func Save(path string, cfg *Config) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("encode config: %w", err)
 	}
+	// os.WriteFile's mode is ignored for an existing file. Tighten permissions
+	// before rewriting so a previously broad config cannot keep exposing tokens.
+	if err := os.Chmod(actualPath, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("secure config: %w", err)
+	}
 	if err := os.WriteFile(actualPath, data, 0o600); err != nil {
 		return "", fmt.Errorf("write config: %w", err)
 	}

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -24,6 +25,25 @@ func TestLoadDefaultWhenMissing(t *testing.T) {
 	}
 	if cfg.Role != RoleUser {
 		t.Fatalf("expected default role %q, got %q", RoleUser, cfg.Role)
+	}
+}
+
+func TestSaveTightensExistingFilePermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	cfg.UserToken = "xoxp-secret"
+	if _, err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("config permissions=%o, want 600", got)
 	}
 }
 

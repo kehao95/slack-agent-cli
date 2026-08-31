@@ -16,16 +16,20 @@ func TestAllCommandsHaveHelp(t *testing.T) {
 		command *cobra.Command
 	}{
 		{"root", rootCmd},
+		{"api", apiCmd},
 		{"auth", authCmd},
 		{"cache", cacheCmd},
 		{"channels", channelsCmd},
 		{"daemon", daemonCmd},
 		{"events", eventsCmd},
+		{"files", filesCmd},
 		{"lists", listsCmd},
 		{"messages", messagesCmd},
 		{"reactions", reactionsCmd},
 		{"pins", pinsCmd},
+		{"search", searchCmd},
 		{"users", usersCmd},
+		{"usergroups", usergroupsCmd},
 		{"emoji", emojiCmd},
 	}
 
@@ -162,22 +166,26 @@ func TestInvalidFlagsRejected(t *testing.T) {
 // TestCommandsRegistered verifies that all expected commands are registered with the root command
 func TestCommandsRegistered(t *testing.T) {
 	expectedCommands := []string{
+		"api",
 		"auth",
 		"cache",
 		"channels",
 		"daemon",
 		"events",
+		"files",
 		"lists",
 		"messages",
 		"reactions",
 		"pins",
+		"search",
 		"users",
+		"usergroups",
 		"emoji",
 	}
 
 	registeredCommands := make(map[string]bool)
 	for _, cmd := range rootCmd.Commands() {
-		registeredCommands[cmd.Use] = true
+		registeredCommands[strings.Fields(cmd.Use)[0]] = true
 	}
 
 	for _, expected := range expectedCommands {
@@ -198,11 +206,14 @@ func TestSubcommandsRegistered(t *testing.T) {
 		{channelsCmd, []string{"list", "join", "leave"}},
 		{daemonCmd, []string{"run", "status"}},
 		{eventsCmd, []string{"stream", "list", "next", "claim", "ack"}},
+		{filesCmd, []string{"upload", "download", "list", "info", "delete", "share-public", "revoke-public"}},
 		{listsCmd, []string{"items", "item"}},
 		{messagesCmd, []string{"list", "search", "send", "edit", "delete", "next"}},
 		{reactionsCmd, []string{"add", "remove", "list"}},
 		{pinsCmd, []string{"add", "remove", "list"}},
-		{usersCmd, []string{"list", "info", "presence"}},
+		{searchCmd, []string{"all", "messages", "files"}},
+		{usersCmd, []string{"list", "info", "presence", "lookup", "profile", "status", "conversations"}},
+		{usergroupsCmd, []string{"list", "members", "create", "update", "enable", "disable"}},
 		{emojiCmd, []string{"list"}},
 	}
 

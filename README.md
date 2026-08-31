@@ -73,7 +73,7 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
 
 - **Acts as you:** Messages, reactions, and actions appear as if you did them
 - **Uses your permissions:** Can only access channels/DMs you have access to
-- **Simple & stateless:** No OAuth flows, webhooks, or server infrastructure needed
+- **Flexible setup:** Use direct tokens or the built-in local OAuth callback server
 - **Token security:** Keep your token safe - it has the same permissions you do
 
 **User Token** (what this CLI uses):
@@ -81,7 +81,7 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
 - Represents **you** (the user)
 - Perfect for automation, scripts, and AI agents acting on your behalf
 
-**Bot Token** (NOT used by this CLI):
+**Bot Token** (supported when `SLACK_CLI_ROLE=bot`):
 - Format: `xoxb-...`
 - Represents a **bot user** (separate identity)
 - Requires more setup and different use cases
@@ -106,15 +106,17 @@ Download from [GitHub Releases](https://github.com/kehao95/slack-agent-cli/relea
 For automated token exchange, use the built-in OAuth server:
 
 ```bash
-slk auth oauth --client-id $SLACK_CLIENT_ID --client-secret $SLACK_CLIENT_SECRET --save
+slk auth oauth --client-id $SLACK_CLIENT_ID --client-secret $SLACK_CLIENT_SECRET
 ```
 
-This starts a local server on port 8089 with a `/callback` endpoint. Expose it publicly (via your preferred method) and add the callback URL to your Slack app's redirect URIs. With `--save`, the token is automatically saved to config after successful exchange.
+This starts a local server on port 8089 with a `/callback` endpoint. Expose it publicly (via your preferred method) and add the callback URL to your Slack app's redirect URIs. The authorization link contains a cryptographically random, single-use `state` value and requests the full manifest's user and bot scopes by default. User and bot tokens returned by Slack are saved to config and are never printed or returned to the browser. Use `--bot-scopes ''` for a user-only install, or `--save=false` only to discard the exchanged credentials.
 
 ## Available Commands
 
 ```
 slk
+├── api             # Call any Slack Web API method with JSON
+│
 ├── auth            # Authentication
 │   ├── login       # Save token to config
 │   ├── oauth       # Start OAuth callback server
@@ -131,13 +133,38 @@ slk
 │   ├── join        # Join a channel
 │   └── leave       # Leave a channel
 │
+├── conversations   # Unified channel, DM, and group-DM operations
+│   ├── list/info/create/archive/unarchive
+│   ├── rename/topic/purpose
+│   ├── members/invite/kick
+│   └── open/close/mark/join/leave
+│
 ├── messages        # Message operations
 │   ├── list        # Fetch message history
 │   ├── send        # Send a message
 │   ├── edit        # Edit a message
 │   ├── delete      # Delete a message
+│   ├── permalink   # Get a stable message URL
+│   ├── ephemeral   # Send a user-scoped ephemeral message
+│   ├── schedule    # Schedule a message
+│   ├── scheduled   # List/delete scheduled messages
+│   ├── stream      # Start/append/stop agent response streams
 │   ├── search      # Search messages
 │   └── next        # Wait for the next cached message event
+│
+├── files           # File operations
+│   ├── upload      # Upload and optionally share a local file
+│   ├── download    # Download a file by ID
+│   ├── list        # List files with cursor pagination
+│   ├── info        # Inspect file metadata
+│   ├── delete      # Delete a file
+│   ├── share-public # Create a public URL
+│   └── revoke-public # Revoke a public URL
+│
+├── search          # Unified workspace search
+│   ├── all         # Search messages and files
+│   ├── messages    # Search messages
+│   └── files       # Search files
 │
 ├── events          # Event stream/cache operations
 │   ├── stream      # Stream Socket Mode events as NDJSON
@@ -167,13 +194,92 @@ slk
 ├── users           # User operations
 │   ├── list        # List workspace members
 │   ├── info        # Get user details
+│   ├── lookup      # Look up a user by email
+│   ├── profile     # Get a user profile
+│   ├── status      # Get, set, or clear custom status
+│   ├── conversations # List conversations for a user
 │   └── presence    # Check user presence
+│
+├── usergroups      # User group operations
+│   ├── list        # List user groups
+│   ├── members     # List or replace members
+│   ├── create      # Create a user group
+│   ├── update      # Update group metadata
+│   ├── enable      # Enable a user group
+│   └── disable     # Disable a user group
 │
 └── emoji           # Emoji operations
     └── list        # List custom emoji
 ```
 
+## Raw Slack Web API
+
+Use `slk api` as a forward-compatible escape hatch for Slack methods that do
+not yet have a resource-oriented command. It uses the active user or bot role,
+including the configured cookie for `xoxc-` credentials.
+
+```bash
+# Inline JSON
+slk api conversations.info --data '{"channel":"C123"}'
+
+# JSON from a file or stdin
+slk api chat.postMessage --data @request.json
+printf '{"limit":200}' | slk api conversations.list --data -
+
+# Follow response_metadata.next_cursor through every page
+slk api conversations.list --data '{"limit":200}' --all
+slk api users.list --cursor dXNlcjpVMTIz --all
+```
+
+Single-page calls emit Slack's response object unchanged. `--all` emits
+`{"ok":true,"page_count":N,"pages":[...]}`, preserving each complete page.
+HTTP 429 responses honor Slack's `Retry-After` header and retry up to three
+times by default. Use `--max-retries` to change that and `--page-delay` to pace
+pagination calls.
+
+## Conversation and Message References
+
+Conversation-taking commands accept `C…`/`G…`/`D…` IDs, `#channel` names,
+Slack archive/message URLs, and—where opening a DM is meaningful—`@user`.
+User references can be a Slack user ID, `@handle`, display/real name, or email;
+ambiguous names fail and ask for an ID.
+
+```bash
+slk conversations open --users @alice
+slk conversations members --channel '#general' --all
+slk messages send --channel @alice --mrkdwn 'Private update'
+slk messages list --channel '#general' --all --retry-rate-limit
+```
+
+Block Kit flags accept inline JSON, `@path`, or `-` for stdin. The CLI checks
+that each block has a `type` and otherwise forwards its JSON unchanged, so new
+Slack block types do not need a CLI release.
+
+```bash
+slk messages send --channel '#general' --blocks @blocks.json
+slk messages schedule --channel '#general' --post-at 10m --mrkdwn 'Reminder'
+slk messages stream start --channel D123 --recipient-user U123
+slk messages stream append --channel D123 --ts "$TS" --mrkdwn - < chunk.md
+slk messages stream stop --channel D123 --ts "$TS"
+```
+
 ## Use Cases
+
+### Files, Search, and People
+
+```bash
+# Upload an agent artifact and share it in a thread
+slk files upload --file ./report.pdf --channel "#ops" --thread "$THREAD_TS"
+
+# Search both messages and files, following every page
+slk search all --query "incident 142" --all
+
+# Resolve a person without downloading the full user directory
+slk users lookup --email alice@example.com
+
+# Replace a user group's membership using agent-friendly references
+slk usergroups members set --group @oncall --members @alice,@bob
+```
 
 ### The "Pipeline" Approach
 

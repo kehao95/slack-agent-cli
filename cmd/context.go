@@ -132,19 +132,26 @@ func newCommandContext(cmd *cobra.Command, timeout time.Duration, noTimeout bool
 // This is useful for verifying tokens before saving them to config.
 // It does not initialize cache or resolvers since those require team ID.
 func NewCommandContextWithToken(cmd *cobra.Command, timeout time.Duration, token string) (*CommandContext, error) {
+	return NewCommandContextWithCredentials(cmd, timeout, token, "")
+}
+
+// NewCommandContextWithCredentials is the cookie-aware form used to verify
+// xoxc client credentials before saving them.
+func NewCommandContextWithCredentials(cmd *cobra.Command, timeout time.Duration, token, cookie string) (*CommandContext, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
 
-	client := slack.NewAuto(token, "")
+	client := slack.NewAuto(token, cookie)
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 
 	return &CommandContext{
-		Ctx:       ctx,
-		Cancel:    cancel,
-		AuthRole:  "override",
-		AuthToken: token,
-		Client:    client,
+		Ctx:        ctx,
+		Cancel:     cancel,
+		AuthRole:   "override",
+		AuthToken:  token,
+		AuthCookie: cookie,
+		Client:     client,
 	}, nil
 }
 
@@ -159,7 +166,24 @@ func (c *CommandContext) Close() {
 // ResolveChannel converts a channel name or ID to a channel ID.
 // Convenience method that wraps ChannelResolver.ResolveID.
 func (c *CommandContext) ResolveChannel(input string) (string, error) {
+	if strings.HasPrefix(strings.TrimSpace(input), "@") {
+		userID, err := c.Client.ResolveUserReference(c.Ctx, input)
+		if err != nil {
+			return "", err
+		}
+		result, err := c.Client.OpenConversation(c.Ctx, "", []string{userID})
+		if err != nil {
+			return "", err
+		}
+		return result.Channel.ID, nil
+	}
 	return c.ChannelResolver.ResolveID(c.Ctx, input)
+}
+
+// ResolveUser converts a user ID, mention, handle, display name, real name, or
+// email address to a Slack user ID.
+func (c *CommandContext) ResolveUser(input string) (string, error) {
+	return c.Client.ResolveUserReference(c.Ctx, input)
 }
 
 // EnsureAuthIdentity fills in the active Slack user/bot IDs when the context was created with

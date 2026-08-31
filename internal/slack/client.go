@@ -1,8 +1,10 @@
 package slack
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"
@@ -15,6 +17,7 @@ type APIClient struct {
 	cookie        string
 	endpoint      string
 	rawHTTPClient *http.Client
+	retryWait     func(context.Context, time.Duration) error
 }
 
 // New creates a new APIClient using the provided user token.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	slackapi "github.com/slack-go/slack"
 )
@@ -41,8 +42,13 @@ func parseBlocksJSON(blocksJSON string) ([]slackapi.Block, error) {
 		return nil, nil
 	}
 
+	resolved, err := readJSONArgument(blocksJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	var rawBlocks []json.RawMessage
-	if err := json.Unmarshal([]byte(blocksJSON), &rawBlocks); err != nil {
+	if err := json.Unmarshal([]byte(resolved), &rawBlocks); err != nil {
 		return nil, fmt.Errorf("invalid blocks JSON array: %w", err)
 	}
 
@@ -60,50 +66,53 @@ func parseBlocksJSON(blocksJSON string) ([]slackapi.Block, error) {
 // parseBlock parses a single Slack block from JSON.
 func parseBlock(raw json.RawMessage) (slackapi.Block, error) {
 	var blockType struct {
-		Type string `json:"type"`
+		Type    string `json:"type"`
+		BlockID string `json:"block_id"`
 	}
 	if err := json.Unmarshal(raw, &blockType); err != nil {
 		return nil, fmt.Errorf("parse block type: %w", err)
 	}
 
-	switch blockType.Type {
-	case "section":
-		var b slackapi.SectionBlock
-		if err := json.Unmarshal(raw, &b); err != nil {
-			return nil, fmt.Errorf("parse section block: %w", err)
+	if strings.TrimSpace(blockType.Type) == "" {
+		return nil, fmt.Errorf("block type is required")
+	}
+
+	// Keep the original JSON instead of decoding into the SDK's current set of
+	// concrete block structs. Slack adds Block Kit types independently of the Go
+	// SDK release cadence; forwarding the validated object keeps this CLI
+	// compatible with new block types and fields.
+	return rawBlock{raw: append(json.RawMessage(nil), raw...), blockType: blockType.Type, blockID: blockType.BlockID}, nil
+}
+
+type rawBlock struct {
+	raw       json.RawMessage
+	blockType string
+	blockID   string
+}
+
+func (b rawBlock) BlockType() slackapi.MessageBlockType {
+	return slackapi.MessageBlockType(b.blockType)
+}
+func (b rawBlock) ID() string                   { return b.blockID }
+func (b rawBlock) MarshalJSON() ([]byte, error) { return b.raw, nil }
+
+// readJSONArgument accepts inline JSON, @path, or '-' for stdin. This is used
+// for payload-shaped flags so agents can avoid shell escaping large objects.
+func readJSONArgument(value string) (string, error) {
+	switch {
+	case value == "-":
+		return readRequiredStdin("blocks")
+	case strings.HasPrefix(value, "@"):
+		path := strings.TrimSpace(strings.TrimPrefix(value, "@"))
+		if path == "" {
+			return "", fmt.Errorf("JSON file path is required after @")
 		}
-		return &b, nil
-	case "divider":
-		var b slackapi.DividerBlock
-		if err := json.Unmarshal(raw, &b); err != nil {
-			return nil, fmt.Errorf("parse divider block: %w", err)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("read JSON file %s: %w", path, err)
 		}
-		return &b, nil
-	case "header":
-		var b slackapi.HeaderBlock
-		if err := json.Unmarshal(raw, &b); err != nil {
-			return nil, fmt.Errorf("parse header block: %w", err)
-		}
-		return &b, nil
-	case "context":
-		var b slackapi.ContextBlock
-		if err := json.Unmarshal(raw, &b); err != nil {
-			return nil, fmt.Errorf("parse context block: %w", err)
-		}
-		return &b, nil
-	case "actions":
-		var b slackapi.ActionBlock
-		if err := json.Unmarshal(raw, &b); err != nil {
-			return nil, fmt.Errorf("parse actions block: %w", err)
-		}
-		return &b, nil
-	case "image":
-		var b slackapi.ImageBlock
-		if err := json.Unmarshal(raw, &b); err != nil {
-			return nil, fmt.Errorf("parse image block: %w", err)
-		}
-		return &b, nil
+		return string(data), nil
 	default:
-		return nil, fmt.Errorf("unsupported block type: %s", blockType.Type)
+		return value, nil
 	}
 }

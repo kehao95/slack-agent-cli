@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/kehao95/slack-agent-cli/internal/users"
@@ -69,20 +69,15 @@ Output (JSON):
       "name": "alice",
       "real_name": "Alice Smith",
       "display_name": "alice",
+      "email": "alice@example.com",
+      "title": "Engineer",
       "is_bot": false,
-      "is_deleted": false,
-      "profile": {
-        "email": "alice@example.com",
-        "phone": "+1234567890",
-        "title": "Engineer",
-        "status_text": "In a meeting",
-        "status_emoji": ":calendar:",
-        "avatar_hash": "abc123"
-      },
-      "tz": "America/New_York",
-      "tz_label": "Eastern Standard Time"
+      "is_deleted": false
     }
   }
+
+Use 'slk users profile --user <ref>' when the full Slack profile shape is
+needed.
 
 User Identifier:
   - User ID: U123ABC (direct lookup)
@@ -105,11 +100,21 @@ var usersPresenceCmd = &cobra.Command{
 	RunE: runUsersPresence,
 }
 
+var usersLookupCmd = &cobra.Command{Use: "lookup", Short: "Look up a user by email", Example: "  slk users lookup --email alice@example.com", RunE: runUsersLookup}
+var usersProfileCmd = &cobra.Command{Use: "profile", Short: "Get a user profile", Example: "  slk users profile\n  slk users profile --user @alice --include-labels", RunE: runUsersProfile}
+var usersStatusCmd = &cobra.Command{Use: "status", Short: "Get or update custom status"}
+var usersStatusGetCmd = &cobra.Command{Use: "get", Short: "Get custom status", Example: "  slk users status get\n  slk users status get --user @alice", RunE: runUsersStatusGet}
+var usersStatusSetCmd = &cobra.Command{Use: "set", Short: "Set custom status", Example: "  slk users status set --text 'In focus time' --emoji :headphones: --expires-in 2h\n  slk users status set --text 'OOO' --expires-at 2026-09-01T09:00:00Z", RunE: runUsersStatusSet}
+var usersStatusClearCmd = &cobra.Command{Use: "clear", Short: "Clear custom status", Example: "  slk users status clear", RunE: runUsersStatusClear}
+var usersConversationsCmd = &cobra.Command{Use: "conversations", Short: "List conversations for a user", Example: "  slk users conversations --user @alice --types public_channel,private_channel\n  slk users conversations --all", RunE: runUsersConversations}
+
 func init() {
 	rootCmd.AddCommand(usersCmd)
 	usersCmd.AddCommand(usersListCmd)
 	usersCmd.AddCommand(usersInfoCmd)
 	usersCmd.AddCommand(usersPresenceCmd)
+	usersCmd.AddCommand(usersLookupCmd, usersProfileCmd, usersStatusCmd, usersConversationsCmd)
+	usersStatusCmd.AddCommand(usersStatusGetCmd, usersStatusSetCmd, usersStatusClearCmd)
 
 	// users list flags
 	usersListCmd.Flags().Int("limit", 100, "Maximum users per page")
@@ -123,6 +128,27 @@ func init() {
 	// users presence flags
 	usersPresenceCmd.Flags().String("user", "", "User ID or @username (required)")
 	_ = usersPresenceCmd.MarkFlagRequired("user")
+
+	usersLookupCmd.Flags().String("email", "", "Email address (required)")
+	_ = usersLookupCmd.MarkFlagRequired("email")
+	usersProfileCmd.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	usersProfileCmd.Flags().Bool("include-labels", false, "Include custom profile field labels")
+	usersStatusGetCmd.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	for _, command := range []*cobra.Command{usersStatusSetCmd, usersStatusClearCmd} {
+		command.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	}
+	usersStatusSetCmd.Flags().String("text", "", "Custom status text")
+	usersStatusSetCmd.Flags().String("emoji", "", "Custom status emoji, for example :headphones:")
+	usersStatusSetCmd.Flags().Duration("expires-in", 0, "Clear status after a duration, for example 2h")
+	usersStatusSetCmd.Flags().String("expires-at", "", "Expiration as Unix seconds or RFC3339 timestamp")
+	usersConversationsCmd.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	usersConversationsCmd.Flags().String("types", "public_channel,private_channel,mpim,im", "Comma-separated conversation types")
+	usersConversationsCmd.Flags().IntP("limit", "l", 100, "Maximum conversations per page")
+	usersConversationsCmd.Flags().String("cursor", "", "Continuation cursor")
+	usersConversationsCmd.Flags().Bool("all", false, "Fetch all remaining pages")
+	usersConversationsCmd.Flags().Int("max-retries", 3, "Maximum retries after Slack rate limits")
+	usersConversationsCmd.Flags().Duration("page-delay", 0, "Delay between pagination requests")
+	usersConversationsCmd.Flags().Bool("include-archived", false, "Include archived conversations")
 }
 
 func runUsersList(cmd *cobra.Command, args []string) error {
@@ -206,24 +232,207 @@ func runUsersPresence(cmd *cobra.Command, args []string) error {
 	return output.Print(cmd, result)
 }
 
-// resolveUserID converts @username to user ID, or returns the input if it's already an ID.
-func resolveUserID(ctx context.Context, client *slack.APIClient, input string) (string, error) {
-	// If it starts with @, try to resolve as username
-	if strings.HasPrefix(input, "@") {
-		username := strings.TrimPrefix(input, "@")
-		// We need to list users and find by name
-		allUsers, _, err := client.ListUsers(ctx, "", 1000)
-		if err != nil {
-			return "", fmt.Errorf("list users to resolve name: %w", err)
-		}
-		for _, u := range allUsers {
-			if u.Name == username || u.Profile.DisplayName == username {
-				return u.ID, nil
-			}
-		}
-		return "", errors.UserNotFoundError("@" + username)
+func runUsersLookup(cmd *cobra.Command, _ []string) error {
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		return err
 	}
+	defer cmdCtx.Close()
+	email, _ := cmd.Flags().GetString("email")
+	result, err := users.NewService(cmdCtx.Client).LookupByEmail(cmdCtx.Ctx, email)
+	if err != nil {
+		return err
+	}
+	return output.Print(cmd, result)
+}
 
-	// Assume it's already a user ID
-	return input, nil
+func runUsersProfile(cmd *cobra.Command, _ []string) error {
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	userID, err := optionalResolvedUser(cmdCtx, cmd)
+	if err != nil {
+		return err
+	}
+	includeLabels, _ := cmd.Flags().GetBool("include-labels")
+	result, err := users.NewService(cmdCtx.Client).GetProfile(cmdCtx.Ctx, userID, includeLabels)
+	if err != nil {
+		return err
+	}
+	return output.Print(cmd, result)
+}
+
+func runUsersStatusGet(cmd *cobra.Command, _ []string) error {
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	userID, err := optionalResolvedUser(cmdCtx, cmd)
+	if err != nil {
+		return err
+	}
+	result, err := users.NewService(cmdCtx.Client).GetStatus(cmdCtx.Ctx, userID)
+	if err != nil {
+		return err
+	}
+	return output.Print(cmd, result)
+}
+
+func runUsersStatusSet(cmd *cobra.Command, _ []string) error {
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	userID, err := optionalResolvedUser(cmdCtx, cmd)
+	if err != nil {
+		return err
+	}
+	text, _ := cmd.Flags().GetString("text")
+	emoji, _ := cmd.Flags().GetString("emoji")
+	if strings.TrimSpace(text) == "" && strings.TrimSpace(emoji) == "" {
+		return fmt.Errorf("provide --text or --emoji; use 'users status clear' to clear status")
+	}
+	expiration, err := parseStatusExpiration(cmd)
+	if err != nil {
+		return err
+	}
+	result, err := users.NewService(cmdCtx.Client).SetStatus(cmdCtx.Ctx, userID, text, emoji, expiration)
+	if err != nil {
+		return err
+	}
+	return output.Print(cmd, result)
+}
+
+func runUsersStatusClear(cmd *cobra.Command, _ []string) error {
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	userID, err := optionalResolvedUser(cmdCtx, cmd)
+	if err != nil {
+		return err
+	}
+	result, err := users.NewService(cmdCtx.Client).SetStatus(cmdCtx.Ctx, userID, "", "", 0)
+	if err != nil {
+		return err
+	}
+	return output.Print(cmd, result)
+}
+
+func runUsersConversations(cmd *cobra.Command, _ []string) error {
+	all, _ := cmd.Flags().GetBool("all")
+	timeout := time.Duration(0)
+	if all {
+		timeout = 15 * time.Minute
+	}
+	cmdCtx, err := NewCommandContext(cmd, timeout)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	userID, err := optionalResolvedUser(cmdCtx, cmd)
+	if err != nil {
+		return err
+	}
+	typesValue, _ := cmd.Flags().GetString("types")
+	types := splitNonEmpty(typesValue)
+	valid := map[string]bool{"public_channel": true, "private_channel": true, "mpim": true, "im": true}
+	for _, value := range types {
+		if !valid[value] {
+			return fmt.Errorf("invalid conversation type %q", value)
+		}
+	}
+	limit, _ := cmd.Flags().GetInt("limit")
+	if limit < 1 || limit > 999 {
+		return fmt.Errorf("--limit must be between 1 and 999")
+	}
+	cursor, _ := cmd.Flags().GetString("cursor")
+	maxRetries, _ := cmd.Flags().GetInt("max-retries")
+	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
+	if maxRetries < 0 || pageDelay < 0 {
+		return fmt.Errorf("--max-retries and --page-delay cannot be negative")
+	}
+	includeArchived, _ := cmd.Flags().GetBool("include-archived")
+	service := users.NewService(cmdCtx.Client)
+	combined := &users.ConversationsResult{OK: true, UserID: userID}
+	seen := map[string]bool{}
+	for {
+		page, err := slack.RetryRateLimited(cmdCtx.Ctx, maxRetries, func() (*users.ConversationsResult, error) {
+			return service.ListConversations(cmdCtx.Ctx, userID, types, limit, cursor, !includeArchived)
+		})
+		if err != nil {
+			return err
+		}
+		combined.Conversations = append(combined.Conversations, page.Conversations...)
+		combined.NextCursor = page.NextCursor
+		if !all || page.NextCursor == "" {
+			break
+		}
+		if seen[page.NextCursor] {
+			return fmt.Errorf("Slack returned repeated user-conversation cursor %q", page.NextCursor)
+		}
+		seen[page.NextCursor] = true
+		if err := slack.WaitContext(cmdCtx.Ctx, pageDelay); err != nil {
+			return err
+		}
+		cursor = page.NextCursor
+	}
+	return output.Print(cmd, combined)
+}
+
+func optionalResolvedUser(cmdCtx *CommandContext, cmd *cobra.Command) (string, error) {
+	value, _ := cmd.Flags().GetString("user")
+	if strings.TrimSpace(value) == "" {
+		return "", nil
+	}
+	return resolveUserID(cmdCtx.Ctx, cmdCtx.Client, value)
+}
+
+func parseStatusExpiration(cmd *cobra.Command) (int64, error) {
+	duration, _ := cmd.Flags().GetDuration("expires-in")
+	at, _ := cmd.Flags().GetString("expires-at")
+	if duration < 0 {
+		return 0, fmt.Errorf("--expires-in cannot be negative")
+	}
+	if duration > 0 && at != "" {
+		return 0, fmt.Errorf("choose only one of --expires-in or --expires-at")
+	}
+	if duration > 0 {
+		return time.Now().Add(duration).Unix(), nil
+	}
+	if at == "" {
+		return 0, nil
+	}
+	if unix, err := strconv.ParseInt(at, 10, 64); err == nil {
+		if unix < 0 {
+			return 0, fmt.Errorf("--expires-at cannot be negative")
+		}
+		return unix, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, at)
+	if err != nil {
+		return 0, fmt.Errorf("parse --expires-at: expected Unix seconds or RFC3339: %w", err)
+	}
+	return parsed.Unix(), nil
+}
+
+func splitNonEmpty(value string) []string {
+	var result []string
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+// resolveUserID accepts IDs, mentions, handles, names, and emails. The shared
+// resolver rejects ambiguous names instead of silently selecting an account.
+func resolveUserID(ctx context.Context, client *slack.APIClient, input string) (string, error) {
+	return client.ResolveUserReference(ctx, input)
 }

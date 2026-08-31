@@ -16,7 +16,7 @@ A **machine-first** command-line interface for Slack. Designed for scripts, cron
 - **User Token authentication** for acting as yourself in Slack
 - **Batch operations** via `messages list` for history and `messages search` for queries
 - **Single workspace** per configuration
-- **Config file** for auth storage (`~/.config/slk/config.json`)
+- **Config file** for auth storage (`~/.config/slack-cli/config.json`)
 - **JSON default output**, `--human/-H` flag for human-readable tables
 
 ---
@@ -61,12 +61,11 @@ A **machine-first** command-line interface for Slack. Designed for scripts, cron
 
 ```
 slk
-├── config          # Configuration management
-│   ├── init        # Interactive setup wizard
-│   ├── show        # Display current config
-│   └── set         # Set config values
+├── api <method>     # Generic Slack Web API escape hatch
 │
 ├── auth            # Authentication
+│   ├── login       # Save a token
+│   ├── oauth       # Run the OAuth callback flow
 │   ├── test        # Verify credentials work
 │   └── whoami      # Show current user info
 │
@@ -106,12 +105,33 @@ slk
 ├── users           # User operations
 │   ├── list        # List workspace members
 │   ├── info        # Get user details
+│   ├── lookup      # Look up a user by email
+│   ├── profile     # Get profile details
+│   ├── status      # Get/set/clear custom status
+│   ├── conversations # List a user's conversations
 │   └── presence    # Check user presence
 │
 ├── files           # File operations
 │   ├── upload      # Upload a file
 │   ├── download    # Download a file
-│   └── list        # List files
+│   ├── list        # List files with cursor pagination
+│   ├── info        # Get file metadata
+│   ├── delete      # Delete a file
+│   ├── share-public # Create a public URL
+│   └── revoke-public # Revoke a public URL
+│
+├── search          # Unified search
+│   ├── all         # Search messages and files
+│   ├── messages    # Search messages
+│   └── files       # Search files
+│
+├── usergroups      # User group operations
+│   ├── list        # List user groups
+│   ├── members     # List/replace members
+│   ├── create      # Create a group
+│   ├── update      # Update a group
+│   ├── enable      # Enable a group
+│   └── disable     # Disable a group
 │
 └── emoji           # Emoji operations
     └── list        # List custom emoji
@@ -121,28 +141,62 @@ slk
 
 ### 3.2 Command Details
 
-#### `slk config init`
+#### `slk api <family.method>`
 
-Interactive setup wizard to configure the CLI.
+Call any Slack Web API method without waiting for an SDK or dedicated CLI
+wrapper. The input contract is one JSON object, supplied inline, as `@file`, or
+from stdin using `--data -`. Authentication follows the active configured role.
 
 ```bash
-$ slk config init
-
-Slack CLI Configuration
-=======================
-
-1. Create a Slack app at https://api.slack.com/apps
-2. Add User Token Scopes and install to workspace
-3. Copy the User Token (xoxp-...)
-
-? User Token (xoxp-...): xoxp-123-456-abc...
-
-Testing connection... ✓
-User: alice
-Workspace: My Workspace
-
-Configuration saved to ~/.config/slk/config.json
+slk api conversations.info --data '{"channel":"C123"}'
+slk api conversations.list --data '{"limit":200}' --all
 ```
+
+Without `--all`, the complete Slack response is passed through as JSON. With
+`--all`, the CLI follows `response_metadata.next_cursor` and wraps the complete
+responses in a `pages` array. HTTP 429 retries honor `Retry-After`; pagination
+can be paced with `--page-delay`.
+
+#### Resource commands added in P1
+
+The dedicated resource layer favors stable agent workflows over a one-command-
+per-method mapping:
+
+```bash
+# Files use cursor pagination and refuse to overwrite downloads unless requested.
+slk files list --channel "#general" --all
+slk files download --file F123 --output ./artifact.bin
+
+# Search uses Slack's page pagination. The legacy messages search command remains valid.
+slk search all --query "deployment" --all
+slk search files --query "quarterly report" --page 2
+
+# Empty --user means the authenticated user for profile/status/conversation calls.
+slk users lookup --email alice@example.com
+slk users status set --text "Focus" --emoji :headphones: --expires-in 2h
+
+# User groups accept IDs, @handles, or names; members accept IDs or @usernames.
+slk usergroups members set --group @oncall --members @alice,@bob
+```
+
+Specialized commands emit normalized result envelopes and support `--human`.
+`slk api` remains the escape hatch for uncommon parameters and APIs that do not
+yet have a stable resource abstraction.
+
+#### Authentication setup
+
+The CLI is non-interactive. Save a user token directly, use environment
+variables, or run the OAuth callback flow:
+
+```bash
+slk auth login --token xoxp-your-token --verify
+export SLACK_USER_TOKEN='xoxp-your-token'
+slk auth oauth --client-id "$SLACK_CLIENT_ID" --client-secret "$SLACK_CLIENT_SECRET"
+```
+
+OAuth saves both returned user and bot credentials without exposing either in
+the browser or command output. The active identity is selected with
+`SLACK_CLI_ROLE=user|bot` (or the config `role` field).
 
 ---
 
@@ -155,7 +209,12 @@ slk messages list [options]
 
 Options:
   --channel <name|id>    Channel to fetch from (required)
-  --limit <n>            Max messages to return (default: 50, max: 1000)
+  --limit <n>            Maximum messages per Slack page (default: 50)
+  --cursor <cursor>      Continue history or thread pagination
+  --all                  Follow every continuation cursor
+  --page-delay <dur>     Optional delay between pages
+  --retry-rate-limit     Honor Slack Retry-After responses (default: true)
+  --max-retries <n>      Maximum rate-limit retries per page (default: 3)
   --since <time>         Messages after this time (ISO 8601 or relative: "1h", "2d")
   --until <time>         Messages before this time
   --thread <ts>          Fetch replies in a specific thread
@@ -176,6 +235,9 @@ slk messages list --channel "#general" --since 1h --json
 
 # Get thread replies
 slk messages list --channel "#general" --thread "1705312365.000100"
+
+# Fetch every thread page while honoring Slack rate limits
+slk messages list --channel "#general" --thread "1705312365.000100" --all
 ```
 
 After the first invocation warms the cache, subsequent `messages list` commands reuse the stored channel and user maps so resolution becomes effectively instantaneous unless `--refresh-cache` is specified.
@@ -195,7 +257,7 @@ Options:
   --channel <name|id>    Target channel (use @user for DM)
   --text <message>       Message text (can also be piped via stdin)
   --thread <ts>          Reply in thread
-  --blocks <json>        Block Kit JSON (for rich formatting)
+  --blocks <json|@file|-> Block Kit JSON (inline, file, or stdin)
   --image <path>         Upload and share a local image
   --alt-text <text>      Accessible alt text for the uploaded image
   --unfurl-links         Unfurl URLs (default: true)
@@ -222,6 +284,31 @@ slk messages send --channel "#general" --image ./screenshot.png --mrkdwn "Latest
 
 # Send an image as a thread reply
 slk messages send --channel "#general" --thread "1705312365.000100" --image ./screenshot.png
+```
+
+Block objects are structurally checked for a non-empty `type`, then forwarded
+without a local type whitelist. This keeps the CLI forward-compatible with
+Block Kit additions in Slack that have not reached the pinned Go SDK yet.
+
+#### Extended conversations and messages
+
+`slk conversations` is the canonical resource surface for public channels,
+private channels, DMs, and group DMs. It provides `list`, `info`, `create`,
+`archive`, `unarchive`, `rename`, `topic`, `purpose`, `members`, `invite`,
+`kick`, `open`, `close`, `mark`, `join`, and `leave`. The existing `channels`
+commands remain available for compatibility.
+
+Message lifecycle commands also include:
+
+```bash
+slk messages permalink --channel '#general' --ts "$TS"
+slk messages ephemeral --channel '#general' --user @alice --text 'Visible to you'
+slk messages schedule --channel '#general' --post-at 10m --mrkdwn 'Reminder'
+slk messages scheduled list --all
+slk messages scheduled delete --channel C123 --id Q123
+slk messages stream start --channel D123 --recipient-user U123
+slk messages stream append --channel D123 --ts "$TS" --mrkdwn - < chunk.md
+slk messages stream stop --channel D123 --ts "$TS" --blocks @final-blocks.json
 ```
 
 #### `slk lists items`
@@ -336,7 +423,7 @@ slk reactions list --channel "#general" --ts "1705312365.000100" --json
 ### 4.1 Config File Location
 
 ```
-~/.config/slk/config.json
+~/.config/slack-cli/config.json
 ```
 
 Or via `SLACK_CLI_CONFIG` environment variable.
@@ -344,7 +431,7 @@ Or via `SLACK_CLI_CONFIG` environment variable.
 ### 4.2 Persistent Cache Location
 
 ```
-~/.config/slk/cache/
+~/.config/slack-cli/cache/
 ```
 
 - Separate JSON files per domain (for example `channels.json`).
@@ -685,14 +772,23 @@ Configure these scopes in your Slack App under **OAuth & Permissions → User To
 | `im:history` | Read direct messages | `messages list` (DMs) |
 | `mpim:read` | List group direct messages | `channels list --types mpim` |
 | `mpim:history` | Read group DMs | `messages list` (group DMs) |
+| `channels:write` | Manage public-channel membership and metadata | `conversations create/rename/topic/purpose/join/leave` |
+| `groups:write` | Manage private channels | `conversations create/archive/invite/kick/...` |
+| `im:write`, `mpim:write` | Open and manage direct conversations | `conversations open/close` |
 | `chat:write` | Send messages as yourself | `messages send`, `messages reply` |
 | `users:read` | List workspace members | `users list`, `users info` |
+| `users:read.email` | Look up users by email | `users lookup` |
+| `users.profile:read` | Read full user profiles | `users profile` |
+| `users.profile:write` | Update the authenticated user's profile/status | `users status set/clear` |
+| `usergroups:read` | Read user groups and membership | `usergroups list/members` |
+| `usergroups:write` | Manage user groups and membership | `usergroups create/update/enable/disable/members set` |
 | `reactions:read` | Read reactions on messages | `reactions list` |
 | `reactions:write` | Add/remove reactions | `reactions add`, `reactions remove` |
 | `pins:read` | Read pinned messages | `pins list` |
 | `pins:write` | Pin/unpin messages | `pins add`, `pins remove` |
-| `files:read` | Read file info | `files list`, `files info` |
-| `files:write` | Upload files | `files upload` |
+| `files:read` | Read file info and content | `files list/info/download`, `search files` |
+| `files:write` | Upload, delete, and change public sharing | `files upload/delete/share-public/revoke-public` |
+| `lists:read` | Read Slack Lists | `lists items/item` |
 | `emoji:read` | List custom emoji | `emoji list` |
 
 **Note:** After adding scopes, you must **reinstall the app** to your workspace to get a new token with the updated permissions.
@@ -746,7 +842,7 @@ Error: Channel not found: #nonexistent
 - [x] `channels list`
 - [x] `messages list`
 - [x] `users list/info`
-- [ ] `reactions list`
+- [x] `reactions list`
 
 ### Phase 3: Write Operations
 - [x] `messages send`
@@ -756,8 +852,11 @@ Error: Channel not found: #nonexistent
 
 ### Phase 4: Search & Advanced
 - [x] `messages search`
-- [ ] `files upload/download`
-- [ ] `channels join/leave`
+- [x] `files upload/download/list/info/delete/share-public/revoke-public`
+- [x] `conversations` lifecycle, membership, metadata, and DM operations
+- [x] unified `search all/messages/files`
+- [x] user lookup/profile/status/conversations and user-group management
+- [x] generic `slk api <family.method>` escape hatch
 
 ---
 

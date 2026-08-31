@@ -3,7 +3,7 @@ module github.com/kehao95/slack-agent-cli
 go 1.25.6
 
 require (
-	github.com/slack-go/slack v0.27.0
+	github.com/slack-go/slack v0.29.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.0
