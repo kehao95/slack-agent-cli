@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/kehao95/slack-agent-cli/internal/policy"
 )
 
 // ListItemsParams wraps arguments for slackLists.items.list.
@@ -146,6 +148,9 @@ func (c *APIClient) GetSlackList(ctx context.Context, listID string) (*ListInfoR
 }
 
 func (c *APIClient) postSlackListsMethod(ctx context.Context, method string, payload map[string]interface{}) ([]byte, error) {
+	if err := policy.CheckMethod(method); err != nil {
+		return nil, err
+	}
 	if c == nil || c.rawHTTPClient == nil {
 		return nil, fmt.Errorf("lists client is not initialized")
 	}
@@ -167,7 +172,7 @@ func (c *APIClient) postSlackListsMethod(ctx context.Context, method string, pay
 		req.Header.Set("Cookie", "d="+c.cookie)
 	}
 
-	resp, err := c.rawHTTPClient.Do(req)
+	resp, err := rawRequest(c.rawHTTPClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("call %s: %w", method, err)
 	}
@@ -190,6 +195,9 @@ func (c *APIClient) postSlackListsMethod(ctx context.Context, method string, pay
 }
 
 func (c *APIClient) postSlackMethodForm(ctx context.Context, method string, payload url.Values) ([]byte, error) {
+	if err := policy.CheckMethod(method); err != nil {
+		return nil, err
+	}
 	if c == nil || c.rawHTTPClient == nil {
 		return nil, fmt.Errorf("lists client is not initialized")
 	}
@@ -209,7 +217,7 @@ func (c *APIClient) postSlackMethodForm(ctx context.Context, method string, payl
 		req.Header.Set("Cookie", "d="+c.cookie)
 	}
 
-	resp, err := c.rawHTTPClient.Do(req)
+	resp, err := rawRequest(c.rawHTTPClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("call %s: %w", method, err)
 	}

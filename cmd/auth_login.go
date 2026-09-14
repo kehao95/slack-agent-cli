@@ -8,6 +8,7 @@ import (
 
 	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/output"
+	"github.com/kehao95/slack-agent-cli/internal/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,9 @@ type LoginResult struct {
 }
 
 func runAuthLogin(cmd *cobra.Command, args []string) error {
+	if _, err := policy.ReadOnly(); err != nil {
+		return err
+	}
 	// Validate token format
 	if err := validateTokenFormat(loginToken); err != nil {
 		return err

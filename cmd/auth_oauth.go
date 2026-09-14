@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kehao95/slack-agent-cli/internal/config"
+	"github.com/kehao95/slack-agent-cli/internal/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -128,6 +129,9 @@ func (s *oneTimeOAuthState) validateAndConsume(candidate string) bool {
 }
 
 func runAuthOAuth(cmd *cobra.Command, args []string) error {
+	if err := policy.CheckMethod("oauth.v2.access"); err != nil {
+		return err
+	}
 	// Get credentials from flags or environment
 	clientID := oauthClientID
 	if clientID == "" {
@@ -342,6 +346,9 @@ func handleOAuthCallback(w http.ResponseWriter, r *http.Request, options oauthCa
 }
 
 func exchangeCodeForToken(code, clientID, clientSecret, redirectURI string) (*OAuthTokenResponse, error) {
+	if err := policy.CheckMethod("oauth.v2.access"); err != nil {
+		return nil, err
+	}
 	data := url.Values{}
 	data.Set("client_id", clientID)
 	data.Set("client_secret", clientSecret)

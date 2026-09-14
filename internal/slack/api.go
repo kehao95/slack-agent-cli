@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/policy"
+
 	slackapi "github.com/slack-go/slack"
 )
 
@@ -52,6 +54,9 @@ func (e *APIError) Error() string {
 // CallAPI invokes a Slack Web API method using a JSON request body. It preserves
 // the complete JSON response so callers can use methods not yet wrapped by the SDK.
 func (c *APIClient) CallAPI(ctx context.Context, method string, payload map[string]interface{}, opts CallAPIOptions) (json.RawMessage, error) {
+	if err := policy.CheckMethod(method); err != nil {
+		return nil, err
+	}
 	if c == nil || c.rawHTTPClient == nil {
 		return nil, fmt.Errorf("Slack API client is not initialized")
 	}
@@ -140,7 +145,7 @@ func (c *APIClient) callAPIAttempt(ctx context.Context, method string, body []by
 		req.Header.Set("Cookie", "d="+c.cookie)
 	}
 
-	resp, err := c.rawHTTPClient.Do(req)
+	resp, err := rawRequest(c.rawHTTPClient, req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("call %s: %w", method, err)
 	}

@@ -19,6 +19,13 @@ A **machine-first** command-line interface for Slack. Designed for scripts, cron
 - **Config file** for auth storage (`~/.config/slack-cli/config.json`)
 - **JSON default output**, `--human/-H` flag for human-readable tables
 
+**Agent boundary contract:** [`READ_ONLY.md`](READ_ONLY.md) specifies the
+environment-enforced remote read-only policy, reviewed method allowlist, local
+operation exceptions, ordinary search identity requirements, and email
+availability. [`IDENTITY.md`](IDENTITY.md) defines the global ID / `@username` /
+display-name contract. User Action Token contextual search is deferred to
+[issue #5](https://github.com/kehao95/slack-agent-cli/issues/5).
+
 ---
 
 ## 2. Architecture

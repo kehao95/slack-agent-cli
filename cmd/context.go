@@ -10,6 +10,7 @@ import (
 	"github.com/kehao95/slack-agent-cli/internal/channels"
 	"github.com/kehao95/slack-agent-cli/internal/config"
 	"github.com/kehao95/slack-agent-cli/internal/errors"
+	"github.com/kehao95/slack-agent-cli/internal/policy"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/kehao95/slack-agent-cli/internal/usergroups"
 	"github.com/kehao95/slack-agent-cli/internal/users"
@@ -55,6 +56,9 @@ func NewStreamingCommandContextWithToken(cmd *cobra.Command, token, cookie strin
 }
 
 func newCommandContext(cmd *cobra.Command, timeout time.Duration, noTimeout bool, tokenOverride, cookieOverride string, validateConfig bool) (*CommandContext, error) {
+	if _, err := policy.ReadOnly(); err != nil {
+		return nil, err
+	}
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
@@ -167,6 +171,9 @@ func (c *CommandContext) Close() {
 // Convenience method that wraps ChannelResolver.ResolveID.
 func (c *CommandContext) ResolveChannel(input string) (string, error) {
 	if strings.HasPrefix(strings.TrimSpace(input), "@") {
+		if err := policy.CheckMethod("conversations.open"); err != nil {
+			return "", err
+		}
 		userID, err := c.Client.ResolveUserReference(c.Ctx, input)
 		if err != nil {
 			return "", err
