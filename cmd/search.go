@@ -35,8 +35,8 @@ func newSearchResourceCommand(kind, short string) *cobra.Command {
 	command.Flags().String("sort", "timestamp", "Sort by 'score' or 'timestamp'")
 	command.Flags().String("sort-dir", "desc", "Sort direction 'asc' or 'desc'")
 	command.Flags().Bool("highlight", false, "Include Slack search highlights")
-	command.Flags().Bool("resolved-json", true, "Resolve channel and user references in message results")
-	command.Flags().Bool("raw-json", false, "Preserve raw Slack IDs in message results")
+	command.Flags().Bool("resolved-json", true, "Enrich messages with channel names and separate user metadata")
+	command.Flags().Bool("raw-json", false, "Retain native Slack fields without identity enrichment")
 	_ = command.MarkFlagRequired("query")
 	return command
 }

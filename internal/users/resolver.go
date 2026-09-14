@@ -78,7 +78,7 @@ func (r *Resolver) GetDisplayName(ctx context.Context, userID string) string {
 	return userID
 }
 
-// GetMentionName returns a handle-like value suitable for @-style references.
+// GetMentionName returns Slack's exact username, or the user ID when unavailable.
 func (r *Resolver) GetMentionName(ctx context.Context, userID string) string {
 	if u, found, err := r.loadSingleUser(userID); err == nil && found {
 		if name := mentionName(u); name != "" && name != userID {
@@ -171,12 +171,6 @@ func displayName(u CachedUser) string {
 func mentionName(u CachedUser) string {
 	if u.Name != "" {
 		return u.Name
-	}
-	if u.DisplayName != "" {
-		return u.DisplayName
-	}
-	if u.RealName != "" {
-		return u.RealName
 	}
 	return u.ID
 }

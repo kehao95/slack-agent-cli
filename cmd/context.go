@@ -180,9 +180,16 @@ func (c *CommandContext) ResolveChannel(input string) (string, error) {
 	return c.ChannelResolver.ResolveID(c.Ctx, input)
 }
 
-// ResolveUser converts a user ID, mention, handle, display name, real name, or
-// email address to a Slack user ID.
+// ResolveUser accepts canonical IDs, strict mentions, and explicit @usernames.
+// ID and mention inputs are resolved locally, without a configured Slack client.
 func (c *CommandContext) ResolveUser(input string) (string, error) {
+	id, _, err := slack.ParseUserReference(input)
+	if err != nil || id != "" {
+		return id, err
+	}
+	if c == nil || c.Client == nil {
+		return "", errors.ConfigError("resolving @username requires Slack credentials; use a canonical user ID for local event filters")
+	}
 	return c.Client.ResolveUserReference(c.Ctx, input)
 }
 

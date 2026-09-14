@@ -60,7 +60,7 @@ func init() {
 	filesListCmd.Flags().Int("max-retries", 3, "Maximum retries after Slack rate limits")
 	filesListCmd.Flags().Duration("page-delay", 0, "Delay between pagination requests")
 	filesListCmd.Flags().StringP("channel", "c", "", "Filter by channel name or ID")
-	filesListCmd.Flags().String("user", "", "Filter by user ID or @username")
+	filesListCmd.Flags().String("user", "", "Filter by canonical user ID, <@ID>, or @username")
 
 	for _, command := range []*cobra.Command{filesInfoCmd, filesDeleteCmd, filesSharePublicCmd, filesRevokePublicCmd} {
 		command.Flags().String("file", "", "Slack file ID (required)")

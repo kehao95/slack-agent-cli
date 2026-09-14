@@ -241,8 +241,17 @@ pagination calls.
 
 Conversation-taking commands accept `C…`/`G…`/`D…` IDs, `#channel` names,
 Slack archive/message URLs, and—where opening a DM is meaningful—`@user`.
-User references can be a Slack user ID, `@handle`, display/real name, or email;
-ambiguous names fail and ask for an ID.
+User references accept canonical uppercase IDs (`U…`/`W…`), complete `<@ID>`
+mentions, or explicit `@username` handles. Handles match Slack's username field
+only, case-insensitively. Bare handles, display/real names, implicit email aliases,
+and malformed mentions are rejected. Use `users lookup --email` for email lookup.
+
+Normalized user output separates `user_id` (stable ID), `username` (exact
+`@handle`), and `display_name` (non-unique presentation only). Scalar `user` and
+nested user references stay IDs; resolution only adds metadata. Names never
+replace identity, and missing handles are not fabricated from display names.
+See the [global identity contract and migration guide](docs/IDENTITY.md) for
+batch arguments, raw payloads, events, and an agent recipe.
 
 ```bash
 slk conversations open --users @alice
@@ -394,6 +403,13 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 | 6 | Permission denied (missing scopes) |
 | 7 | Resource not found (channel, user, message) |
 | 124 | Wait timeout, e.g. `events next --timeout` |
+
+## Open
+
+- [Issue #4](https://github.com/kehao95/slack-agent-cli/issues/4): the global
+  identity contract is implemented. Remaining work includes the environment
+  read-only policy, User Action Token contextual search, and explicit email
+  availability reporting. Host context forwarding remains separate work.
 
 ## License
 

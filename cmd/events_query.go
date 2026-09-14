@@ -105,7 +105,7 @@ func addEventQueryFlags(cmd *cobra.Command, includeTimeout bool) {
 	cmd.Flags().String("type", "", "Restrict to event type, for example message")
 	cmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
 	cmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
-	cmd.Flags().String("user", "", "Restrict to a Slack user ID")
+	cmd.Flags().String("user", "", "Restrict to a canonical user ID, <@ID>, or @username")
 	cmd.Flags().String("since", "", "Start after local cursor, or from duration/RFC3339 time (next defaults to latest)")
 	cmd.Flags().Int("limit", 100, "Maximum events to return")
 	cmd.Flags().Bool("threads-only", false, "Only return thread-related message events")
@@ -122,7 +122,7 @@ func addEventClaimFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("mentions-me", false, "Only return message events that contain a Slack mention of the active auth user")
 	cmd.Flags().String("conversation-type", "", "Filter by conversation types: channel,private,dm,mpdm,app_home")
 	cmd.Flags().String("thread", "", "Restrict to a specific thread_ts")
-	cmd.Flags().String("user", "", "Restrict to a Slack user ID")
+	cmd.Flags().String("user", "", "Restrict to a canonical user ID, <@ID>, or @username")
 	cmd.Flags().Bool("exclude-self", false, "Exclude events produced by the active auth identity")
 }
 
@@ -244,7 +244,14 @@ func buildEventClaimFilter(cmd *cobra.Command, cmdCtx *CommandContext) (eventsto
 	}
 
 	threadTS, _ := cmd.Flags().GetString("thread")
-	userID, _ := cmd.Flags().GetString("user")
+	userRef, _ := cmd.Flags().GetString("user")
+	userID := ""
+	if strings.TrimSpace(userRef) != "" {
+		userID, err = cmdCtx.ResolveUser(userRef)
+		if err != nil {
+			return eventstore.Filter{}, err
+		}
+	}
 	eventType, _ := cmd.Flags().GetString("type")
 	messageKind, err := parseMessageKindFlag(cmd)
 	if err != nil {
@@ -381,7 +388,14 @@ func buildEventQueryFilter(cmd *cobra.Command, cmdCtx *CommandContext, store *ev
 	}
 
 	threadTS, _ := cmd.Flags().GetString("thread")
-	userID, _ := cmd.Flags().GetString("user")
+	userRef, _ := cmd.Flags().GetString("user")
+	userID := ""
+	if strings.TrimSpace(userRef) != "" {
+		userID, err = cmdCtx.ResolveUser(userRef)
+		if err != nil {
+			return eventstore.Filter{}, err
+		}
+	}
 	since, _ := cmd.Flags().GetString("since")
 	eventType, _ := cmd.Flags().GetString("type")
 	limit, _ := cmd.Flags().GetInt("limit")

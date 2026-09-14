@@ -43,6 +43,9 @@ type ListResult struct {
 
 // UserInfo contains a subset of user information.
 type UserInfo struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username,omitempty"`
+	// ID and Name retain their native Slack meanings for compatibility.
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	RealName    string `json:"real_name"`
@@ -229,10 +232,7 @@ func (r *ListResult) Lines() []string {
 	lines := []string{title, strings.Repeat("-", len(title))}
 
 	for _, u := range r.Users {
-		name := u.Name
-		if name == "" {
-			name = u.ID
-		}
+		name := userHandleOrID(u)
 		displayName := u.DisplayName
 		if displayName == "" {
 			displayName = u.RealName
@@ -241,7 +241,7 @@ func (r *ListResult) Lines() []string {
 			displayName = u.Name
 		}
 
-		line := fmt.Sprintf("@%s (%s)", name, u.ID)
+		line := fmt.Sprintf("%s (%s)", name, u.ID)
 		if displayName != "" && displayName != name {
 			line += fmt.Sprintf(" - %s", displayName)
 		}
@@ -265,12 +265,9 @@ func (r *ListResult) Lines() []string {
 // Lines implements the output.Printable interface for UserInfoResult.
 func (r *UserInfoResult) Lines() []string {
 	u := r.User
-	name := u.Name
-	if name == "" {
-		name = u.ID
-	}
+	name := userHandleOrID(u)
 
-	title := fmt.Sprintf("User: @%s", name)
+	title := fmt.Sprintf("User: %s", name)
 	lines := []string{title, strings.Repeat("-", len(title))}
 
 	lines = append(lines, fmt.Sprintf("ID: %s", u.ID))
@@ -369,7 +366,13 @@ func (r *ConversationsResult) Lines() []string {
 
 // toUserInfo converts a slack-go User to our UserInfo struct.
 func toUserInfo(u *slackapi.User) UserInfo {
+	username := ""
+	if u.Name != "" {
+		username = "@" + u.Name
+	}
 	return UserInfo{
+		UserID:      u.ID,
+		Username:    username,
 		ID:          u.ID,
 		Name:        u.Name,
 		RealName:    u.RealName,
@@ -379,4 +382,14 @@ func toUserInfo(u *slackapi.User) UserInfo {
 		IsBot:       u.IsBot,
 		IsDeleted:   u.Deleted,
 	}
+}
+
+func userHandleOrID(u UserInfo) string {
+	if u.Username != "" {
+		return u.Username
+	}
+	if u.Name != "" {
+		return "@" + u.Name
+	}
+	return u.ID
 }

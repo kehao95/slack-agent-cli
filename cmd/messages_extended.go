@@ -32,7 +32,7 @@ func init() {
 	messageTargetAndTimestampFlags(messagesPermalinkCmd)
 
 	messageTargetFlag(messagesEphemeralCmd, true)
-	messagesEphemeralCmd.Flags().String("user", "", "User who should see the message (required)")
+	messagesEphemeralCmd.Flags().String("user", "", "Recipient canonical user ID, <@ID>, or @username (required)")
 	_ = messagesEphemeralCmd.MarkFlagRequired("user")
 	addMessageContentFlags(messagesEphemeralCmd)
 	messagesEphemeralCmd.Flags().String("thread", "", "Thread timestamp")
@@ -58,7 +58,7 @@ func init() {
 
 	messageTargetFlag(messagesStreamStartCmd, true)
 	messagesStreamStartCmd.Flags().String("thread", "", "Thread timestamp for the stream")
-	messagesStreamStartCmd.Flags().String("recipient-user", "", "Recipient user reference for agent streams")
+	messagesStreamStartCmd.Flags().String("recipient-user", "", "Recipient canonical user ID, <@ID>, or @username for agent streams")
 	messagesStreamStartCmd.Flags().String("recipient-team", "", "Recipient Slack team ID for agent streams")
 
 	messageTargetAndTimestampFlags(messagesStreamAppendCmd)

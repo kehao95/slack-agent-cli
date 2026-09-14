@@ -191,7 +191,7 @@ func ChannelNotFoundError(channel string) error {
 
 // UserNotFoundError creates a specific error for missing users with helpful hints.
 func UserNotFoundError(user string) error {
-	hint := "Hint: Verify the user ID/username or use 'slk users list' to inspect accessible workspace members"
+	hint := "Hint: Verify the canonical user ID or explicit @username; use 'slk users list' to inspect user_id and username fields"
 	return NotFoundError("user", user, hint)
 }
 

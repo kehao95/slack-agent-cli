@@ -275,7 +275,7 @@ func (r *PinListResult) Lines() []string {
 	for _, item := range r.Items {
 		if item.Type == "message" && item.Message != nil {
 			msg := item.Message
-			// Format: [timestamp] @user: text
+			// This surface only has an ID, not an authoritative username.
 			userDisplay := msg.User
 			if userDisplay == "" {
 				userDisplay = "unknown"
@@ -284,7 +284,7 @@ func (r *PinListResult) Lines() []string {
 			if len(text) > 100 {
 				text = text[:97] + "..."
 			}
-			lines = append(lines, fmt.Sprintf("[%s] @%s: %s", msg.Timestamp, userDisplay, text))
+			lines = append(lines, fmt.Sprintf("[%s] %s: %s", msg.Timestamp, userDisplay, text))
 		} else {
 			// Non-message pins (files, etc.)
 			lines = append(lines, fmt.Sprintf("[%s] %s item", item.Type, item.Type))
@@ -324,14 +324,16 @@ type ListChannelsParams struct {
 
 // AuthTestResponse contains the result of an auth.test API call.
 type AuthTestResponse struct {
-	OK     bool   `json:"ok"`
-	URL    string `json:"url"`
-	Team   string `json:"team"`
-	User   string `json:"user"`
-	TeamID string `json:"team_id"`
-	UserID string `json:"user_id"`
-	BotID  string `json:"bot_id,omitempty"`
-	IsBot  bool   `json:"is_bot"`
+	OK       bool   `json:"ok"`
+	URL      string `json:"url"`
+	Team     string `json:"team"`
+	User     string `json:"user"`
+	TeamID   string `json:"team_id"`
+	UserID   string `json:"user_id"`
+	Username string `json:"username,omitempty"`
+	Role     string `json:"role,omitempty"`
+	BotID    string `json:"bot_id,omitempty"`
+	IsBot    bool   `json:"is_bot"`
 }
 
 // Lines implements the output.Printable interface for human-readable output.
@@ -341,8 +343,14 @@ func (r *AuthTestResponse) Lines() []string {
 		"-------------------",
 		fmt.Sprintf("Status: %s", statusString(r.OK)),
 		fmt.Sprintf("Team: %s (%s)", r.Team, r.TeamID),
-		fmt.Sprintf("User: %s (%s)", r.User, r.UserID),
+		fmt.Sprintf("User ID: %s", r.UserID),
 		fmt.Sprintf("Workspace URL: %s", r.URL),
+	}
+	if r.Username != "" {
+		lines = append(lines, fmt.Sprintf("Username: %s", r.Username))
+	}
+	if r.Role != "" {
+		lines = append(lines, fmt.Sprintf("Role: %s", r.Role))
 	}
 	if r.BotID != "" {
 		lines = append(lines, fmt.Sprintf("Bot ID: %s", r.BotID))
@@ -382,7 +390,8 @@ type SearchMessages struct {
 	Matches []SearchMatch `json:"matches"`
 }
 
-// SearchMatch represents a single search result.
+// SearchMatch represents a single native search result. Username may contain a
+// message alias; normalized output replaces it only with a resolved account handle.
 type SearchMatch struct {
 	Type      string        `json:"type"`
 	Channel   SearchChannel `json:"channel"`
@@ -422,12 +431,12 @@ func (r *SearchResult) SetChannelResolver(ctx context.Context, resolver SearchCh
 	r.channelResolver = resolver
 }
 
-// SetRawJSON controls whether search JSON should preserve raw IDs.
+// SetRawJSON disables enrichment and retains native search identity fields.
 func (r *SearchResult) SetRawJSON(raw bool) {
 	r.rawJSON = raw
 }
 
-// MarshalJSON enriches search results with resolved user and channel references.
+// MarshalJSON adds user handles and names while preserving canonical user IDs.
 func (r SearchResult) MarshalJSON() ([]byte, error) {
 	type output struct {
 		Query    string `json:"query"`
@@ -456,9 +465,15 @@ func (r SearchResult) MarshalJSON() ([]byte, error) {
 		}
 
 		if !r.rawJSON {
-			if resolvedUser := r.resolvedSearchUserRef(match.User); resolvedUser != "" && resolvedUser != match.User {
+			delete(entry, "username")
+			if match.User != "" {
 				entry["user_id"] = match.User
-				entry["user"] = resolvedUser
+			}
+			if username := r.resolvedSearchUsername(match.User); username != "" {
+				entry["username"] = username
+			}
+			if name := r.resolvedSearchDisplayName(match); name != "" {
+				entry["display_name"] = name
 			}
 
 			if channel, ok := entry["channel"].(map[string]interface{}); ok {
@@ -498,13 +513,17 @@ func (r *SearchResult) Lines() []string {
 			channelName = match.Channel.ID
 		}
 
-		username := match.Username
-		if username == "" {
-			username = match.User
+		name, username := r.resolvedSearchDisplayName(match), r.resolvedSearchUsername(match.User)
+		if name != "" && username != "" && name != strings.TrimPrefix(username, "@") {
+			name += " (" + username + ")"
+		} else if username != "" {
+			name = username
+		} else if name == "" {
+			name = match.User
 		}
 
 		lines = append(lines, "")
-		lines = append(lines, fmt.Sprintf("[%s] #%s @%s:", ts, channelName, username))
+		lines = append(lines, fmt.Sprintf("[%s] #%s %s:", ts, channelName, name))
 		lines = append(lines, fmt.Sprintf("  %s", match.Text))
 		if match.Permalink != "" {
 			lines = append(lines, fmt.Sprintf("  %s", match.Permalink))
@@ -514,7 +533,7 @@ func (r *SearchResult) Lines() []string {
 	return lines
 }
 
-func (r SearchResult) resolvedSearchUserRef(userID string) string {
+func (r SearchResult) resolvedSearchUsername(userID string) string {
 	if userID == "" {
 		return ""
 	}
@@ -524,7 +543,17 @@ func (r SearchResult) resolvedSearchUserRef(userID string) string {
 			return formatSearchUserRef(name)
 		}
 	}
-	return userID
+	return ""
+}
+
+func (r SearchResult) resolvedSearchDisplayName(match SearchMatch) string {
+	if r.userResolver != nil && r.ctx != nil && match.User != "" {
+		name := r.userResolver.GetDisplayName(r.ctx, match.User)
+		if name != "" && name != match.User {
+			return name
+		}
+	}
+	return match.Username
 }
 
 func (r SearchResult) resolvedSearchChannelRef(channel SearchChannel) string {

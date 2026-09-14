@@ -82,12 +82,12 @@ func (r *Result) SetUserGroupResolver(ctx context.Context, resolver UserGroupRes
 	r.userGroupResolver = resolver
 }
 
-// SetRawJSON controls whether JSON output should preserve raw Slack IDs.
+// SetRawJSON disables identity enrichment and preserves native Slack fields.
 func (r *Result) SetRawJSON(raw bool) {
 	r.rawJSON = raw
 }
 
-// MarshalJSON enriches the JSON output with resolved usernames for each message.
+// MarshalJSON adds exact handles and presentation names without replacing IDs.
 func (r Result) MarshalJSON() ([]byte, error) {
 	type output struct {
 		Channel     string                   `json:"channel"`
@@ -129,20 +129,7 @@ func (r Result) MarshalJSON() ([]byte, error) {
 			return nil, err
 		}
 
-		if username := r.resolvedUsername(msg); username != "" {
-			enriched["username"] = username
-		}
-
 		if !r.rawJSON {
-			if userID := msg.Msg.User; userID != "" {
-				if resolvedUser := r.resolvedUserRef(msg); resolvedUser != "" {
-					enriched["user_id"] = userID
-					enriched["user"] = resolvedUser
-				}
-			} else if msg.Username != "" {
-				enriched["user"] = formatUserRef(msg.Username)
-			}
-
 			r.enrichNestedUserReferences(enriched)
 		}
 
@@ -262,7 +249,7 @@ func (r Result) Lines() []string {
 	for _, msg := range r.Messages {
 		// Resolve user mentions in the message text
 		text := r.resolveUserMentions(msg.Msg.Text)
-		msgLine := fmt.Sprintf("[%s] @%s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), text)
+		msgLine := fmt.Sprintf("[%s] %s: %s", formatTimestamp(msg.Msg.Timestamp), r.displayUser(msg), text)
 
 		// Add thread indicator if message has replies (and we're not already in a thread view)
 		if msg.ReplyCount > 0 && r.ThreadTS == "" {
@@ -279,25 +266,20 @@ func (r Result) Lines() []string {
 }
 
 func (r Result) displayUser(msg slackapi.Message) string {
-	// If we have a username already, use it
-	if msg.Username != "" {
-		return msg.Username
+	name, username := r.resolvedDisplayName(msg), r.resolvedUsername(msg)
+	if name != "" && username != "" && name != strings.TrimPrefix(username, "@") {
+		return name + " (" + username + ")"
 	}
-
-	userID := msg.Msg.User
-	if userID == "" {
-		return "unknown"
+	if username != "" {
+		return username
 	}
-
-	// Try to resolve using user resolver
-	if r.userResolver != nil && r.ctx != nil {
-		name := r.userResolver.GetDisplayName(r.ctx, userID)
-		if name != userID { // Only use if actually resolved
-			return name
-		}
+	if name != "" {
+		return name
 	}
-
-	return userID
+	if msg.Msg.User != "" {
+		return msg.Msg.User
+	}
+	return "unknown"
 }
 
 func (r Result) resolvedChannelRef() string {
@@ -315,36 +297,23 @@ func (r Result) resolvedChannelRef() string {
 }
 
 func (r Result) resolvedUsername(msg slackapi.Message) string {
-	if msg.Username != "" {
-		return msg.Username
-	}
 	if r.userResolver != nil && r.ctx != nil && msg.Msg.User != "" {
-		username := r.userResolver.GetDisplayName(r.ctx, msg.Msg.User)
-		if username != msg.Msg.User {
-			return username
+		username := r.userResolver.GetMentionName(r.ctx, msg.Msg.User)
+		if username != "" && username != msg.Msg.User {
+			return formatUserRef(username)
 		}
 	}
 	return ""
 }
 
-func (r Result) resolvedUserRef(msg slackapi.Message) string {
-	if msg.Msg.User == "" {
-		if msg.Username == "" {
-			return ""
-		}
-		return formatUserRef(msg.Username)
-	}
-	return r.resolvedUserRefByID(msg.Msg.User)
-}
-
-func (r Result) resolvedUserRefByID(userID string) string {
-	if r.userResolver != nil && r.ctx != nil {
-		name := r.userResolver.GetMentionName(r.ctx, userID)
-		if name != "" && name != userID {
-			return formatUserRef(name)
+func (r Result) resolvedDisplayName(msg slackapi.Message) string {
+	if r.userResolver != nil && r.ctx != nil && msg.Msg.User != "" {
+		name := r.userResolver.GetDisplayName(r.ctx, msg.Msg.User)
+		if name != "" && name != msg.Msg.User {
+			return name
 		}
 	}
-	return userID
+	return msg.Username
 }
 
 func (r Result) enrichNestedUserReferences(enriched map[string]interface{}) {
@@ -352,88 +321,69 @@ func (r Result) enrichNestedUserReferences(enriched map[string]interface{}) {
 }
 
 func (r Result) enrichResolvedMap(value map[string]interface{}) {
+	// Native message usernames may be bot aliases. Only a resolved Slack
+	// account username can become a normalized @username lookup handle.
+	userID, _ := value["user"].(string)
+	alias, hasAlias := value["username"].(string)
+	if isLikelyUserID(userID) || hasAlias {
+		delete(value, "username")
+		if !isLikelyUserID(userID) {
+			userID = ""
+		}
+		msg := slackapi.Message{Msg: slackapi.Msg{User: userID, Username: alias}}
+		if username := r.resolvedUsername(msg); username != "" {
+			value["username"] = username
+		}
+		if name := r.resolvedDisplayName(msg); name != "" {
+			value["display_name"] = name
+		}
+	}
 	for key, raw := range value {
-		switch typed := raw.(type) {
-		case map[string]interface{}:
-			r.enrichResolvedMap(typed)
-		case []interface{}:
-			for _, item := range typed {
-				if itemMap, ok := item.(map[string]interface{}); ok {
-					r.enrichResolvedMap(itemMap)
+		// Traverse only SDK identity-bearing structures. Metadata payloads,
+		// blocks, attachments, and other application data are opaque.
+		switch key {
+		case "message", "previous_message", "root", "edited", "comment", "initial_comment":
+			if nested, ok := raw.(map[string]interface{}); ok {
+				r.enrichResolvedMap(nested)
+			}
+		case "replies", "reactions", "files", "comments":
+			if items, ok := raw.([]interface{}); ok {
+				for _, item := range items {
+					if nested, ok := item.(map[string]interface{}); ok {
+						r.enrichResolvedMap(nested)
+					}
 				}
 			}
 		}
 
 		switch key {
-		case "user", "inviter":
+		case "user", "inviter", "member":
 			userID, ok := raw.(string)
 			if !ok || !isLikelyUserID(userID) {
 				continue
 			}
-			resolvedUser := r.resolvedUserRefByID(userID)
-			if resolvedUser != "" && resolvedUser != userID {
-				value[key+"_id"] = userID
-				value[key] = resolvedUser
-			}
+			value[key+"_id"] = userID
 		case "users":
-			resolved, changed := r.resolveUserList(raw)
-			if changed {
+			if _, ok := raw.([]interface{}); ok {
 				value["user_ids"] = raw
-				value["users"] = resolved
 			}
 		case "members":
-			resolved, changed := r.resolveUserList(raw)
-			if changed {
+			if _, ok := raw.([]interface{}); ok {
 				value["member_ids"] = raw
-				value["members"] = resolved
 			}
 		case "parent_user_id":
 			userID, ok := raw.(string)
 			if !ok || !isLikelyUserID(userID) {
 				continue
 			}
-			resolvedUser := r.resolvedUserRefByID(userID)
-			if resolvedUser != "" && resolvedUser != userID {
-				value["parent_user"] = resolvedUser
-			}
+			value["parent_user"] = userID
 		}
 	}
-}
-
-func (r Result) resolveUserList(raw interface{}) ([]interface{}, bool) {
-	items, ok := raw.([]interface{})
-	if !ok || len(items) == 0 {
-		return nil, false
-	}
-
-	resolved := make([]interface{}, 0, len(items))
-	changed := false
-	for _, item := range items {
-		userID, ok := item.(string)
-		if !ok || !isLikelyUserID(userID) {
-			resolved = append(resolved, item)
-			continue
-		}
-
-		resolvedUser := r.resolvedUserRefByID(userID)
-		if resolvedUser != userID {
-			changed = true
-		}
-		resolved = append(resolved, resolvedUser)
-	}
-
-	return resolved, changed
 }
 
 func isLikelyUserID(value string) bool {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" || strings.HasPrefix(trimmed, "@") {
-		return false
-	}
-	if trimmed != strings.ToUpper(trimmed) {
-		return false
-	}
-	return strings.HasPrefix(trimmed, "U") || strings.HasPrefix(trimmed, "W")
+	id, _, err := slack.ParseUserReference(value)
+	return err == nil && id != "" && id == value
 }
 
 func formatUserRef(name string) string {
@@ -457,8 +407,8 @@ func (r Result) resolveUserMentions(text string) string {
 			userID := match[2 : len(match)-1] // Remove <@ and >
 
 			// Try to resolve the user ID
-			name := r.userResolver.GetDisplayName(r.ctx, userID)
-			if name != userID {
+			name := r.userResolver.GetMentionName(r.ctx, userID)
+			if name != "" && name != userID {
 				return "@" + name
 			}
 

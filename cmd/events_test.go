@@ -30,7 +30,15 @@ func (r testChannelResolver) ResolveName(ctx context.Context, channelID string) 
 }
 
 type testUserResolver struct {
-	names map[string]string
+	names        map[string]string
+	displayNames map[string]string
+}
+
+func (r testUserResolver) GetDisplayName(ctx context.Context, userID string) string {
+	if name, ok := r.displayNames[userID]; ok {
+		return name
+	}
+	return userID
 }
 
 func (r testUserResolver) GetMentionName(ctx context.Context, userID string) string {
@@ -134,8 +142,8 @@ func TestEventNormalizerMessageThread(t *testing.T) {
 	if event.Channel != "#support" {
 		t.Fatalf("expected resolved channel #support, got %q", event.Channel)
 	}
-	if event.User != "@alice" {
-		t.Fatalf("expected resolved user @alice, got %q", event.User)
+	if event.User != "U123" || event.UserID != "U123" || event.Username != "@alice" {
+		t.Fatalf("expected stable ID and separate username, got %+v", event)
 	}
 	if !event.IsThreadReply {
 		t.Fatalf("expected thread reply event")
@@ -395,7 +403,8 @@ func TestFormatHumanStreamEventMessage(t *testing.T) {
 	line := formatHumanStreamEvent(streamEvent{
 		Type:          "message",
 		Channel:       "D123",
-		User:          "@alice",
+		UserID:        "U123",
+		Username:      "@alice",
 		TS:            "1705312365.000100",
 		Text:          "hello there",
 		IsThreadReply: true,
@@ -417,12 +426,14 @@ func TestFormatHumanStreamEventMessage(t *testing.T) {
 
 func TestFormatHumanStreamEventReaction(t *testing.T) {
 	line := formatHumanStreamEvent(streamEvent{
-		Type:     "reaction_added",
-		Channel:  "#general",
-		User:     "@alice",
-		Reaction: "eyes",
-		ItemUser: "@bob",
-		Text:     "check this out",
+		Type:         "reaction_added",
+		Channel:      "#general",
+		UserID:       "U123",
+		Username:     "@alice",
+		Reaction:     "eyes",
+		ItemUserID:   "U456",
+		ItemUsername: "@bob",
+		Text:         "check this out",
 	})
 
 	if !strings.Contains(line, "reaction_added") {

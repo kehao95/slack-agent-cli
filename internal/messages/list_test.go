@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -160,6 +162,74 @@ type mockUserResolver struct {
 	users map[string]string
 }
 
+type exactOutputResolver struct {
+	handle string
+	calls  int
+	ids    []string
+}
+
+func (r *exactOutputResolver) GetDisplayName(_ context.Context, id string) string {
+	r.calls++
+	r.ids = append(r.ids, id)
+	return "Alice Display"
+}
+
+func (r *exactOutputResolver) GetMentionName(_ context.Context, id string) string {
+	r.calls++
+	r.ids = append(r.ids, id)
+	if r.handle == "" {
+		return id
+	}
+	return r.handle
+}
+
+func TestMessageIdentityAndRawIsolation(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		for _, handle := range []string{"alice.handle", ""} {
+			t.Run(fmt.Sprintf("raw=%t/handle=%s", raw, handle), func(t *testing.T) {
+				resolver := &exactOutputResolver{handle: handle}
+				original := "Hi <@U123> and <!subteam^S123>"
+				result := Result{Channel: "C123", Messages: []slackapi.Message{{Msg: slackapi.Msg{User: "U123", Username: "Bot Alias", Text: original}}}}
+				result.SetUserResolver(context.Background(), resolver)
+				result.SetRawJSON(raw)
+				data, err := json.Marshal(result)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var output struct {
+					Messages []map[string]interface{} `json:"messages"`
+				}
+				if err := json.Unmarshal(data, &output); err != nil {
+					t.Fatal(err)
+				}
+				msg := output.Messages[0]
+				if msg["user"] != "U123" || msg["text"] != original {
+					t.Fatalf("identity or source text changed: %s", data)
+				}
+				if raw {
+					if resolver.calls != 0 || msg["username"] != "Bot Alias" || msg["user_id"] != nil || msg["display_name"] != nil {
+						t.Fatalf("raw output enriched: calls=%d data=%s", resolver.calls, data)
+					}
+					return
+				}
+				if msg["display_name"] != "Alice Display" || msg["user_id"] != "U123" {
+					t.Fatalf("missing identity/presentation fields: %s", data)
+				}
+				if handle == "" && msg["username"] != nil || handle != "" && msg["username"] != "@"+handle {
+					t.Fatalf("incorrect handle: %s", data)
+				}
+				human := strings.Join(result.Lines(), "\n")
+				if strings.Contains(human, "@Alice Display") || strings.Contains(human, "@Bot Alias") || strings.Contains(human, "@U123:") {
+					t.Fatalf("fabricated human handle: %s", human)
+				}
+				if handle != "" && !strings.Contains(human, "Hi @alice.handle") {
+					t.Fatalf("mention did not use exact handle: %s", human)
+				}
+			})
+		}
+	}
+}
+
 func (m mockUserResolver) GetDisplayName(ctx context.Context, userID string) string {
 	if name, ok := m.users[userID]; ok {
 		return name
@@ -222,24 +292,24 @@ func TestResultMarshalJSON_WithUsernames(t *testing.T) {
 
 	// First message should have resolved username
 	msg1 := messages[0].(map[string]interface{})
-	if msg1["user"] != "@alice" {
-		t.Errorf("expected user @alice, got %v", msg1["user"])
+	if msg1["user"] != "U1" {
+		t.Errorf("expected user U1, got %v", msg1["user"])
 	}
 	if msg1["user_id"] != "U1" {
 		t.Errorf("expected user_id U1, got %v", msg1["user_id"])
 	}
-	if msg1["username"] != "alice" {
-		t.Errorf("expected username alice, got %v", msg1["username"])
+	if msg1["username"] != "@alice" {
+		t.Errorf("expected username @alice, got %v", msg1["username"])
 	}
-	if msg1["parent_user"] != "@bob" {
-		t.Errorf("expected parent_user @bob, got %v", msg1["parent_user"])
+	if msg1["parent_user"] != "U2" {
+		t.Errorf("expected parent_user U2, got %v", msg1["parent_user"])
 	}
 	edited, ok := msg1["edited"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected edited payload, got %T", msg1["edited"])
 	}
-	if edited["user"] != "@bob" {
-		t.Errorf("expected edited.user @bob, got %v", edited["user"])
+	if edited["user"] != "U2" {
+		t.Errorf("expected edited.user U2, got %v", edited["user"])
 	}
 	if edited["user_id"] != "U2" {
 		t.Errorf("expected edited.user_id U2, got %v", edited["user_id"])
@@ -253,7 +323,7 @@ func TestResultMarshalJSON_WithUsernames(t *testing.T) {
 	if !ok || len(users) != 3 {
 		t.Fatalf("expected 3 resolved users, got %v", reaction["users"])
 	}
-	if users[0] != "@alice" || users[1] != "@bob" || users[2] != "U999" {
+	if users[0] != "U1" || users[1] != "U2" || users[2] != "U999" {
 		t.Errorf("unexpected resolved reaction users: %v", users)
 	}
 	userIDs, ok := reaction["user_ids"].([]interface{})
@@ -268,14 +338,14 @@ func TestResultMarshalJSON_WithUsernames(t *testing.T) {
 		t.Fatalf("expected 1 file, got %v", msg1["files"])
 	}
 	file := files[0].(map[string]interface{})
-	if file["user"] != "@bob" || file["user_id"] != "U2" {
+	if file["user"] != "U2" || file["user_id"] != "U2" {
 		t.Errorf("unexpected file user fields: %v", file)
 	}
 	initialComment, ok := file["initial_comment"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected initial_comment payload, got %T", file["initial_comment"])
 	}
-	if initialComment["user"] != "@alice" || initialComment["user_id"] != "U1" {
+	if initialComment["user"] != "U1" || initialComment["user_id"] != "U1" {
 		t.Errorf("unexpected initial comment user fields: %v", initialComment)
 	}
 	replies, ok := msg1["replies"].([]interface{})
@@ -283,14 +353,14 @@ func TestResultMarshalJSON_WithUsernames(t *testing.T) {
 		t.Fatalf("expected 1 reply, got %v", msg1["replies"])
 	}
 	reply := replies[0].(map[string]interface{})
-	if reply["user"] != "@bob" || reply["user_id"] != "U2" {
+	if reply["user"] != "U2" || reply["user_id"] != "U2" {
 		t.Errorf("unexpected reply user fields: %v", reply)
 	}
 
-	// Second message should use existing username field
+	// Second message uses the account handle, not the bot alias
 	msg2 := messages[1].(map[string]interface{})
-	if msg2["username"] != "bot" {
-		t.Errorf("expected username bot, got %v", msg2["username"])
+	if msg2["username"] != "@bob" {
+		t.Errorf("expected username @bob, got %v", msg2["username"])
 	}
 
 	// Third message should have no username (unresolved)
@@ -337,5 +407,95 @@ func TestResultMarshalJSON_RawJSON(t *testing.T) {
 	}
 	if _, exists := msg1["username"]; exists {
 		t.Errorf("expected no username without resolver, got %v", msg1["username"])
+	}
+}
+
+func TestNestedIdentityReferencesStayCanonical(t *testing.T) {
+	result := Result{}
+	value := map[string]interface{}{
+		"user": "U123", "username": "Bot Alias", "inviter": "U456", "member": "U789",
+		"users": []interface{}{"U123", "U456"}, "members": []interface{}{"U789"},
+		"previous_message": map[string]interface{}{"user": "U456", "username": "Webhook Alias"},
+	}
+	result.enrichNestedUserReferences(value)
+	for _, field := range []string{"user", "inviter", "member"} {
+		if value[field] != value[field+"_id"] {
+			t.Fatalf("%s reference changed: %v", field, value)
+		}
+	}
+	if value["user"] != "U123" || value["inviter"] != "U456" || value["member"] != "U789" {
+		t.Fatalf("canonical scalar IDs replaced: %v", value)
+	}
+	if value["users"].([]interface{})[0] != "U123" || value["members"].([]interface{})[0] != "U789" {
+		t.Fatalf("canonical array IDs replaced: %v", value)
+	}
+	if value["user_ids"].([]interface{})[1] != "U456" || value["member_ids"].([]interface{})[0] != "U789" {
+		t.Fatalf("compatibility array IDs missing: %v", value)
+	}
+	nested := value["previous_message"].(map[string]interface{})
+	if nested["user"] != "U456" || nested["user_id"] != "U456" || nested["username"] != nil || nested["display_name"] != "Webhook Alias" {
+		t.Fatalf("nested alias promoted to identity: %v", nested)
+	}
+	if value["username"] != nil || value["display_name"] != "Bot Alias" {
+		t.Fatalf("alias promoted to identity: %v", value)
+	}
+}
+
+func TestMessageMetadataRemainsOpaque(t *testing.T) {
+	payload := map[string]interface{}{
+		"username": "deploy-service", "user": "external-person",
+		"users":     []interface{}{"U999", "external-person"},
+		"message":   map[string]interface{}{"user": "U999", "username": "Internal Account", "members": []interface{}{"U888"}},
+		"arbitrary": []interface{}{map[string]interface{}{"inviter": "U777", "user": "U666"}},
+	}
+	for _, raw := range []bool{false, true} {
+		t.Run(fmt.Sprintf("raw=%t", raw), func(t *testing.T) {
+			resolver := &exactOutputResolver{handle: "alice.handle"}
+			msg := slackapi.Message{Msg: slackapi.Msg{
+				User: "U123", Text: "<@U123>",
+				Metadata: slackapi.SlackMetadata{EventType: "deployment", EventPayload: payload},
+			}}
+			result := Result{Channel: "C123", Messages: []slackapi.Message{msg}}
+			result.SetUserResolver(context.Background(), resolver)
+			result.SetRawJSON(raw)
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var output struct {
+				Messages []map[string]interface{} `json:"messages"`
+			}
+			if err := json.Unmarshal(encoded, &output); err != nil {
+				t.Fatal(err)
+			}
+			metadata := output.Messages[0]["metadata"].(map[string]interface{})
+			if metadata["event_type"] != "deployment" || !reflect.DeepEqual(metadata["event_payload"], payload) {
+				t.Fatalf("opaque metadata changed: %s", encoded)
+			}
+			for _, id := range resolver.ids {
+				if id != "U123" {
+					t.Fatalf("resolved opaque metadata identity %q", id)
+				}
+			}
+			if raw && resolver.calls != 0 {
+				t.Fatalf("raw message resolved identities: %v", resolver.ids)
+			}
+			if !raw && output.Messages[0]["username"] != "@alice.handle" {
+				t.Fatalf("message author enrichment missing: %s", encoded)
+			}
+		})
+	}
+}
+
+func TestCanonicalOutputUserIDsUseSharedParser(t *testing.T) {
+	for _, value := range []string{"U", "W", "U!", "W display", "@alice", "<@U123>", " U123 ", "u123", ""} {
+		resolver := &exactOutputResolver{handle: "alice"}
+		result := Result{}
+		result.SetUserResolver(context.Background(), resolver)
+		valueMap := map[string]interface{}{"user": value, "username": "Alias"}
+		result.enrichNestedUserReferences(valueMap)
+		if resolver.calls != 0 || valueMap["user_id"] != nil || valueMap["username"] != nil || valueMap["user"] != value {
+			t.Errorf("noncanonical identity %q enriched: %v calls=%d", value, valueMap, resolver.calls)
+		}
 	}
 }

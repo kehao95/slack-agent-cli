@@ -10,10 +10,11 @@ import (
 )
 
 var userIDPattern = regexp.MustCompile(`^[UW][A-Z0-9]+$`)
+var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
-// ResolveUserReference resolves Slack user IDs, <@U...> mentions, @handles,
-// display names, real names, and email addresses. It intentionally returns an
-// ambiguity error rather than choosing an arbitrary account.
+// ResolveUserReference accepts canonical uppercase Slack user IDs, strict
+// <@ID> mentions, and explicit @usernames. Username matching is case-insensitive
+// and uses only Slack's username field; names and email aliases are not accepted.
 func (c *APIClient) ResolveUserReference(ctx context.Context, reference string) (string, error) {
 	resolved, err := c.ResolveUserReferences(ctx, []string{reference})
 	if err != nil {
@@ -37,11 +38,11 @@ func (c *APIClient) ResolveUserReferences(ctx context.Context, references []stri
 	pending := make([]pendingReference, len(references))
 	needsLookup := false
 	for i, reference := range references {
-		input, normalized, directID, err := normalizeUserReference(reference)
+		directID, normalized, err := ParseUserReference(reference)
 		if err != nil {
 			return nil, err
 		}
-		pending[i] = pendingReference{input: input, normalized: normalized, directID: directID}
+		pending[i] = pendingReference{input: strings.TrimSpace(reference), normalized: normalized, directID: directID}
 		needsLookup = needsLookup || directID == ""
 	}
 
@@ -62,7 +63,7 @@ func (c *APIClient) ResolveUserReferences(ctx context.Context, references []stri
 		}
 		var matches []slackapi.User
 		for _, user := range users {
-			if !user.Deleted && equalUserReference(reference.normalized, user) {
+			if !user.Deleted && strings.EqualFold(reference.normalized, user.Name) {
 				matches = append(matches, user)
 			}
 		}
@@ -81,37 +82,23 @@ func (c *APIClient) ResolveUserReferences(ctx context.Context, references []stri
 	return resolved, nil
 }
 
-func normalizeUserReference(reference string) (input, normalized, directID string, err error) {
-	input = strings.TrimSpace(reference)
-	if input == "" {
-		return "", "", "", fmt.Errorf("user is required")
+// ParseUserReference validates a reference without network calls. Exactly one of
+// id or username is populated on success. IDs retain their canonical uppercase
+// spelling; @usernames are returned without @ and matched case-insensitively.
+// Explicit @ syntax always denotes a username, even when it resembles an ID.
+func ParseUserReference(reference string) (id, username string, err error) {
+	input := strings.TrimSpace(reference)
+	if userIDPattern.MatchString(input) {
+		return input, "", nil
 	}
-	normalized = strings.TrimSuffix(strings.TrimPrefix(input, "<@"), ">")
-	if userIDPattern.MatchString(strings.ToUpper(normalized)) {
-		return input, normalized, strings.ToUpper(normalized), nil
-	}
-	normalized = strings.TrimSpace(strings.TrimPrefix(input, "@"))
-	if normalized == "" {
-		return "", "", "", fmt.Errorf("user is required")
-	}
-	if userIDPattern.MatchString(strings.ToUpper(normalized)) {
-		return input, normalized, strings.ToUpper(normalized), nil
-	}
-	return input, normalized, "", nil
-}
-
-func equalUserReference(input string, user slackapi.User) bool {
-	candidates := []string{
-		user.Name,
-		user.RealName,
-		user.Profile.DisplayName,
-		user.Profile.RealName,
-		user.Profile.Email,
-	}
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate) != "" && strings.EqualFold(input, strings.TrimSpace(candidate)) {
-			return true
+	if strings.HasPrefix(input, "<@") && strings.HasSuffix(input, ">") {
+		candidate := input[2 : len(input)-1]
+		if userIDPattern.MatchString(candidate) {
+			return candidate, "", nil
 		}
 	}
-	return false
+	if strings.HasPrefix(input, "@") && usernamePattern.MatchString(input[1:]) {
+		return "", input[1:], nil
+	}
+	return "", "", fmt.Errorf("invalid user reference %q: use a canonical uppercase Slack user ID, <@ID>, or @username; bare names and emails are not supported", input)
 }

@@ -32,7 +32,7 @@ var conversationsKickCmd = &cobra.Command{Use: "kick", Short: "Remove a user fro
 var conversationsOpenCmd = &cobra.Command{
 	Use:   "open",
 	Short: "Open or resume a DM or group DM",
-	Long:  "Open a DM/MPDM from user references, or resume a DM by conversation ID. User references may be IDs, @handles, display names, real names, or email addresses.",
+	Long:  "Open a DM/MPDM from user references, or resume a DM by conversation ID. User references accept canonical uppercase IDs, complete <@ID> mentions, or explicit @usernames. Display names and bare handles are not accepted.",
 	RunE:  runConversationsOpen,
 }
 var conversationsCloseCmd = &cobra.Command{Use: "close", Short: "Close a DM or group DM", RunE: runConversationsClose}
@@ -88,15 +88,15 @@ func init() {
 	conversationsMembersCmd.Flags().Duration("page-delay", 0, "Delay between pagination requests")
 
 	conversationChannelFlag(conversationsInviteCmd)
-	conversationsInviteCmd.Flags().StringSlice("users", nil, "User references to invite (required)")
+	conversationsInviteCmd.Flags().StringSlice("users", nil, "Canonical user IDs, <@ID> mentions, or @usernames to invite (required)")
 	_ = conversationsInviteCmd.MarkFlagRequired("users")
 
 	conversationChannelFlag(conversationsKickCmd)
-	conversationsKickCmd.Flags().String("user", "", "User reference to remove (required)")
+	conversationsKickCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username to remove (required)")
 	_ = conversationsKickCmd.MarkFlagRequired("user")
 
 	conversationsOpenCmd.Flags().String("channel", "", "Existing DM or MPDM conversation ID")
-	conversationsOpenCmd.Flags().StringSlice("users", nil, "User references for a DM or MPDM")
+	conversationsOpenCmd.Flags().StringSlice("users", nil, "Canonical user IDs, <@ID> mentions, or @usernames for a DM or MPDM")
 
 	conversationChannelFlag(conversationsMarkCmd)
 	conversationsMarkCmd.Flags().String("ts", "", "Message timestamp to mark read through (required)")

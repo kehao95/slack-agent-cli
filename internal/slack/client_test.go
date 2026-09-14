@@ -3,8 +3,10 @@ package slack
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	slackapi "github.com/slack-go/slack"
@@ -30,7 +32,17 @@ func TestSearchParamsValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := NewUserClient("xoxp-test-token")
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				calls++
+				if req.URL.Path != "/search.messages" || req.FormValue("query") != tt.query {
+					t.Errorf("unexpected search request: %s query=%q", req.URL.Path, req.FormValue("query"))
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"ok":true,"messages":{"total":0,"matches":[]}}`))
+			}))
+			defer server.Close()
+			client := &UserAPIClient{sdk: slackapi.New("xoxp-test-token", slackapi.OptionAPIURL(server.URL+"/"))}
 			ctx := context.Background()
 			_, err := client.SearchMessages(ctx, tt.query, SearchParams{
 				Count:   20,
@@ -39,13 +51,12 @@ func TestSearchParamsValidation(t *testing.T) {
 				SortDir: "desc",
 			})
 
-			// We expect an API error since we're using a fake token,
-			// but we should not get a validation error for valid queries
-			if tt.wantError && err == nil {
-				t.Fatal("expected error for empty query, got nil")
-			}
-			if !tt.wantError && err != nil && err.Error() == "search query is required" {
-				t.Fatalf("unexpected validation error: %v", err)
+			if tt.wantError {
+				if err == nil || calls != 0 {
+					t.Fatalf("expected local validation error without requests, err=%v calls=%d", err, calls)
+				}
+			} else if err != nil || calls != 1 {
+				t.Fatalf("expected one successful search request, err=%v calls=%d", err, calls)
 			}
 		})
 	}
@@ -99,10 +110,10 @@ func TestSearchResultLines(t *testing.T) {
 	foundGeneral := false
 	foundDevops := false
 	for _, line := range lines {
-		if contains(line, "#general") && contains(line, "@alice") {
+		if contains(line, "#general") && contains(line, " alice:") {
 			foundGeneral = true
 		}
-		if contains(line, "#devops") && contains(line, "@bob") {
+		if contains(line, "#devops") && contains(line, " bob:") {
 			foundDevops = true
 		}
 	}
@@ -144,6 +155,92 @@ func TestSearchResultLinesEmpty(t *testing.T) {
 
 type mockSearchUserResolver struct {
 	users map[string]string
+}
+
+type exactSearchResolver struct {
+	handle string
+	calls  int
+}
+
+func (r *exactSearchResolver) GetDisplayName(context.Context, string) string {
+	r.calls++
+	return "Alice Display"
+}
+
+func (r *exactSearchResolver) GetMentionName(_ context.Context, id string) string {
+	r.calls++
+	if r.handle == "" {
+		return id
+	}
+	return r.handle
+}
+
+func TestSearchIdentityAndRawIsolation(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		for _, handle := range []string{"alice.handle", ""} {
+			t.Run(fmt.Sprintf("raw=%t/handle=%s", raw, handle), func(t *testing.T) {
+				resolver := &exactSearchResolver{handle: handle}
+				original := "Hi <@U123>"
+				result := SearchResult{Messages: SearchMessages{Total: 1, Matches: []SearchMatch{{User: "U123", Username: "Bot Alias", Text: original, Permalink: "https://example.test/message"}}}}
+				result.SetUserResolver(context.Background(), resolver)
+				result.SetRawJSON(raw)
+				data, err := json.Marshal(result)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var output struct {
+					Messages struct {
+						Matches []map[string]interface{} `json:"matches"`
+					} `json:"messages"`
+				}
+				if err := json.Unmarshal(data, &output); err != nil {
+					t.Fatal(err)
+				}
+				msg := output.Messages.Matches[0]
+				if msg["user"] != "U123" || msg["text"] != original || msg["permalink"] != "https://example.test/message" {
+					t.Fatalf("source fields changed: %s", data)
+				}
+				if raw {
+					if resolver.calls != 0 || msg["username"] != "Bot Alias" || msg["user_id"] != nil || msg["display_name"] != nil {
+						t.Fatalf("raw result enriched: calls=%d data=%s", resolver.calls, data)
+					}
+					return
+				}
+				if msg["user_id"] != "U123" || msg["display_name"] != "Alice Display" {
+					t.Fatalf("missing identity fields: %s", data)
+				}
+				if handle == "" && msg["username"] != nil || handle != "" && msg["username"] != "@"+handle {
+					t.Fatalf("incorrect handle: %s", data)
+				}
+				human := strings.Join(result.Lines(), "\n")
+				if strings.Contains(human, "@Alice Display") || strings.Contains(human, "@Bot Alias") || strings.Contains(human, "@U123:") {
+					t.Fatalf("fabricated human handle: %s", human)
+				}
+			})
+		}
+	}
+}
+
+func TestSearchAliasIsPresentationOnly(t *testing.T) {
+	result := SearchResult{Messages: SearchMessages{Total: 1, Matches: []SearchMatch{{User: "U123", Username: "Bot Alias"}, {Username: "Incoming Webhook"}}}}
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output struct {
+		Messages struct {
+			Matches []map[string]interface{} `json:"matches"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(data, &output); err != nil {
+		t.Fatal(err)
+	}
+	for i, alias := range []string{"Bot Alias", "Incoming Webhook"} {
+		msg := output.Messages.Matches[i]
+		if msg["username"] != nil || msg["display_name"] != alias {
+			t.Fatalf("alias promoted to handle: %s", data)
+		}
+	}
 }
 
 func (m mockSearchUserResolver) GetDisplayName(ctx context.Context, userID string) string {
@@ -203,8 +300,8 @@ func TestSearchResultMarshalJSONResolved(t *testing.T) {
 	messages := output["messages"].(map[string]interface{})
 	matches := messages["matches"].([]interface{})
 	match := matches[0].(map[string]interface{})
-	if match["user"] != "@alice" {
-		t.Fatalf("expected resolved user @alice, got %v", match["user"])
+	if match["user"] != "U123" {
+		t.Fatalf("expected canonical user U123, got %v", match["user"])
 	}
 	if match["user_id"] != "U123" {
 		t.Fatalf("expected user_id U123, got %v", match["user_id"])

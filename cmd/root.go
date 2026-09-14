@@ -39,6 +39,11 @@ Agent Event Loop:
      slk events claim --type message --message-kind root --lease 5m
      slk events ack <cursor>
 
+User Identity:
+  Inputs: canonical uppercase user ID, complete <@ID>, or explicit @username.
+  Display names and bare handles are not lookup inputs.
+  Normalized output keeps user IDs and adds username (@handle) and display_name.
+
 Exit Codes:
   0 - Success
   1 - General error

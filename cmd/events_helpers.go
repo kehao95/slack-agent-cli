@@ -82,9 +82,13 @@ type streamEvent struct {
 	ConversationType string          `json:"conversation_type,omitempty"`
 	User             string          `json:"user,omitempty"`
 	UserID           string          `json:"user_id,omitempty"`
+	Username         string          `json:"username,omitempty"`
+	DisplayName      string          `json:"display_name,omitempty"`
 	BotID            string          `json:"bot_id,omitempty"`
 	ItemUser         string          `json:"item_user,omitempty"`
 	ItemUserID       string          `json:"item_user_id,omitempty"`
+	ItemUsername     string          `json:"item_username,omitempty"`
+	ItemDisplayName  string          `json:"item_display_name,omitempty"`
 	Reaction         string          `json:"reaction,omitempty"`
 	TS               string          `json:"ts,omitempty"`
 	ThreadTS         string          `json:"thread_ts,omitempty"`
@@ -110,6 +114,7 @@ type streamChannelResolver interface {
 
 type streamUserResolver interface {
 	GetMentionName(ctx context.Context, userID string) string
+	GetDisplayName(ctx context.Context, userID string) string
 }
 
 type streamConversationInfoProvider interface {
@@ -161,11 +166,15 @@ func streamEventFromStore(event eventstore.Event) streamEvent {
 		Channel:          event.Channel,
 		ChannelID:        event.ChannelID,
 		ConversationType: event.ConversationType,
-		User:             event.User,
+		User:             event.UserID,
 		UserID:           event.UserID,
+		Username:         event.Username,
+		DisplayName:      event.DisplayName,
 		BotID:            event.BotID,
-		ItemUser:         event.ItemUser,
+		ItemUser:         event.ItemUserID,
 		ItemUserID:       event.ItemUserID,
+		ItemUsername:     event.ItemUsername,
+		ItemDisplayName:  event.ItemDisplayName,
 		Reaction:         event.Reaction,
 		TS:               event.TS,
 		ThreadTS:         event.ThreadTS,
@@ -190,11 +199,15 @@ func streamEventToStore(event streamEvent) eventstore.Event {
 		Channel:          event.Channel,
 		ChannelID:        event.ChannelID,
 		ConversationType: event.ConversationType,
-		User:             event.User,
+		User:             event.UserID,
 		UserID:           event.UserID,
+		Username:         event.Username,
+		DisplayName:      event.DisplayName,
 		BotID:            event.BotID,
-		ItemUser:         event.ItemUser,
+		ItemUser:         event.ItemUserID,
 		ItemUserID:       event.ItemUserID,
+		ItemUsername:     event.ItemUsername,
+		ItemDisplayName:  event.ItemDisplayName,
 		Reaction:         event.Reaction,
 		TS:               event.TS,
 		ThreadTS:         event.ThreadTS,
@@ -295,12 +308,16 @@ func (n *eventNormalizer) normalizeMessageEvent(base streamEvent, eventType stri
 	base.Channel = n.resolveChannelRef(channelID, conversationType)
 	base.ConversationType = conversationType
 	base.UserID = userID
-	base.User = n.resolveUserRef(userID)
+	base.User = userID
+	base.Username, base.DisplayName = n.resolveUserPresentation(userID)
 	base.BotID = botID
 	base.IsSelf = n.isSelf(userID, botID)
 	base.TS = ts
 	base.ThreadTS = threadTS
-	base.Text = firstNonEmpty(payload.Text, evt.Text)
+	base.Text = payload.Text
+	if base.Text == "" {
+		base.Text = evt.Text
+	}
 	base.IsThreadReply = threadTS != "" && ts != "" && threadTS != ts
 	base.IsThreadRoot = threadTS != "" && ts != "" && threadTS == ts
 
@@ -328,10 +345,12 @@ func (n *eventNormalizer) normalizeReactionEvent(base streamEvent, eventType, us
 	base.Channel = n.resolveChannelRef(channelID, conversationType)
 	base.ConversationType = conversationType
 	base.UserID = userID
-	base.User = n.resolveUserRef(userID)
+	base.User = userID
+	base.Username, base.DisplayName = n.resolveUserPresentation(userID)
 	base.IsSelf = n.isSelf(userID, "")
 	base.ItemUserID = itemUserID
-	base.ItemUser = n.resolveUserRef(itemUserID)
+	base.ItemUser = itemUserID
+	base.ItemUsername, base.ItemDisplayName = n.resolveUserPresentation(itemUserID)
 	base.Reaction = reaction
 	base.TS = ts
 	base.Text = messageText(item.Message)
@@ -349,7 +368,8 @@ func (n *eventNormalizer) normalizePinEvent(base streamEvent, eventType, userID,
 	base.Channel = n.resolveChannelRef(channelID, conversationType)
 	base.ConversationType = conversationType
 	base.UserID = userID
-	base.User = n.resolveUserRef(userID)
+	base.User = userID
+	base.Username, base.DisplayName = n.resolveUserPresentation(userID)
 	base.IsSelf = n.isSelf(userID, "")
 	base.TS = ts
 	base.Text = messageText(item.Message)
@@ -357,22 +377,20 @@ func (n *eventNormalizer) normalizePinEvent(base streamEvent, eventType, userID,
 	return base
 }
 
-func (n *eventNormalizer) resolveUserRef(userID string) string {
+func (n *eventNormalizer) resolveUserPresentation(userID string) (username, displayName string) {
 	userID = strings.TrimSpace(userID)
-	if userID == "" {
-		return ""
-	}
-	if n.userResolver == nil || n.ctx == nil {
-		return userID
+	if userID == "" || n.userResolver == nil || n.ctx == nil {
+		return "", ""
 	}
 	resolved := strings.TrimSpace(n.userResolver.GetMentionName(n.ctx, userID))
-	if resolved == "" || resolved == userID {
-		return userID
+	if resolved != "" && resolved != userID {
+		username = "@" + strings.TrimPrefix(resolved, "@")
 	}
-	if strings.HasPrefix(resolved, "@") {
-		return resolved
+	displayName = n.userResolver.GetDisplayName(n.ctx, userID)
+	if displayName == userID {
+		displayName = ""
 	}
-	return "@" + resolved
+	return username, displayName
 }
 
 func (n *eventNormalizer) isSelf(userID, botID string) bool {
@@ -532,7 +550,7 @@ func messageText(message *slackevents.ItemMessage) string {
 	if message == nil {
 		return ""
 	}
-	return strings.TrimSpace(message.Text)
+	return message.Text
 }
 
 func extractEventMetadata(payload json.RawMessage) (string, int) {
@@ -567,8 +585,8 @@ func formatHumanStreamEvent(event streamEvent) string {
 		parts = append(parts, scope)
 	}
 
-	if event.User != "" {
-		parts = append(parts, event.User)
+	if actor := eventUserLabel(event.UserID, event.Username, event.DisplayName); actor != "" {
+		parts = append(parts, actor)
 	}
 
 	switch event.Type {
@@ -588,10 +606,7 @@ func formatHumanStreamEvent(event streamEvent) string {
 		}
 		return strings.Join(parts, " ") + ": " + label + " - " + body
 	case "reaction_added", "reaction_removed":
-		target := strings.TrimSpace(event.ItemUser)
-		if target == "" {
-			target = strings.TrimSpace(event.ItemUserID)
-		}
+		target := eventUserLabel(event.ItemUserID, event.ItemUsername, event.ItemDisplayName)
 		body := event.Type
 		if event.Reaction != "" {
 			body += " :" + event.Reaction + ":"
@@ -616,6 +631,13 @@ func formatHumanStreamEvent(event streamEvent) string {
 		}
 		return strings.Join(parts, " ") + ": " + body
 	}
+}
+
+func eventUserLabel(userID, username, displayName string) string {
+	if displayName != "" && username != "" {
+		return displayName + " (" + username + ")"
+	}
+	return firstNonEmpty(displayName, username, userID)
 }
 
 func formatEventTimestamp(ts string) string {

@@ -34,22 +34,23 @@ Output (JSON):
     "messages": [
       {
         "type": "message",
-        "user": "@alice",
+        "user": "U123ABC",
         "user_id": "U123ABC",
-        "username": "Alice Example",
+        "username": "@alice",
+        "display_name": "Alice Example",
         "text": "message text",
         "ts": "1705312365.000100",
         "thread_ts": "1705312365.000100",
-        "edited": {"user": "@alice", "user_id": "U123ABC", "ts": "..."},
-        "reactions": [{"name": "thumbsup", "count": 2, "users": ["@alice"], "user_ids": ["U123ABC"]}],
-        "reply_count": 5  // Number of replies in thread
+        "edited": {"user": "U123ABC", "user_id": "U123ABC", "ts": "..."},
+        "reactions": [{"name": "thumbsup", "count": 2, "users": ["U123ABC"], "user_ids": ["U123ABC"]}],
+        "reply_count": 5
       }
     ],
     "has_more": true,
     "next_cursor": "bmV4dF90czox..."
   }
 
-By default JSON resolves channel and user references for readability while preserving raw IDs in companion *_id fields. Use --raw-json to keep Slack IDs in their original fields.
+User identity fields remain stable IDs. Resolution adds username (exact @handle) and display_name (presentation only), while channel names may be resolved. Use --raw-json to disable enrichment and retain native Slack field meanings; native username may be an author alias, so use user IDs for follow-up calls.
 
 Channel Resolution:
   - Channel IDs (C123ABC) work directly without cache lookup
@@ -85,9 +86,10 @@ Output (JSON):
       "matches": [
         {
           "type": "message",
-          "user": "@alice",
+          "user": "U123ABC",
           "user_id": "U123ABC",
-          "username": "alice",
+          "username": "@alice",
+          "display_name": "Alice Example",
           "text": "message text",
           "ts": "1705312365.000100",
           "channel": {"id": "C123", "name": "#general"},
@@ -97,7 +99,7 @@ Output (JSON):
     }
   }
 
-By default JSON resolves channel and user references for readability while preserving raw IDs in companion *_id fields. Use --raw-json to keep Slack IDs in their original fields.
+User identity fields remain stable IDs. Resolution adds username (exact @handle) and display_name (presentation only), while channel names may be resolved. Use --raw-json to disable enrichment and retain native Slack field meanings; native username may be an author alias, so use user IDs for follow-up calls.
 
 Search Syntax:
   - Basic: "error logs"
@@ -262,16 +264,16 @@ func init() {
 	messagesListCmd.Flags().Bool("retry-rate-limit", true, "Honor Slack Retry-After responses")
 	messagesListCmd.Flags().Int("max-retries", 3, "Maximum rate-limit retries per page")
 	messagesListCmd.Flags().Bool("refresh-cache", false, "Force refresh of cached channel/user metadata")
-	messagesListCmd.Flags().Bool("resolved-json", true, "Resolve channel and user references in JSON output")
-	messagesListCmd.Flags().Bool("raw-json", false, "Preserve raw Slack IDs in JSON output")
+	messagesListCmd.Flags().Bool("resolved-json", true, "Enrich JSON with channel names and separate user metadata")
+	messagesListCmd.Flags().Bool("raw-json", false, "Retain native Slack fields without identity enrichment")
 	messagesListCmd.MarkFlagRequired("channel")
 
 	messagesSearchCmd.Flags().StringP("query", "q", "", "Search query (required)")
 	messagesSearchCmd.Flags().IntP("limit", "l", 20, "Maximum results to return")
 	messagesSearchCmd.Flags().String("sort", "timestamp", "Sort by 'score' or 'timestamp'")
 	messagesSearchCmd.Flags().String("sort-dir", "desc", "Sort direction 'asc' or 'desc'")
-	messagesSearchCmd.Flags().Bool("resolved-json", true, "Resolve channel and user references in JSON output")
-	messagesSearchCmd.Flags().Bool("raw-json", false, "Preserve raw Slack IDs in JSON output")
+	messagesSearchCmd.Flags().Bool("resolved-json", true, "Enrich JSON with channel names and separate user metadata")
+	messagesSearchCmd.Flags().Bool("raw-json", false, "Retain native Slack fields without identity enrichment")
 	messagesSearchCmd.MarkFlagRequired("query")
 
 	messagesSendCmd.Flags().StringP("channel", "c", "", "Target channel or @user (required)")
@@ -299,7 +301,7 @@ func init() {
 
 	messagesNextCmd.Flags().StringP("channel", "c", "", "Channel name or ID")
 	messagesNextCmd.Flags().String("thread", "", "Thread timestamp to wait in")
-	messagesNextCmd.Flags().String("user", "", "Restrict to a Slack user ID")
+	messagesNextCmd.Flags().String("user", "", "Restrict to a canonical user ID, <@ID>, or @username")
 	messagesNextCmd.Flags().String("since", "", "Start after local cursor, or from duration/RFC3339 time (default: latest)")
 	messagesNextCmd.Flags().Bool("exclude-self", false, "Exclude messages produced by the active auth identity")
 	messagesNextCmd.Flags().Duration("timeout", 0, "Maximum time to wait for a matching message (0 waits forever)")
@@ -639,7 +641,7 @@ func printCachedMessageEvent(cmd *cobra.Command, event eventstore.Event) error {
 		"channel":           event.Channel,
 		"channel_id":        event.ChannelID,
 		"conversation_type": event.ConversationType,
-		"user":              event.User,
+		"user":              event.UserID,
 		"user_id":           event.UserID,
 		"bot_id":            event.BotID,
 		"ts":                event.TS,
@@ -648,6 +650,12 @@ func printCachedMessageEvent(cmd *cobra.Command, event eventstore.Event) error {
 		"is_thread_reply":   event.IsThreadReply,
 		"is_thread_root":    event.IsThreadRoot,
 		"is_self":           event.IsSelf,
+	}
+	if event.Username != "" {
+		message["username"] = event.Username
+	}
+	if event.DisplayName != "" {
+		message["display_name"] = event.DisplayName
 	}
 	encoder := json.NewEncoder(cmd.OutOrStdout())
 	return encoder.Encode(message)

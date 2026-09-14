@@ -30,17 +30,15 @@ Output (JSON):
     "ok": true,
     "users": [
       {
+        "user_id": "U123ABC",
+        "username": "@alice",
         "id": "U123ABC",
         "name": "alice",
         "real_name": "Alice Smith",
-        "display_name": "alice",
+        "display_name": "Alice Smith",
         "is_bot": false,
         "is_deleted": false,
-        "profile": {
-          "email": "alice@example.com",
-          "status_text": "In a meeting",
-          "status_emoji": ":calendar:"
-        }
+        "email": "alice@example.com"
       }
     ]
   }
@@ -66,10 +64,12 @@ Output (JSON):
   {
     "ok": true,
     "user": {
+      "user_id": "U123ABC",
+      "username": "@alice",
       "id": "U123ABC",
       "name": "alice",
       "real_name": "Alice Smith",
-      "display_name": "alice",
+      "display_name": "Alice Smith",
       "email": "alice@example.com",
       "title": "Engineer",
       "is_bot": false,
@@ -82,7 +82,12 @@ needed.
 
 User Identifier:
   - User ID: U123ABC (direct lookup)
-  - Username: @alice (resolved via user list)`,
+  - Mention: <@U123ABC> (direct lookup)
+  - Username: @alice (case-insensitive match against Slack's username field)
+
+IDs must use their original uppercase spelling. Bare usernames, display names,
+real names, and email aliases are not accepted. Use users lookup --email for email.
+An explicit @ prefix always means a username, including @U123ABC.`,
 	Example: `  # Get user info by ID
   slk users info --user U123ABC
 
@@ -123,26 +128,26 @@ func init() {
 	usersListCmd.Flags().Bool("include-bots", false, "Include bot users in results")
 
 	// users info flags
-	usersInfoCmd.Flags().String("user", "", "User ID or @username (required)")
+	usersInfoCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (required)")
 	_ = usersInfoCmd.MarkFlagRequired("user")
 
 	// users presence flags
-	usersPresenceCmd.Flags().String("user", "", "User ID or @username (required)")
+	usersPresenceCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (required)")
 	_ = usersPresenceCmd.MarkFlagRequired("user")
 
 	usersLookupCmd.Flags().String("email", "", "Email address (required)")
 	_ = usersLookupCmd.MarkFlagRequired("email")
-	usersProfileCmd.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	usersProfileCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (default: authenticated user)")
 	usersProfileCmd.Flags().Bool("include-labels", false, "Include custom profile field labels")
-	usersStatusGetCmd.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	usersStatusGetCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (default: authenticated user)")
 	for _, command := range []*cobra.Command{usersStatusSetCmd, usersStatusClearCmd} {
-		command.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+		command.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (default: authenticated user)")
 	}
 	usersStatusSetCmd.Flags().String("text", "", "Custom status text")
 	usersStatusSetCmd.Flags().String("emoji", "", "Custom status emoji, for example :headphones:")
 	usersStatusSetCmd.Flags().Duration("expires-in", 0, "Clear status after a duration, for example 2h")
 	usersStatusSetCmd.Flags().String("expires-at", "", "Expiration as Unix seconds or RFC3339 timestamp")
-	usersConversationsCmd.Flags().String("user", "", "User ID or @username (default: authenticated user)")
+	usersConversationsCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (default: authenticated user)")
 	usersConversationsCmd.Flags().String("types", "public_channel,private_channel,mpim,im", "Comma-separated conversation types")
 	usersConversationsCmd.Flags().IntP("limit", "l", 100, "Maximum conversations per page")
 	usersConversationsCmd.Flags().String("cursor", "", "Continuation cursor")
@@ -432,8 +437,8 @@ func splitNonEmpty(value string) []string {
 	return result
 }
 
-// resolveUserID accepts IDs, mentions, handles, names, and emails. The shared
-// resolver rejects ambiguous names instead of silently selecting an account.
+// resolveUserID accepts canonical uppercase IDs, strict mentions, and explicit
+// @usernames through the shared resolver. Names and emails are not aliases.
 func resolveUserID(ctx context.Context, client *slack.APIClient, input string) (string, error) {
 	userID, err := client.ResolveUserReference(ctx, input)
 	if errors.Is(err, context.DeadlineExceeded) {

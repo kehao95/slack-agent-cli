@@ -22,6 +22,28 @@ type mockUserClient struct {
 	callsListAll int
 }
 
+func TestMentionNameNeverUsesPresentationNames(t *testing.T) {
+	for _, handle := range []string{"alice.handle", ""} {
+		t.Run(handle, func(t *testing.T) {
+			client := &mockUserClient{singleUser: &slackapi.User{
+				ID: "U123", Name: handle, RealName: "Alice Legal",
+				Profile: slackapi.UserProfile{DisplayName: "Alice Display"},
+			}}
+			resolver := NewResolver(client)
+			want := handle
+			if want == "" {
+				want = "U123"
+			}
+			if got := resolver.GetMentionName(context.Background(), "U123"); got != want {
+				t.Fatalf("GetMentionName = %q, want %q", got, want)
+			}
+			if got := resolver.GetDisplayName(context.Background(), "U123"); got != "Alice Display" {
+				t.Fatalf("presentation name lost: %q", got)
+			}
+		})
+	}
+}
+
 func (m *mockUserClient) GetUserInfo(ctx context.Context, userID string) (*slackapi.User, error) {
 	m.callsGetOne++
 	if m.err != nil {

@@ -31,7 +31,7 @@ func init() {
 	usergroupsMembersCmd.Flags().String("group", "", "User group ID, @handle, or name (required)")
 	_ = usergroupsMembersCmd.MarkFlagRequired("group")
 	usergroupsMembersSetCmd.Flags().String("group", "", "User group ID, @handle, or name (required)")
-	usergroupsMembersSetCmd.Flags().String("members", "", "Comma-separated user IDs or @usernames (required)")
+	usergroupsMembersSetCmd.Flags().String("members", "", "Comma-separated canonical user IDs, <@ID> mentions, or @usernames (required)")
 	_ = usergroupsMembersSetCmd.MarkFlagRequired("group")
 	_ = usergroupsMembersSetCmd.MarkFlagRequired("members")
 
@@ -95,12 +95,9 @@ func runUsergroupsMembersSet(cmd *cobra.Command, _ []string) error {
 	defer cmdCtx.Close()
 	group, _ := cmd.Flags().GetString("group")
 	value, _ := cmd.Flags().GetString("members")
-	members := splitNonEmpty(value)
-	for i, member := range members {
-		members[i], err = resolveUserID(cmdCtx.Ctx, cmdCtx.Client, member)
-		if err != nil {
-			return fmt.Errorf("resolve member %q: %w", member, err)
-		}
+	members, err := resolveUserReferences(cmdCtx, splitNonEmpty(value))
+	if err != nil {
+		return fmt.Errorf("resolve members: %w", err)
 	}
 	result, err := usergroupops.NewService(cmdCtx.Client).SetMembers(cmdCtx.Ctx, group, members)
 	if err != nil {

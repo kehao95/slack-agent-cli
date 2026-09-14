@@ -30,9 +30,13 @@ type Event struct {
 	ConversationType string          `json:"conversation_type,omitempty"`
 	User             string          `json:"user,omitempty"`
 	UserID           string          `json:"user_id,omitempty"`
+	Username         string          `json:"username,omitempty"`
+	DisplayName      string          `json:"display_name,omitempty"`
 	BotID            string          `json:"bot_id,omitempty"`
 	ItemUser         string          `json:"item_user,omitempty"`
 	ItemUserID       string          `json:"item_user_id,omitempty"`
+	ItemUsername     string          `json:"item_username,omitempty"`
+	ItemDisplayName  string          `json:"item_display_name,omitempty"`
 	Reaction         string          `json:"reaction,omitempty"`
 	TS               string          `json:"ts,omitempty"`
 	ThreadTS         string          `json:"thread_ts,omitempty"`
@@ -594,6 +598,10 @@ func scanEventInto(event *Event, scanner interface {
 	parsed.Cursor = cursor
 	parsed.ReceivedAt = receivedAt
 	parsed.IsSelf = isSelf == 1
+	// Older rows stored resolved display references in these fields. Their
+	// companion IDs are authoritative; never promote old labels to usernames.
+	parsed.User = parsed.UserID
+	parsed.ItemUser = parsed.ItemUserID
 	*event = parsed
 	return nil
 }

@@ -2,13 +2,45 @@ package users
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	slackapi "github.com/slack-go/slack"
 )
 
 // Note: mockUserClient is already defined in resolver_test.go
+
+func TestUserInfoIdentityFields(t *testing.T) {
+	for _, handle := range []string{"alice.handle", ""} {
+		t.Run(handle, func(t *testing.T) {
+			info := toUserInfo(&slackapi.User{ID: "U123", Name: handle, RealName: "Alice Legal", Profile: slackapi.UserProfile{DisplayName: "Alice Display"}})
+			data, err := json.Marshal(info)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]interface{}
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got["user_id"] != "U123" || got["id"] != "U123" || got["name"] != handle || got["display_name"] != "Alice Display" {
+				t.Fatalf("incorrect identity fields: %s", data)
+			}
+			if handle == "" {
+				if _, present := got["username"]; present {
+					t.Fatalf("fabricated username: %s", data)
+				}
+			} else if got["username"] != "@"+handle {
+				t.Fatalf("incorrect lookup handle: %s", data)
+			}
+			human := strings.Join((&UserInfoResult{OK: true, User: info}).Lines(), "\n") + strings.Join((&ListResult{Users: []UserInfo{info}}).Lines(), "\n")
+			if strings.Contains(human, "@U123") || strings.Contains(human, "@Alice Display") {
+				t.Fatalf("fabricated human handle: %s", human)
+			}
+		})
+	}
+}
 
 func TestService_List(t *testing.T) {
 	tests := []struct {

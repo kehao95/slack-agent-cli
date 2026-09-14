@@ -25,8 +25,8 @@ var authTestCmd = &cobra.Command{
 
 var authWhoamiCmd = &cobra.Command{
 	Use:   "whoami",
-	Short: "Show current user identity",
-	Long:  "Display information about the currently authenticated user.",
+	Short: "Show the configured token principal",
+	Long:  "Display the configured token principal and active role. This identifies the authenticated Slack account, not the person who triggered an agent task. User IDs are stable; username is the exact @handle.",
 	Example: `  slk auth whoami
   slk auth whoami --human`,
 	RunE: runAuthWhoami,
@@ -49,6 +49,7 @@ func runAuthTest(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("auth test: %w", err)
 	}
+	result.Role = cmdCtx.AuthRole
 
 	return output.Print(cmd, result)
 }
