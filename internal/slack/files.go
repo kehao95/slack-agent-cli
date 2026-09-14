@@ -121,7 +121,7 @@ func (c *APIClient) DownloadFile(ctx context.Context, downloadURL string, writer
 	if writer == nil {
 		return fmt.Errorf("download writer is required")
 	}
-	if err := c.sdk.GetFileContext(ctx, downloadURL, writer); err != nil {
+	if err := c.sdk.GetFileContext(withDownloadPermission(ctx), downloadURL, writer); err != nil {
 		return fmt.Errorf("download file: %w", err)
 	}
 	return nil

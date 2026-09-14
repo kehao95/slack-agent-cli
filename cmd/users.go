@@ -38,12 +38,15 @@ Output (JSON):
         "display_name": "Alice Smith",
         "is_bot": false,
         "is_deleted": false,
-        "email": "alice@example.com"
+        "email": "alice@example.com",
+        "email_available": true
       }
     ]
   }
 
-Note: Set --include-bots to include bot users in results.`,
+Note: Set --include-bots to include bot users in results. Each user includes
+email_available; false means Slack returned no email, not that the user is missing.
+Email access requires users:read.email, but Slack may also omit email for other reasons.`,
 	Example: `  # List all users
   slk users list
 
@@ -71,6 +74,7 @@ Output (JSON):
       "real_name": "Alice Smith",
       "display_name": "Alice Smith",
       "email": "alice@example.com",
+      "email_available": true,
       "title": "Engineer",
       "is_bot": false,
       "is_deleted": false
@@ -87,7 +91,11 @@ User Identifier:
 
 IDs must use their original uppercase spelling. Bare usernames, display names,
 real names, and email aliases are not accepted. Use users lookup --email for email.
-An explicit @ prefix always means a username, including @U123ABC.`,
+An explicit @ prefix always means a username, including @U123ABC.
+
+Successful user results include email_available. An unavailable email does not
+mean the user was not found. Email access requires users:read.email, but Slack
+may also omit email for other reasons. No email is inferred from a username.`,
 	Example: `  # Get user info by ID
   slk users info --user U123ABC
 
@@ -106,8 +114,8 @@ var usersPresenceCmd = &cobra.Command{
 	RunE: runUsersPresence,
 }
 
-var usersLookupCmd = &cobra.Command{Use: "lookup", Short: "Look up a user by email", Example: "  slk users lookup --email alice@example.com", RunE: runUsersLookup}
-var usersProfileCmd = &cobra.Command{Use: "profile", Short: "Get a user profile", Example: "  slk users profile\n  slk users profile --user @alice --include-labels", RunE: runUsersProfile}
+var usersLookupCmd = &cobra.Command{Use: "lookup", Short: "Look up a user by email", Long: "Look up a user with users.lookupByEmail; requires users:read.email. A successful result reports email_available based on Slack's response and never fills a missing email from the input or username.", Example: "  slk users lookup --email alice@example.com", RunE: runUsersLookup}
+var usersProfileCmd = &cobra.Command{Use: "profile", Short: "Get a user profile", Long: "Get a user profile using users.profile.get (users.profile:read). A successful result includes email_available; false means the profile was found without an email. Email access requires users:read.email, but Slack may also omit email for other reasons.", Example: "  slk users profile\n  slk users profile --user @alice --include-labels", RunE: runUsersProfile}
 var usersStatusCmd = &cobra.Command{Use: "status", Short: "Get or update custom status"}
 var usersStatusGetCmd = &cobra.Command{Use: "get", Short: "Get custom status", Example: "  slk users status get\n  slk users status get --user @alice", RunE: runUsersStatusGet}
 var usersStatusSetCmd = &cobra.Command{Use: "set", Short: "Set custom status", Example: "  slk users status set --text 'In focus time' --emoji :headphones: --expires-in 2h\n  slk users status set --text 'OOO' --expires-at 2026-09-01T09:00:00Z", RunE: runUsersStatusSet}

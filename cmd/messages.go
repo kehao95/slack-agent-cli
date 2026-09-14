@@ -76,7 +76,9 @@ Channel Resolution:
 var messagesSearchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Search messages",
-	Long: `Search messages across the workspace.
+	Long: `Search messages across the workspace through search.messages using the active
+user credential (SLACK_CLI_ROLE=user) with search:read. Results follow that user's
+visibility. Bot credentials are unsupported; no stored user-token fallback occurs.
 
 Output (JSON):
   {
@@ -394,6 +396,9 @@ func isChannelID(s string) bool {
 }
 
 func runMessagesSearch(cmd *cobra.Command, args []string) error {
+	if err := requireOrdinarySearchUser("search.messages"); err != nil {
+		return err
+	}
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
 		return err
@@ -415,8 +420,7 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid sort-dir value '%s': must be 'asc' or 'desc'", sortDir)
 	}
 
-	userClient := slack.NewUserClient(cmdCtx.AuthToken)
-	result, err := userClient.SearchMessages(cmdCtx.Ctx, query, slack.SearchParams{
+	page, err := cmdCtx.Client.SearchResources(cmdCtx.Ctx, slack.SearchKindMessages, query, slack.SearchParams{
 		Count:     limit,
 		Page:      1,
 		SortBy:    sortBy,
@@ -426,6 +430,7 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("search messages: %w", err)
 	}
+	result := &slack.SearchResult{Query: page.Query, Messages: page.Messages}
 	result.SetUserResolver(cmdCtx.Ctx, cmdCtx.UserResolver)
 	result.SetChannelResolver(cmdCtx.Ctx, cmdCtx.ChannelResolver)
 	result.SetRawJSON(rawJSON || !resolvedJSON)

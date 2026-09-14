@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/policy"
 	"github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,11 @@ var apiCmd = &cobra.Command{
 The request body must be a JSON object. Pass it inline, read it from a file with
 --data @path.json, or read it from stdin with --data -. The response is emitted
 as Slack JSON without SDK-specific reshaping.
+
+SLACK_CLI_READ_ONLY=true permits only reviewed read methods. Writes and unknown
+methods fail before reading input or authenticating. Ordinary search.all,
+search.messages, and search.files require the active user role with search:read;
+bot role never falls back to another stored token.
 
 When --all is set, cursor pagination is followed until response_metadata.next_cursor
 is empty. The output becomes an object containing every complete Slack response
@@ -56,6 +62,12 @@ type apiPagesOutput struct {
 func runAPI(cmd *cobra.Command, args []string) error {
 	method := strings.TrimSpace(args[0])
 	if err := slack.ValidateAPIMethod(method); err != nil {
+		return err
+	}
+	if err := policy.CheckMethod(method); err != nil {
+		return err
+	}
+	if err := requireOrdinarySearchUser(method); err != nil {
 		return err
 	}
 

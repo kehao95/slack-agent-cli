@@ -2,15 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/config"
+	cerrors "github.com/kehao95/slack-agent-cli/internal/errors"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	searchops "github.com/kehao95/slack-agent-cli/internal/search"
 	appslack "github.com/kehao95/slack-agent-cli/internal/slack"
 	"github.com/spf13/cobra"
 )
 
-var searchCmd = &cobra.Command{Use: "search", Short: "Search messages and files", Long: "Unified workspace search across Slack messages, files, or both resource families."}
+var searchCmd = &cobra.Command{Use: "search", Short: "Search messages and files", Long: "Unified workspace search across Slack messages, files, or both resource families. Uses the active user credential with search:read; bot role is not supported and never falls back to another stored token."}
 var searchAllCmd = newSearchResourceCommand(appslack.SearchKindAll, "Search messages and files")
 var searchMessagesCmd = newSearchResourceCommand(appslack.SearchKindMessages, "Search messages")
 var searchFilesCmd = newSearchResourceCommand(appslack.SearchKindFiles, "Search files")
@@ -23,6 +26,7 @@ func init() {
 func newSearchResourceCommand(kind, short string) *cobra.Command {
 	command := &cobra.Command{
 		Use: kind, Short: short,
+		Long:    fmt.Sprintf("Search Slack through search.%s as the active user credential (SLACK_CLI_ROLE=user). Requires search:read. Results follow that user's visibility. Bot role is unsupported; slk never falls back to a stored user token.", kind),
 		Example: fmt.Sprintf("  slk search %s --query 'deployment failed'\n  slk search %s --query 'report' --page 2 --limit 50\n  slk search %s --query 'incident' --all", kind, kind, kind),
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runUnifiedSearch(cmd, kind) },
 	}
@@ -42,6 +46,9 @@ func newSearchResourceCommand(kind, short string) *cobra.Command {
 }
 
 func runUnifiedSearch(cmd *cobra.Command, kind string) error {
+	if err := requireOrdinarySearchUser("search." + kind); err != nil {
+		return err
+	}
 	query, _ := cmd.Flags().GetString("query")
 	limit, _ := cmd.Flags().GetInt("limit")
 	page, _ := cmd.Flags().GetInt("page")
@@ -88,4 +95,26 @@ func runUnifiedSearch(cmd *cobra.Command, kind string) error {
 		result.Messages.SetRawJSON(rawJSON || !resolvedJSON)
 	}
 	return output.Print(cmd, result)
+}
+
+// requireOrdinarySearchUser performs local credential validation before any
+// command setup or network access, including generic API calls to these methods.
+func requireOrdinarySearchUser(method string) error {
+	switch method {
+	case "search.all", "search.messages", "search.files":
+	default:
+		return nil
+	}
+	cfg, _, err := config.Load(cfgFile)
+	if err != nil {
+		return cerrors.ConfigError("load search credentials: %w", err)
+	}
+	token, _, role, authErr := cfg.ActiveAuth()
+	if role == config.RoleBot || strings.HasPrefix(token, "xoxb-") {
+		return cerrors.AuthError("%s requires an active user credential with search:read; bot credentials are not supported. Set SLACK_CLI_ROLE=user and configure SLACK_USER_TOKEN (or SLACK_CLIENT_TOKEN with SLACK_CLIENT_COOKIE). No stored user-token fallback is performed", method)
+	}
+	if authErr != nil {
+		return cerrors.ConfigError("load search credentials: %w", authErr)
+	}
+	return nil
 }

@@ -46,14 +46,15 @@ type UserInfo struct {
 	UserID   string `json:"user_id"`
 	Username string `json:"username,omitempty"`
 	// ID and Name retain their native Slack meanings for compatibility.
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	RealName    string `json:"real_name"`
-	DisplayName string `json:"display_name"`
-	Email       string `json:"email,omitempty"`
-	Title       string `json:"title,omitempty"`
-	IsBot       bool   `json:"is_bot"`
-	IsDeleted   bool   `json:"is_deleted"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	RealName       string `json:"real_name"`
+	DisplayName    string `json:"display_name"`
+	Email          string `json:"email,omitempty"`
+	EmailAvailable bool   `json:"email_available"`
+	Title          string `json:"title,omitempty"`
+	IsBot          bool   `json:"is_bot"`
+	IsDeleted      bool   `json:"is_deleted"`
 }
 
 // UserInfoResult contains the result of a user info lookup.
@@ -148,9 +149,10 @@ func (s *Service) LookupByEmail(ctx context.Context, email string) (*UserInfoRes
 }
 
 type ProfileResult struct {
-	OK      bool                 `json:"ok"`
-	UserID  string               `json:"user_id,omitempty"`
-	Profile slackapi.UserProfile `json:"profile"`
+	OK             bool                 `json:"ok"`
+	UserID         string               `json:"user_id,omitempty"`
+	Profile        slackapi.UserProfile `json:"profile"`
+	EmailAvailable bool                 `json:"email_available"`
 }
 
 func (s *Service) GetProfile(ctx context.Context, userID string, includeLabels bool) (*ProfileResult, error) {
@@ -162,7 +164,7 @@ func (s *Service) GetProfile(ctx context.Context, userID string, includeLabels b
 	if err != nil {
 		return nil, err
 	}
-	return &ProfileResult{OK: true, UserID: userID, Profile: *profile}, nil
+	return &ProfileResult{OK: true, UserID: userID, Profile: *profile, EmailAvailable: strings.TrimSpace(profile.Email) != ""}, nil
 }
 
 type StatusResult struct {
@@ -231,6 +233,7 @@ func (r *ListResult) Lines() []string {
 	title := fmt.Sprintf("Workspace Members (%d)", len(r.Users))
 	lines := []string{title, strings.Repeat("-", len(title))}
 
+	missingEmail := false
 	for _, u := range r.Users {
 		name := userHandleOrID(u)
 		displayName := u.DisplayName
@@ -252,7 +255,14 @@ func (r *ListResult) Lines() []string {
 			line += " [deleted]"
 		}
 
+		if strings.TrimSpace(u.Email) == "" {
+			line += " [email unavailable]"
+			missingEmail = true
+		}
 		lines = append(lines, line)
+	}
+	if missingEmail {
+		lines = append(lines, "Email access requires users:read.email; Slack may also omit email for other reasons.")
 	}
 
 	if r.NextCursor != "" {
@@ -280,9 +290,7 @@ func (r *UserInfoResult) Lines() []string {
 		lines = append(lines, fmt.Sprintf("Name: %s", displayName))
 	}
 
-	if u.Email != "" {
-		lines = append(lines, fmt.Sprintf("Email: %s", u.Email))
-	}
+	lines = append(lines, emailLine(u.Email))
 
 	if u.Title != "" {
 		lines = append(lines, fmt.Sprintf("Title: %s", u.Title))
@@ -342,7 +350,7 @@ func (r *ProfileResult) Lines() []string {
 	if user == "" {
 		user = "current"
 	}
-	return []string{"User Profile", fmt.Sprintf("User: %s", user), fmt.Sprintf("Display name: %s", r.Profile.DisplayName), fmt.Sprintf("Real name: %s", r.Profile.RealName), fmt.Sprintf("Title: %s", r.Profile.Title), fmt.Sprintf("Email: %s", r.Profile.Email)}
+	return []string{"User Profile", fmt.Sprintf("User: %s", user), fmt.Sprintf("Display name: %s", r.Profile.DisplayName), fmt.Sprintf("Real name: %s", r.Profile.RealName), fmt.Sprintf("Title: %s", r.Profile.Title), emailLine(r.Profile.Email)}
 }
 
 func (r *StatusResult) Lines() []string {
@@ -371,16 +379,17 @@ func toUserInfo(u *slackapi.User) UserInfo {
 		username = "@" + u.Name
 	}
 	return UserInfo{
-		UserID:      u.ID,
-		Username:    username,
-		ID:          u.ID,
-		Name:        u.Name,
-		RealName:    u.RealName,
-		DisplayName: u.Profile.DisplayName,
-		Email:       u.Profile.Email,
-		Title:       u.Profile.Title,
-		IsBot:       u.IsBot,
-		IsDeleted:   u.Deleted,
+		UserID:         u.ID,
+		Username:       username,
+		ID:             u.ID,
+		Name:           u.Name,
+		RealName:       u.RealName,
+		DisplayName:    u.Profile.DisplayName,
+		Email:          u.Profile.Email,
+		EmailAvailable: strings.TrimSpace(u.Profile.Email) != "",
+		Title:          u.Profile.Title,
+		IsBot:          u.IsBot,
+		IsDeleted:      u.Deleted,
 	}
 }
 
@@ -392,4 +401,11 @@ func userHandleOrID(u UserInfo) string {
 		return "@" + u.Name
 	}
 	return u.ID
+}
+
+func emailLine(email string) string {
+	if strings.TrimSpace(email) != "" {
+		return "Email: " + email
+	}
+	return "Email: unavailable (profile found; email access requires users:read.email, but Slack may also omit email for other reasons)"
 }

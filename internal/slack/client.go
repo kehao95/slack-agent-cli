@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kehao95/slack-agent-cli/internal/policy"
+
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"
 )
@@ -23,8 +25,14 @@ type APIClient struct {
 // New creates a new APIClient using the provided user token.
 // For xoxc- tokens (client tokens), use NewWithCookie instead.
 func New(userToken string, options ...slackapi.Option) *APIClient {
-	httpClient := &http.Client{}
-	sdkOptions := append([]slackapi.Option{slackapi.OptionHTTPClient(httpClient)}, options...)
+	httpClient := guardedHTTPClient("")
+	sdkOptions := append([]slackapi.Option{slackapi.OptionHTTPClient(policyHTTPClient{client: httpClient})}, options...)
+	// SDK HTTP options are opaque and cannot be wrapped through public APIs.
+	// In restricted mode our final option must win; normal mode retains the
+	// original custom-client behavior. Endpoint and other options still apply.
+	if readOnly, err := policy.ReadOnly(); readOnly || err != nil {
+		sdkOptions = append(sdkOptions, slackapi.OptionHTTPClient(policyHTTPClient{client: httpClient}))
+	}
 	return &APIClient{
 		sdk:           slackapi.New(userToken, sdkOptions...),
 		token:         userToken,
@@ -36,14 +44,9 @@ func New(userToken string, options ...slackapi.Option) *APIClient {
 // NewWithCookie creates a new APIClient for xoxc- tokens that require a cookie.
 // The cookie parameter should be the value of the 'd' cookie (xoxd-...).
 func NewWithCookie(token, cookie string) *APIClient {
-	httpClient := &http.Client{
-		Transport: &cookieTransport{
-			cookie: cookie,
-			base:   http.DefaultTransport,
-		},
-	}
+	httpClient := guardedHTTPClient(cookie)
 	return &APIClient{
-		sdk:           slackapi.New(token, slackapi.OptionHTTPClient(httpClient)),
+		sdk:           slackapi.New(token, slackapi.OptionHTTPClient(policyHTTPClient{client: httpClient})),
 		token:         token,
 		cookie:        cookie,
 		endpoint:      slackapi.APIURL,
@@ -63,22 +66,13 @@ func NewAuto(token, cookie string) *APIClient {
 // NewSocketModeClient creates a socketmode client using the existing user token model plus an
 // app-level token for Socket Mode connection management.
 func NewSocketModeClient(token, cookie, appToken string) *socketmode.Client {
-	var api *slackapi.Client
-	if strings.HasPrefix(token, "xoxc-") && cookie != "" {
-		httpClient := &http.Client{
-			Transport: &cookieTransport{
-				cookie: cookie,
-				base:   http.DefaultTransport,
-			},
-		}
-		api = slackapi.New(
-			token,
-			slackapi.OptionHTTPClient(httpClient),
-			slackapi.OptionAppLevelToken(appToken),
-		)
-	} else {
-		api = slackapi.New(token, slackapi.OptionAppLevelToken(appToken))
+	if !strings.HasPrefix(token, "xoxc-") {
+		cookie = ""
 	}
+	api := slackapi.New(token,
+		slackapi.OptionHTTPClient(policyHTTPClient{client: guardedHTTPClient(cookie)}),
+		slackapi.OptionAppLevelToken(appToken),
+	)
 	return socketmode.New(api)
 }
 

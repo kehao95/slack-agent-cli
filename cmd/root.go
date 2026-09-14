@@ -14,8 +14,9 @@ var (
 	cfgFile string
 
 	rootCmd = &cobra.Command{
-		Use:   "slk",
-		Short: "Slack for Non-Humans™",
+		Use:               "slk",
+		Short:             "Slack for Non-Humans™",
+		PersistentPreRunE: enforceCommandPolicy,
 		Long: `Slack for Non-Humans™ - Machine-first CLI for Slack. JSON by default.
 
 	Quick Start:
@@ -51,11 +52,12 @@ Exit Codes:
   3 - Authentication error (invalid/expired tokens)
   4 - Rate limit exceeded
   5 - Network error
-  6 - Permission denied (missing OAuth scopes)
+  6 - Permission denied (missing OAuth scopes or read_only_violation)
   7 - Resource not found (channel, user, message)
   124 - Wait timeout (for example events next --timeout)
 
 Environment Variables:
+  SLACK_CLI_READ_ONLY  true blocks remote mutations and unreviewed API methods
   SLACK_CLI_ROLE       Active auth role: user or bot (default: user)
   SLACK_USER_TOKEN     Override user token from config
   SLACK_BOT_TOKEN      Override bot token from config

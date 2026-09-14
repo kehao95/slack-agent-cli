@@ -237,7 +237,7 @@ func TestListResult_Lines(t *testing.T) {
 					{ID: "U2", Name: "bot", DisplayName: "Bot", IsBot: true},
 				},
 			},
-			wantLines: 4, // title, separator, 2 users
+			wantLines: 5, // title, separator, 2 users, email availability note
 			wantEmpty: false,
 		},
 		{
@@ -258,7 +258,7 @@ func TestListResult_Lines(t *testing.T) {
 				},
 				NextCursor: "cursor123",
 			},
-			wantLines: 5, // title, separator, 1 user, blank line, cursor
+			wantLines: 6, // title, separator, 1 user, email availability note, blank line, cursor
 			wantEmpty: false,
 		},
 	}

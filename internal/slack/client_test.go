@@ -42,9 +42,9 @@ func TestSearchParamsValidation(t *testing.T) {
 				_, _ = w.Write([]byte(`{"ok":true,"messages":{"total":0,"matches":[]}}`))
 			}))
 			defer server.Close()
-			client := &UserAPIClient{sdk: slackapi.New("xoxp-test-token", slackapi.OptionAPIURL(server.URL+"/"))}
+			client := New("xoxp-test-token", slackapi.OptionAPIURL(server.URL+"/"))
 			ctx := context.Background()
-			_, err := client.SearchMessages(ctx, tt.query, SearchParams{
+			_, err := client.SearchResources(ctx, SearchKindMessages, tt.query, SearchParams{
 				Count:   20,
 				Page:    1,
 				SortBy:  "timestamp",

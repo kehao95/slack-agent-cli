@@ -20,6 +20,7 @@ Humans want a UI, we just want a clean pipe.
 - **Pipe-First Design** - Output is always pure JSON (stdout) while logs go to stderr.
 - **Agent-Ready** - Stateless authentication, perfect for LLMs, scripts, and cron jobs.
 - **Smart Caching** - Resolves channel names (`#general`) to IDs (`C123...`) locally for speed.
+- **Read-Only Guardrail** - `SLACK_CLI_READ_ONLY=true` blocks remote mutations and unreviewed API methods before dispatch. See the [boundary and agent recipe](docs/READ_ONLY.md).
 - **Image Uploads** - Send local images into channels or threads with Slack's current external upload API.
 
 ## Quick Start
@@ -383,6 +384,7 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 
 | Variable | Description |
 |----------|-------------|
+| `SLACK_CLI_READ_ONLY` | Strict boolean: `true` permits reviewed reads and local operations; unset preserves read/write behavior |
 | `SLACK_CLI_ROLE` | Active auth role: `user` or `bot` (default: `user`) |
 | `SLACK_USER_TOKEN` | Override user token from config |
 | `SLACK_BOT_TOKEN` | Override bot token from config |
@@ -400,16 +402,17 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 | 3 | Authentication error (invalid/expired tokens) |
 | 4 | Rate limit exceeded |
 | 5 | Network error |
-| 6 | Permission denied (missing scopes) |
+| 6 | Permission denied (missing scopes or `read_only_violation`) |
 | 7 | Resource not found (channel, user, message) |
 | 124 | Wait timeout, e.g. `events next --timeout` |
 
 ## Open
 
-- [Issue #4](https://github.com/kehao95/slack-agent-cli/issues/4): the global
-  identity contract is implemented. Remaining work includes the environment
-  read-only policy, User Action Token contextual search, and explicit email
-  availability reporting. Host context forwarding remains separate work.
+- [Issue #5](https://github.com/kehao95/slack-agent-cli/issues/5): deferred User
+  Action Token and contextual search support. The global identity contract,
+  read-only policy, ordinary search identity checks, and email availability
+  reporting are implemented; see [read-only agent operation](docs/READ_ONLY.md).
+  Host context forwarding remains separate work.
 
 ## License
 
