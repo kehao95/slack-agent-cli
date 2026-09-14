@@ -408,6 +408,13 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 
 ## Open
 
+Current online validation and credential limitations are recorded in
+[Controlled Slack verification](docs/LIVE_TESTING.md).
+
+- Live follow-up: repeat profile/email-present checks with suitable scopes,
+  and investigate repeated directory-lookup timeouts and bot-message search
+  visibility. The live record distinguishes these gaps from passing scenarios.
+
 - [Issue #5](https://github.com/kehao95/slack-agent-cli/issues/5): deferred User
   Action Token and contextual search support. The global identity contract,
   read-only policy, ordinary search identity checks, and email availability

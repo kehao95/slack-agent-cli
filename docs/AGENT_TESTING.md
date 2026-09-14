@@ -1,5 +1,12 @@
 # Agent Testing Standards for slack-agent-cli
 
+For online verification, follow [Controlled Slack verification](LIVE_TESTING.md).
+It records the current test-channel protocol and the latest live results. The
+examples below include historical output assumptions: use the current command
+contract for actual schemas and exit codes. In particular, command failures
+are reported on stderr, and not every successful resource response has an `ok`
+field. The [read-only contract](READ_ONLY.md) defines policy failures.
+
 ## Philosophy
 
 This CLI is designed for **AI agents** to interact with Slack. All output must be machine-parseable, predictable, and scriptable. The testing strategy reflects this machine-first design.
