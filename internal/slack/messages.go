@@ -84,6 +84,7 @@ func (c *APIClient) ListConversationsHistory(ctx context.Context, params History
 	options.Latest = params.Latest
 	options.Oldest = params.Oldest
 	options.Inclusive = params.Inclusive
+	options.IncludeAllMetadata = params.IncludeAllMetadata
 
 	return c.sdk.GetConversationHistoryContext(ctx, options)
 }
@@ -98,6 +99,7 @@ func (c *APIClient) ListThreadReplies(ctx context.Context, params ThreadParams) 
 	opts.Limit = params.Limit
 	opts.Latest = params.Latest
 	opts.Oldest = params.Oldest
+	opts.IncludeAllMetadata = params.IncludeAllMetadata
 	msgs, hasMore, nextCursor, err := c.sdk.GetConversationRepliesContext(ctx, opts)
 	return msgs, hasMore, nextCursor, err
 }

@@ -232,6 +232,7 @@ Options:
   --since <time>         Messages after this time (ISO 8601 or relative: "1h", "2d")
   --until <time>         Messages before this time
   --thread <ts>          Fetch replies in a specific thread
+  --include-metadata     Request full metadata for each returned message
   --include-bots         Include bot messages (default: true)
   --refresh-cache        Force refresh of cached channel/user metadata before running
   --resolved-json        Enrich JSON with channel names and separate user metadata (default: true)
@@ -252,11 +253,26 @@ slk messages list --channel "#general" --thread "1705312365.000100"
 
 # Fetch every thread page while honoring Slack rate limits
 slk messages list --channel "#general" --thread "1705312365.000100" --all
+
+# Return opaque Slack metadata when it is present on messages
+slk messages list --channel "#general" --include-metadata --raw-json
 ```
 
 After the first invocation warms the cache, subsequent `messages list` commands reuse the stored channel and user maps so resolution becomes effectively instantaneous unless `--refresh-cache` is specified.
 
 JSON output adds presentation metadata without replacing user IDs: `user` and `user_id` contain the stable ID, `username` contains only a real `@handle`, and `display_name` is presentation only. Nested user references remain IDs. Channel resolution still uses `#channel` with a companion `channel_id`. Use `--raw-json` for native message fields without identity enrichment; raw `username` is not a trusted handle. See [IDENTITY.md](IDENTITY.md).
+
+`--include-metadata` requests Slack's full metadata for every message from both
+history and thread-reply requests, including every page followed by `--all`.
+When Slack returns it, a message's `metadata` contains `event_type` and an
+opaque `event_payload`; the CLI does not resolve, add, or rewrite user-looking
+values within that payload. Metadata can be absent, in which case the message
+has no `metadata` field. It is distinct from the response-level
+`response_metadata`, which carries pagination data such as `next_cursor`.
+`--raw-json` preserves the native output shape but does not request full
+metadata by itself: pair it with `--include-metadata` when needed. The flag is
+read-only, requires no new scopes or credentials, and does not create trace
+IDs, generate metadata, or guarantee that an execution trace is available.
 
 ---
 

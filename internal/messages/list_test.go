@@ -30,6 +30,9 @@ func (m mockFetcher) ListThread(ctx context.Context, params slack.ThreadParams) 
 func TestServiceListChannel(t *testing.T) {
 	fetcher := mockFetcher{
 		listMessages: func(ctx context.Context, params slack.HistoryParams) ([]slackapi.Message, string, bool, error) {
+			if params.IncludeAllMetadata {
+				t.Fatal("metadata must remain disabled by default")
+			}
 			return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "1", Text: "hello", User: "U1"}}}, "cursor", true, nil
 		},
 		listThread: func(ctx context.Context, params slack.ThreadParams) ([]slackapi.Message, string, bool, error) {
@@ -43,6 +46,65 @@ func TestServiceListChannel(t *testing.T) {
 	}
 	if len(result.Messages) != 1 || result.NextCursor != "cursor" || !result.HasMore {
 		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestServiceListPropagatesMetadataThroughPagesAndRetries(t *testing.T) {
+	for _, thread := range []bool{false, true} {
+		t.Run(fmt.Sprintf("thread=%t", thread), func(t *testing.T) {
+			calls := 0
+			check := func(cursor string, includeAllMetadata bool) ([]slackapi.Message, string, bool, error) {
+				calls++
+				if !includeAllMetadata {
+					t.Fatal("include metadata was not forwarded")
+				}
+				wantCursor := "start"
+				if calls == 3 {
+					wantCursor = "next"
+				}
+				if cursor != wantCursor {
+					t.Fatalf("call %d cursor = %q, want %q", calls, cursor, wantCursor)
+				}
+				switch calls {
+				case 1:
+					return nil, "", false, &slackapi.RateLimitedError{}
+				case 2:
+					return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "1"}}}, "next", true, nil
+				case 3:
+					return []slackapi.Message{{Msg: slackapi.Msg{Timestamp: "2"}}}, "", false, nil
+				default:
+					return nil, "", false, errors.New("unexpected extra page")
+				}
+			}
+			fetcher := mockFetcher{
+				listMessages: func(_ context.Context, params slack.HistoryParams) ([]slackapi.Message, string, bool, error) {
+					if thread {
+						return nil, "", false, errors.New("unexpected history call")
+					}
+					return check(params.Cursor, params.IncludeAllMetadata)
+				},
+				listThread: func(_ context.Context, params slack.ThreadParams) ([]slackapi.Message, string, bool, error) {
+					if !thread {
+						return nil, "", false, errors.New("unexpected thread call")
+					}
+					return check(params.Cursor, params.IncludeAllMetadata)
+				},
+			}
+			params := Params{
+				Channel: "C1", Cursor: "start", All: true, IncludeMetadata: true,
+				RetryRateLimits: true, MaxRetries: 1,
+			}
+			if thread {
+				params.Thread = "1705312365.000100"
+			}
+			result, err := NewService(fetcher).List(context.Background(), params)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if calls != 3 || len(result.Messages) != 2 || result.HasMore || result.NextCursor != "" {
+				t.Fatalf("calls=%d result=%+v", calls, result)
+			}
+		})
 	}
 }
 
@@ -472,6 +534,17 @@ func TestMessageMetadataRemainsOpaque(t *testing.T) {
 			if metadata["event_type"] != "deployment" || !reflect.DeepEqual(metadata["event_payload"], payload) {
 				t.Fatalf("opaque metadata changed: %s", encoded)
 			}
+			wantPayload, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotPayload, err := json.Marshal(metadata["event_payload"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(gotPayload) != string(wantPayload) {
+				t.Fatalf("metadata payload changed: got %s want %s", gotPayload, wantPayload)
+			}
 			for _, id := range resolver.ids {
 				if id != "U123" {
 					t.Fatalf("resolved opaque metadata identity %q", id)
@@ -482,6 +555,64 @@ func TestMessageMetadataRemainsOpaque(t *testing.T) {
 			}
 			if !raw && output.Messages[0]["username"] != "@alice.handle" {
 				t.Fatalf("message author enrichment missing: %s", encoded)
+			}
+		})
+	}
+}
+
+func TestResultMarshalJSONOmitsAbsentMetadata(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		t.Run(fmt.Sprintf("raw=%t", raw), func(t *testing.T) {
+			result := Result{Channel: "C123", Messages: []slackapi.Message{{
+				Msg: slackapi.Msg{User: "U123", Text: "without application metadata"},
+			}}}
+			result.SetRawJSON(raw)
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var output struct {
+				Messages []map[string]interface{} `json:"messages"`
+			}
+			if err := json.Unmarshal(encoded, &output); err != nil {
+				t.Fatal(err)
+			}
+			if _, found := output.Messages[0]["metadata"]; found {
+				t.Fatalf("absent metadata was fabricated: %s", encoded)
+			}
+		})
+	}
+}
+
+func TestResultMarshalJSONOmitsAbsentNestedMessageMetadata(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		t.Run(fmt.Sprintf("raw=%t", raw), func(t *testing.T) {
+			result := Result{Channel: "C123", Messages: []slackapi.Message{{
+				Msg:             slackapi.Msg{User: "U123", Text: "outer"},
+				SubMessage:      &slackapi.Msg{User: "U456", Text: "nested"},
+				PreviousMessage: &slackapi.Msg{User: "U789", Text: "previous"},
+				Root:            &slackapi.Msg{User: "U321", Text: "root"},
+			}}}
+			result.SetRawJSON(raw)
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var output struct {
+				Messages []map[string]interface{} `json:"messages"`
+			}
+			if err := json.Unmarshal(encoded, &output); err != nil {
+				t.Fatal(err)
+			}
+			message := output.Messages[0]
+			for _, path := range []string{"", "message", "previous_message", "root"} {
+				value := message
+				if path != "" {
+					value = message[path].(map[string]interface{})
+				}
+				if _, found := value["metadata"]; found {
+					t.Fatalf("absent metadata was fabricated at %q: %s", path, encoded)
+				}
 			}
 		})
 	}

@@ -110,6 +110,25 @@ User Action Token and contextual search are deferred to
 action-token option or contextual command; `assistant.search.context` is not in
 the read-only allowlist. Host event-context forwarding is separate work.
 
+## Message metadata recipe
+
+`messages list --include-metadata` remains within the existing read-only
+history and thread-reply boundary. It asks Slack to include full metadata on
+each returned message and does not require a new scope or credential. Metadata
+is optional: use it only when a returned message actually has an execution or
+other metadata payload.
+
+```bash
+SLACK_CLI_READ_ONLY=true slk messages list \
+  --channel C12345 --include-metadata --raw-json --all \
+  | jq '.messages[] | select(.metadata? != null) | .metadata'
+```
+
+Message `metadata` (`event_type` and opaque `event_payload`) is different from
+the response's `response_metadata`, which holds cursor pagination state.
+`--raw-json` does not itself ask Slack for full message metadata. The option
+does not create an ID, trace, or export, and missing metadata is a valid result.
+
 ## Verification
 
 `cmd/policy_test.go` runs the actual Cobra command tree in isolated subprocesses
