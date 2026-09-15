@@ -52,6 +52,13 @@ Output (JSON):
 
 User identity fields remain stable IDs. Resolution adds username (exact @handle) and display_name (presentation only), while channel names may be resolved. Use --raw-json to disable enrichment and retain native Slack field meanings; native username may be an author alias, so use user IDs for follow-up calls.
 
+Message Metadata:
+  - --include-metadata asks Slack for full per-message metadata on history and thread replies
+  - A present message metadata value has event_type and an opaque event_payload; payload values are never resolved or rewritten
+  - Message metadata is distinct from response_metadata, which contains pagination state such as next_cursor
+  - --raw-json does not request metadata; combine it with --include-metadata when native output is needed
+  - Metadata is optional. This read-only request does not create IDs, traces, or exports.
+
 Channel Resolution:
   - Channel IDs (C123ABC) work directly without cache lookup
   - Channel names (#general) use cache, fallback to API if not found
@@ -64,6 +71,9 @@ Channel Resolution:
 
   # Get thread replies
   slk messages list --channel "#general" --thread "1705312365.000100"
+
+  # Request full per-message metadata without identity enrichment
+  slk messages list --channel "#general" --include-metadata --raw-json
   
   # Force refresh cached channel/user metadata
   slk messages list --channel "#general" --refresh-cache
@@ -265,6 +275,7 @@ func init() {
 	messagesListCmd.Flags().Duration("page-delay", 0, "Delay between pages (for rate-sensitive workspaces)")
 	messagesListCmd.Flags().Bool("retry-rate-limit", true, "Honor Slack Retry-After responses")
 	messagesListCmd.Flags().Int("max-retries", 3, "Maximum rate-limit retries per page")
+	messagesListCmd.Flags().Bool("include-metadata", false, "Request full message metadata from Slack")
 	messagesListCmd.Flags().Bool("refresh-cache", false, "Force refresh of cached channel/user metadata")
 	messagesListCmd.Flags().Bool("resolved-json", true, "Enrich JSON with channel names and separate user metadata")
 	messagesListCmd.Flags().Bool("raw-json", false, "Retain native Slack fields without identity enrichment")
@@ -333,6 +344,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	cursor, _ := cmd.Flags().GetString("cursor")
 	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
+	includeMetadata, _ := cmd.Flags().GetBool("include-metadata")
 	refreshCache, _ := cmd.Flags().GetBool("refresh-cache")
 	rawJSON, _ := cmd.Flags().GetBool("raw-json")
 	resolvedJSON, _ := cmd.Flags().GetBool("resolved-json")
@@ -365,6 +377,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		PageDelay:       pageDelay,
 		RetryRateLimits: retryRateLimits,
 		MaxRetries:      maxRetries,
+		IncludeMetadata: includeMetadata,
 	})
 	if err != nil {
 		return err

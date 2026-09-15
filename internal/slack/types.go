@@ -296,22 +296,24 @@ func (r *PinListResult) Lines() []string {
 
 // HistoryParams wraps the arguments to conversations.history.
 type HistoryParams struct {
-	Channel   string
-	Cursor    string
-	Limit     int
-	Latest    string
-	Oldest    string
-	Inclusive bool
+	Channel            string
+	Cursor             string
+	Limit              int
+	Latest             string
+	Oldest             string
+	Inclusive          bool
+	IncludeAllMetadata bool
 }
 
 // ThreadParams wraps arguments for conversations.replies.
 type ThreadParams struct {
-	Channel string
-	Cursor  string
-	Limit   int
-	Latest  string
-	Oldest  string
-	Thread  string
+	Channel            string
+	Cursor             string
+	Limit              int
+	Latest             string
+	Oldest             string
+	Thread             string
+	IncludeAllMetadata bool
 }
 
 // ListChannelsParams controls ListChannels behavior.

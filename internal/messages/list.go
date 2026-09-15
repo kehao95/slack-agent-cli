@@ -54,6 +54,7 @@ type Params struct {
 	PageDelay       time.Duration
 	RetryRateLimits bool
 	MaxRetries      int
+	IncludeMetadata bool
 }
 
 // Result represents list output.
@@ -132,6 +133,7 @@ func (r Result) MarshalJSON() ([]byte, error) {
 		if !r.rawJSON {
 			r.enrichNestedUserReferences(enriched)
 		}
+		omitEmptyMetadata(enriched)
 
 		outputValue.Messages[i] = enriched
 	}
@@ -195,11 +197,13 @@ func (s *Service) fetchPage(ctx context.Context, params Params, cursor, oldest, 
 			msgs, nextCursor, more, err = s.fetcher.ListThread(ctx, slack.ThreadParams{
 				Channel: params.Channel, Limit: params.Limit, Cursor: cursor,
 				Latest: latest, Oldest: oldest, Thread: params.Thread,
+				IncludeAllMetadata: params.IncludeMetadata,
 			})
 		} else {
 			msgs, nextCursor, more, err = s.fetcher.ListMessages(ctx, slack.HistoryParams{
 				Channel: params.Channel, Limit: params.Limit, Cursor: cursor,
 				Latest: latest, Oldest: oldest, Inclusive: false,
+				IncludeAllMetadata: params.IncludeMetadata,
 			})
 		}
 		if err == nil {
@@ -212,6 +216,27 @@ func (s *Service) fetchPage(ctx context.Context, params Params, cursor, oldest, 
 		}
 		if err := waitFor(ctx, rateLimited.RetryAfter); err != nil {
 			return nil, "", false, err
+		}
+	}
+}
+
+// slack-go represents absent metadata as an empty value struct, which encodes
+// as an empty event type and nil payload. The CLI treats that as absent rather
+// than inventing a metadata object for messages that do not have one.
+func omitEmptyMetadata(message map[string]interface{}) {
+	if metadata, ok := message["metadata"].(map[string]interface{}); ok {
+		eventType, _ := metadata["event_type"].(string)
+		payload, present := metadata["event_payload"]
+		if eventType == "" && (!present || payload == nil) {
+			delete(message, "metadata")
+		}
+	}
+
+	// These are Slack message objects. Do not recurse through arbitrary maps:
+	// metadata.event_payload must remain completely opaque.
+	for _, key := range []string{"message", "previous_message", "root"} {
+		if nested, ok := message[key].(map[string]interface{}); ok {
+			omitEmptyMetadata(nested)
 		}
 	}
 }

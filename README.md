@@ -33,6 +33,9 @@ slk messages list --channel C12345
 
 # Pipe directly into other tools
 slk messages list --channel "#general" | jq '.[].text'
+
+# Ask Slack to include per-message metadata; raw output does not request it alone
+slk messages list --channel C12345 --include-metadata --raw-json | jq '.messages[].metadata?'
 ```
 
 ### For Biological Entities
@@ -47,6 +50,18 @@ slk channels list --human
 # List recent messages
 slk messages list --channel "#general" --limit 10 --human
 ```
+
+### Message Metadata
+
+`slk messages list --include-metadata` requests Slack's full metadata for each
+message returned by history or thread-reply listing. A present `metadata` value
+has an `event_type` and opaque `event_payload`; values in that payload are left
+unchanged. This per-message field is separate from response-level
+`response_metadata`, which is used for pagination. Metadata is optional and is
+omitted when Slack does not return it. `--raw-json` controls identity enrichment
+only, so it must be combined with `--include-metadata` to request full
+metadata. The read-only option needs no additional scopes or credentials and
+does not create or guarantee an execution trace.
 
 ## Installation
 
