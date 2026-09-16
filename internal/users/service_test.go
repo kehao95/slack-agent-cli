@@ -144,6 +144,36 @@ func TestService_List(t *testing.T) {
 	}
 }
 
+type serviceListClient struct {
+	next string
+}
+
+func (m *serviceListClient) GetUserInfo(context.Context, string) (*slackapi.User, error) {
+	return nil, errors.New("not used")
+}
+
+func (m *serviceListClient) ListUsers(context.Context, string, int) ([]slackapi.User, string, error) {
+	return nil, m.next, nil
+}
+
+func (m *serviceListClient) GetUserPresence(context.Context, string) (*slackapi.UserPresence, error) {
+	return nil, errors.New("not used")
+}
+
+func TestServiceListPreservesFinalCursorAndEmitsEmptySlice(t *testing.T) {
+	mock := &serviceListClient{next: "final-cursor"}
+	result, err := NewService(mock).List(context.Background(), ListParams{Cursor: "incoming", Limit: 50})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if result.NextCursor != "final-cursor" {
+		t.Fatalf("NextCursor = %q, want final-cursor", result.NextCursor)
+	}
+	if result.Users == nil {
+		t.Fatal("empty Users should be an empty slice, not nil")
+	}
+}
+
 func TestService_GetInfo(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	defaultOAuthUserScopes = "identify,channels:read,channels:history,channels:write,groups:read,groups:history,groups:write,im:read,im:history,im:write,mpim:read,mpim:history,mpim:write,chat:write,users:read,users:read.email,users.profile:read,users.profile:write,usergroups:read,usergroups:write,search:read,reactions:read,reactions:write,pins:read,pins:write,files:read,files:write,lists:read,emoji:read"
-	defaultOAuthBotScopes  = "channels:manage,channels:read,channels:history,groups:read,groups:history,groups:write,im:read,im:history,im:write,mpim:read,mpim:history,mpim:write,chat:write,users:read,users:read.email,users.profile:read,usergroups:read,usergroups:write,reactions:read,reactions:write,pins:read,pins:write,files:read,files:write,lists:read,emoji:read"
+	defaultOAuthUserScopes = "identify,channels:read,channels:history,channels:write,groups:read,groups:history,groups:write,im:read,im:history,im:write,mpim:read,mpim:history,mpim:write,chat:write,users:read,users:read.email,users.profile:read,users.profile:write,users:write,dnd:write,usergroups:read,usergroups:write,search:read,reactions:read,reactions:write,pins:read,pins:write,files:read,files:write,lists:read,lists:write,canvases:read,canvases:write,bookmarks:read,bookmarks:write,dnd:read,emoji:read"
+	defaultOAuthBotScopes  = "channels:manage,channels:read,channels:history,groups:read,groups:history,groups:write,im:read,im:history,im:write,mpim:read,mpim:history,mpim:write,chat:write,users:read,users:read.email,users.profile:read,users:write,usergroups:read,usergroups:write,reactions:read,reactions:write,pins:read,pins:write,files:read,files:write,lists:read,lists:write,canvases:read,canvases:write,bookmarks:read,bookmarks:write,dnd:read,emoji:read"
 )
 
 var (

@@ -11,12 +11,20 @@ import (
 
 // PostMessageOptions wraps arguments for posting a message.
 type PostMessageOptions struct {
-	Text        string
-	ThreadTS    string
-	Blocks      []slackapi.Block
-	UnfurlLinks bool
-	UnfurlMedia bool
-	AsUser      bool
+	Text           string
+	ThreadTS       string
+	Blocks         []slackapi.Block
+	Attachments    []slackapi.Attachment
+	Metadata       *slackapi.SlackMetadata
+	MetadataClear  bool
+	ReplyBroadcast bool
+	ClientMsgID    string
+	TextSet        bool
+	BlocksSet      bool
+	AttachmentsSet bool
+	UnfurlLinks    bool
+	UnfurlMedia    bool
+	AsUser         bool
 }
 
 // PostMessageResult represents the result of posting a message.

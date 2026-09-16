@@ -110,6 +110,80 @@ func (s *Service) SetMembers(ctx context.Context, ref string, members []string) 
 	return &MutationResult{OK: true, Action: "update-members", UserGroup: *group}, nil
 }
 
+// AddMembers appends users to the current membership while preserving the
+// existing order and avoiding duplicate IDs.
+func (s *Service) AddMembers(ctx context.Context, ref string, members []string) (*MutationResult, error) {
+	id, err := s.ResolveID(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	if len(members) == 0 {
+		return nil, fmt.Errorf("at least one member is required")
+	}
+	current, err := s.client.GetUserGroupMembers(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(current)+len(members))
+	merged := make([]string, 0, len(current)+len(members))
+	for _, member := range append(current, members...) {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+		if _, ok := seen[member]; ok {
+			continue
+		}
+		seen[member] = struct{}{}
+		merged = append(merged, member)
+	}
+	group, err := s.client.UpdateUserGroupMembers(ctx, id, merged)
+	if err != nil {
+		return nil, err
+	}
+	return &MutationResult{OK: true, Action: "add-members", UserGroup: *group}, nil
+}
+
+// RemoveMembers removes the requested users from the current membership. A
+// group may become empty, so this intentionally does not use SetMembers.
+func (s *Service) RemoveMembers(ctx context.Context, ref string, members []string) (*MutationResult, error) {
+	id, err := s.ResolveID(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	if len(members) == 0 {
+		return nil, fmt.Errorf("at least one member is required")
+	}
+	remove := make(map[string]struct{}, len(members))
+	for _, member := range members {
+		member = strings.TrimSpace(member)
+		if member != "" {
+			remove[member] = struct{}{}
+		}
+	}
+	if len(remove) == 0 {
+		return nil, fmt.Errorf("at least one member is required")
+	}
+	current, err := s.client.GetUserGroupMembers(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	remaining := make([]string, 0, len(current))
+	for _, member := range current {
+		if _, ok := remove[strings.TrimSpace(member)]; !ok {
+			remaining = append(remaining, member)
+		}
+	}
+	if len(remaining) == 0 {
+		return nil, fmt.Errorf("Slack does not allow removing all user group members; disable the group instead")
+	}
+	group, err := s.client.UpdateUserGroupMembers(ctx, id, remaining)
+	if err != nil {
+		return nil, err
+	}
+	return &MutationResult{OK: true, Action: "remove-members", UserGroup: *group}, nil
+}
+
 func (s *Service) ResolveID(ctx context.Context, ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {

@@ -84,6 +84,20 @@ func TestResolveListID(t *testing.T) {
 	}
 }
 
+func TestResolveListIDRejectsNonSlackReferences(t *testing.T) {
+	for _, input := range []string{
+		"https://example.com/lists/T123/F123",
+		"https://slack.com.example.com/lists/T123/F123",
+		"/lists/T123/F123",
+		"https://example.slack.com/unrelated/lists/T123/F123",
+		"https://user@example.slack.com/lists/T123/F123",
+	} {
+		if _, err := ResolveListID(input); err == nil {
+			t.Errorf("accepted unrelated List reference %q", input)
+		}
+	}
+}
+
 func TestResolveListIDRejectsInvalidInput(t *testing.T) {
 	if _, err := ResolveListID("https://contentsquare.slack.com/archives/C123/p123"); err == nil {
 		t.Fatal("expected invalid list reference to fail")

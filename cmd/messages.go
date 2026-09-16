@@ -298,14 +298,20 @@ func init() {
 	messagesSendCmd.Flags().String("alt-text", "", "Accessible alt text for the uploaded image")
 	messagesSendCmd.Flags().Bool("unfurl-links", true, "Unfurl URLs in message")
 	messagesSendCmd.Flags().Bool("unfurl-media", true, "Unfurl media in message")
+	messagesSendCmd.Flags().Bool("reply-broadcast", false, "Also post a thread reply to the channel timeline")
+	messagesSendCmd.Flags().String("attachments", "", "Legacy Slack attachments JSON, @file, or - for stdin")
+	messagesSendCmd.Flags().String("metadata", "", "Slack message metadata JSON, @file, or - for stdin")
+	messagesSendCmd.Flags().String("client-msg-id", "", "Client-generated idempotency identifier")
 	messagesSendCmd.MarkFlagRequired("channel")
 
 	messagesEditCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
 	messagesEditCmd.Flags().String("ts", "", "Message timestamp (required)")
-	messagesEditCmd.Flags().StringP("text", "t", "", "New message text (required)")
+	messagesEditCmd.Flags().StringP("text", "t", "", "New message text")
+	messagesEditCmd.Flags().String("blocks", "", "Block Kit JSON, @file, or - for stdin")
+	messagesEditCmd.Flags().String("attachments", "", "Legacy Slack attachments JSON, @file, or - for stdin")
+	messagesEditCmd.Flags().String("metadata", "", "Slack message metadata JSON, @file, or - for stdin")
 	messagesEditCmd.MarkFlagRequired("channel")
 	messagesEditCmd.MarkFlagRequired("ts")
-	messagesEditCmd.MarkFlagRequired("text")
 
 	messagesDeleteCmd.Flags().StringP("channel", "c", "", "Channel name or ID (required)")
 	messagesDeleteCmd.Flags().String("ts", "", "Message timestamp (required)")
@@ -461,9 +467,22 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	altText, _ := cmd.Flags().GetString("alt-text")
 	unfurlLinks, _ := cmd.Flags().GetBool("unfurl-links")
 	unfurlMedia, _ := cmd.Flags().GetBool("unfurl-media")
+	replyBroadcast, _ := cmd.Flags().GetBool("reply-broadcast")
+	attachmentsJSON, _ := cmd.Flags().GetString("attachments")
+	metadataJSON, _ := cmd.Flags().GetString("metadata")
+	clientMsgID, _ := cmd.Flags().GetString("client-msg-id")
+	stdinInputs := 0
+	for _, value := range []string{mrkdwn, text, blocksJSON, attachmentsJSON, metadataJSON} {
+		if value == "-" {
+			stdinInputs++
+		}
+	}
+	if stdinInputs > 1 {
+		return fmt.Errorf("only one input may read stdin")
+	}
 
 	// Parse blocks if provided
-	blocks, err := parseBlocksJSON(blocksJSON)
+	blocks, err := parseBlocksJSONInput(cmd, blocksJSON)
 	if err != nil {
 		return err
 	}
@@ -487,17 +506,28 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 	if text != "" {
 		inputCount++
 	}
-	if len(blocks) > 0 {
+	if len(blocks) > 0 || cmd.Flags().Changed("blocks") {
 		inputCount++
 	}
 	if imagePath == "" && inputCount != 1 {
 		return fmt.Errorf("choose exactly one message input: --mrkdwn, --text, --blocks, or --image")
+	}
+	if imagePath != "" && (attachmentsJSON != "" || metadataJSON != "" || replyBroadcast || clientMsgID != "") {
+		return fmt.Errorf("--image cannot be combined with --attachments, --metadata, --reply-broadcast, or --client-msg-id")
 	}
 	if imagePath != "" && inputCount > 1 {
 		return fmt.Errorf("--image accepts at most one caption input: --mrkdwn, --text, or --blocks")
 	}
 	if mrkdwn != "" {
 		text = mrkdwn
+	}
+	attachments, err := parseAttachmentsJSONInput(cmd, attachmentsJSON)
+	if err != nil {
+		return err
+	}
+	metadata, err := parseMessageMetadataJSONInput(cmd, metadataJSON)
+	if err != nil {
+		return err
 	}
 
 	cmdCtx, err := NewCommandContext(cmd, 0)
@@ -527,12 +557,16 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 
 	// Send the message
 	result, err := cmdCtx.Client.PostMessage(cmdCtx.Ctx, channelID, slack.PostMessageOptions{
-		Text:        text,
-		ThreadTS:    thread,
-		Blocks:      blocks,
-		UnfurlLinks: unfurlLinks,
-		UnfurlMedia: unfurlMedia,
-		AsUser:      cmdCtx.AuthRole == config.RoleUser,
+		Text:           text,
+		ThreadTS:       thread,
+		Blocks:         blocks,
+		Attachments:    attachments,
+		Metadata:       metadata,
+		ReplyBroadcast: replyBroadcast,
+		ClientMsgID:    clientMsgID,
+		UnfurlLinks:    unfurlLinks,
+		UnfurlMedia:    unfurlMedia,
+		AsUser:         cmdCtx.AuthRole == config.RoleUser,
 	})
 	if err != nil {
 		return err
@@ -545,15 +579,49 @@ func runMessagesSend(cmd *cobra.Command, args []string) error {
 }
 
 func runMessagesEdit(cmd *cobra.Command, args []string) error {
+	channelInput, _ := cmd.Flags().GetString("channel")
+	timestamp, _ := cmd.Flags().GetString("ts")
+	text, _ := cmd.Flags().GetString("text")
+	blocksJSON, _ := cmd.Flags().GetString("blocks")
+	attachmentsJSON, _ := cmd.Flags().GetString("attachments")
+	metadataJSON, _ := cmd.Flags().GetString("metadata")
+	stdinInputs := 0
+	for _, value := range []string{text, blocksJSON, attachmentsJSON, metadataJSON} {
+		if value == "-" {
+			stdinInputs++
+		}
+	}
+	if stdinInputs > 1 {
+		return fmt.Errorf("only one input may read stdin")
+	}
+	var err error
+	if text == "-" {
+		text, err = readRequiredStdin("text")
+		if err != nil {
+			return err
+		}
+	}
+	blocks, err := parseBlocksJSONInput(cmd, blocksJSON)
+	if err != nil {
+		return err
+	}
+	attachments, err := parseAttachmentsJSONInput(cmd, attachmentsJSON)
+	if err != nil {
+		return err
+	}
+	metadata, metadataClear, err := parseMessageMetadataEditInput(cmd, metadataJSON)
+	if err != nil {
+		return err
+	}
+	if !cmd.Flags().Changed("text") && !cmd.Flags().Changed("blocks") && !cmd.Flags().Changed("attachments") && metadata == nil && !metadataClear {
+		return fmt.Errorf("provide at least one of --text, --blocks, --attachments, or --metadata")
+	}
+
 	cmdCtx, err := NewCommandContext(cmd, 0)
 	if err != nil {
 		return err
 	}
 	defer cmdCtx.Close()
-
-	channelInput, _ := cmd.Flags().GetString("channel")
-	timestamp, _ := cmd.Flags().GetString("ts")
-	text, _ := cmd.Flags().GetString("text")
 
 	// Resolve channel name to ID
 	channelID, err := cmdCtx.ResolveChannel(channelInput)
@@ -562,7 +630,7 @@ func runMessagesEdit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Edit the message
-	result, err := cmdCtx.Client.EditMessage(cmdCtx.Ctx, channelID, timestamp, text)
+	result, err := cmdCtx.Client.EditMessageWithOptions(cmdCtx.Ctx, channelID, timestamp, slack.PostMessageOptions{Text: text, Blocks: blocks, Attachments: attachments, Metadata: metadata, MetadataClear: metadataClear, TextSet: cmd.Flags().Changed("text"), BlocksSet: cmd.Flags().Changed("blocks"), AttachmentsSet: cmd.Flags().Changed("attachments")})
 	if err != nil {
 		return err
 	}

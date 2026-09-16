@@ -2,12 +2,16 @@ package slack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/kehao95/slack-agent-cli/internal/policy"
 	slackapi "github.com/slack-go/slack"
 )
 
@@ -115,16 +119,71 @@ func (c *APIClient) GetFileInfo(ctx context.Context, fileID string) (*slackapi.F
 
 // DownloadFile streams a private Slack file URL to writer.
 func (c *APIClient) DownloadFile(ctx context.Context, downloadURL string, writer io.Writer) error {
-	if strings.TrimSpace(downloadURL) == "" {
+	downloadURL = strings.TrimSpace(downloadURL)
+	if downloadURL == "" {
 		return fmt.Errorf("download URL is required")
 	}
 	if writer == nil {
 		return fmt.Errorf("download writer is required")
 	}
-	if err := c.sdk.GetFileContext(withDownloadPermission(ctx), downloadURL, writer); err != nil {
+	u, err := url.Parse(downloadURL)
+	if err != nil || !isTrustedPrivateFileURL(u) {
+		return downloadURLDenied("download URL is not a trusted Slack private file URL")
+	}
+	if c == nil || c.rawHTTPClient == nil {
+		return fmt.Errorf("Slack API client is not initialized")
+	}
+	transportClient := *c.rawHTTPClient
+	initialHost := strings.ToLower(u.Hostname())
+	transportClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return downloadURLDenied("refusing excessive authenticated file redirects")
+		}
+		redirectURL := req.URL
+		if !isTrustedPrivateFileURL(redirectURL) || strings.ToLower(redirectURL.Hostname()) != initialHost {
+			return downloadURLDenied("refusing authenticated file redirect")
+		}
+		return nil
+	}
+	req, err := http.NewRequestWithContext(withDownloadPermission(ctx), http.MethodGet, u.String(), nil)
+	if err != nil {
+		return fmt.Errorf("build file download request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.cookie != "" {
+		req.Header.Set("Cookie", "d="+c.cookie)
+	}
+	resp, err := (policyHTTPClient{client: &transportClient}).Do(req)
+	if err != nil {
+		var requestError *url.Error
+		if errors.As(err, &requestError) {
+			err = requestError.Err
+		}
+		return fmt.Errorf("download file: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("download file: Slack returned HTTP %d", resp.StatusCode)
+	}
+	if _, err := io.Copy(writer, resp.Body); err != nil {
 		return fmt.Errorf("download file: %w", err)
 	}
 	return nil
+}
+
+func isTrustedPrivateFileURL(u *url.URL) bool {
+	return isPrivateFileURL(u)
+}
+
+func downloadURLDenied(message string) error {
+	enabled, err := policy.ReadOnly()
+	if err != nil {
+		return err
+	}
+	if enabled {
+		return policy.Deny("files.download")
+	}
+	return fmt.Errorf("%s", message)
 }
 
 func (c *APIClient) DeleteFile(ctx context.Context, fileID string) error {

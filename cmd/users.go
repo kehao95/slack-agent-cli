@@ -47,11 +47,14 @@ Output (JSON):
 Note: Set --include-bots to include bot users in results. Each user includes
 email_available; false means Slack returned no email, not that the user is missing.
 Email access requires users:read.email, but Slack may also omit email for other reasons.`,
-	Example: `  # List all users
+	Example: `  # List one page of users
   slk users list
 
-  # List with pagination
+  # List with an explicit cursor
   slk users list --limit 50 --cursor "dXNlcl9pZDo..."
+
+  # Follow every page with retries and a pause between requests
+  slk users list --all --max-retries 3 --page-delay 250ms
 
   # Include bot users
   slk users list --include-bots`,
@@ -134,6 +137,9 @@ func init() {
 	usersListCmd.Flags().Int("limit", 100, "Maximum users per page")
 	usersListCmd.Flags().String("cursor", "", "Continuation cursor for pagination")
 	usersListCmd.Flags().Bool("include-bots", false, "Include bot users in results")
+	usersListCmd.Flags().Bool("all", false, "Fetch all remaining pages")
+	usersListCmd.Flags().Int("max-retries", 3, "Maximum retries after Slack rate limits")
+	usersListCmd.Flags().Duration("page-delay", 0, "Delay between pagination requests")
 
 	// users info flags
 	usersInfoCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (required)")
@@ -141,7 +147,6 @@ func init() {
 
 	// users presence flags
 	usersPresenceCmd.Flags().String("user", "", "Canonical user ID, <@ID>, or @username (required)")
-	_ = usersPresenceCmd.MarkFlagRequired("user")
 
 	usersLookupCmd.Flags().String("email", "", "Email address (required)")
 	_ = usersLookupCmd.MarkFlagRequired("email")
@@ -166,7 +171,12 @@ func init() {
 }
 
 func runUsersList(cmd *cobra.Command, args []string) error {
-	cmdCtx, err := NewCommandContext(cmd, 0)
+	all, _ := cmd.Flags().GetBool("all")
+	timeout := time.Duration(0)
+	if all {
+		timeout = 15 * time.Minute
+	}
+	cmdCtx, err := NewCommandContext(cmd, timeout)
 	if err != nil {
 		return err
 	}
@@ -177,17 +187,38 @@ func runUsersList(cmd *cobra.Command, args []string) error {
 	limit, _ := cmd.Flags().GetInt("limit")
 	cursor, _ := cmd.Flags().GetString("cursor")
 	includeBots, _ := cmd.Flags().GetBool("include-bots")
-
-	result, err := service.List(cmdCtx.Ctx, users.ListParams{
-		Limit:       limit,
-		Cursor:      cursor,
-		IncludeBots: includeBots,
-	})
-	if err != nil {
-		return err
+	maxRetries, _ := cmd.Flags().GetInt("max-retries")
+	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
+	if limit < 1 || limit > 1000 {
+		return fmt.Errorf("--limit must be between 1 and 1000")
 	}
-
-	return output.Print(cmd, result)
+	if maxRetries < 0 || pageDelay < 0 {
+		return fmt.Errorf("--max-retries and --page-delay cannot be negative")
+	}
+	combined := &users.ListResult{OK: true, Users: []users.UserInfo{}}
+	seen := map[string]bool{}
+	for {
+		page, err := slack.RetryRateLimited(cmdCtx.Ctx, maxRetries, func() (*users.ListResult, error) {
+			return service.List(cmdCtx.Ctx, users.ListParams{Limit: limit, Cursor: cursor, IncludeBots: includeBots})
+		})
+		if err != nil {
+			return err
+		}
+		combined.Users = append(combined.Users, page.Users...)
+		combined.NextCursor = page.NextCursor
+		if !all || page.NextCursor == "" {
+			break
+		}
+		if seen[page.NextCursor] {
+			return fmt.Errorf("Slack returned repeated users-list cursor %q", page.NextCursor)
+		}
+		seen[page.NextCursor] = true
+		if err := slack.WaitContext(cmdCtx.Ctx, pageDelay); err != nil {
+			return err
+		}
+		cursor = page.NextCursor
+	}
+	return output.Print(cmd, combined)
 }
 
 func runUsersInfo(cmd *cobra.Command, args []string) error {

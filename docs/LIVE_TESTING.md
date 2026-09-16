@@ -4,6 +4,11 @@ Use a designated test channel and explicitly selected identities when validating
 the CLI against Slack. Mock tests remain the source of evidence for zero network
 requests on denied operations; live tests prove the observed Slack behavior.
 
+The latest P1/P2 acceptance run, including Lists and Canvas permission checks,
+is recorded in the [2026-09-16 channel report](e2e/2026-09-16-channel-summary.md).
+It distinguishes passing cases from missing scopes and untested operations;
+the earlier run below remains historical evidence for its stated revision.
+
 ## Protocol
 
 1. Build the revision under test into a temporary binary. Inspect `auth whoami`

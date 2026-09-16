@@ -257,14 +257,14 @@ func ResolveListID(input string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parse list reference: %w", err)
 	}
+	host := strings.ToLower(parsed.Hostname())
+	if parsed.Scheme != "https" || parsed.User != nil || parsed.Port() != "" ||
+		(host != "slack.com" && !strings.HasSuffix(host, ".slack.com")) {
+		return "", fmt.Errorf("list reference must be a Slack HTTPS URL or List ID")
+	}
 	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-	for idx := 0; idx < len(parts); idx++ {
-		if parts[idx] != "lists" {
-			continue
-		}
-		if idx+2 < len(parts) && isListID(parts[idx+2]) {
-			return parts[idx+2], nil
-		}
+	if len(parts) == 3 && parts[0] == "lists" && strings.HasPrefix(parts[1], "T") && isListID(parts[2]) {
+		return parts[2], nil
 	}
 	return "", fmt.Errorf("list not found in reference %q", input)
 }

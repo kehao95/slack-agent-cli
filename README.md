@@ -22,6 +22,9 @@ Humans want a UI, we just want a clean pipe.
 - **Smart Caching** - Resolves channel names (`#general`) to IDs (`C123...`) locally for speed.
 - **Read-Only Guardrail** - `SLACK_CLI_READ_ONLY=true` blocks remote mutations and unreviewed API methods before dispatch. See the [boundary and agent recipe](docs/READ_ONLY.md).
 - **Image Uploads** - Send local images into channels or threads with Slack's current external upload API.
+- **CLI resource expansion** - Canvas and List authoring, channel bookmarks,
+  directory search, user settings, message inspection/preview, and file content
+  workflows are described in [CLI coverage](docs/CLI_COVERAGE.md).
 
 ## Quick Start
 
@@ -150,13 +153,15 @@ slk
 │   └── leave       # Leave a channel
 │
 ├── conversations   # Unified channel, DM, and group-DM operations
-│   ├── list/info/create/archive/unarchive
+│   ├── list/info/search/create/archive/unarchive
 │   ├── rename/topic/purpose
 │   ├── members/invite/kick
 │   └── open/close/mark/join/leave
 │
 ├── messages        # Message operations
 │   ├── list        # Fetch message history
+│   ├── get         # Read an exact message URL/ID and optional complete thread
+│   ├── preview     # Inspect a message payload locally
 │   ├── send        # Send a message
 │   ├── edit        # Edit a message
 │   ├── delete      # Delete a message
@@ -171,6 +176,7 @@ slk
 ├── files           # File operations
 │   ├── upload      # Upload and optionally share a local file
 │   ├── download    # Download a file by ID
+│   ├── read/export # Read text or export content by file ID/URL
 │   ├── list        # List files with cursor pagination
 │   ├── info        # Inspect file metadata
 │   ├── delete      # Delete a file
@@ -193,9 +199,18 @@ slk
 │   ├── run         # Cache Socket Mode events into SQLite
 │   └── status      # Inspect local event cache status
 │
+├── canvases        # Canvas authoring and content
+│   ├── list/create/channel-create/read/export
+│   └── edit/delete/sections/share/revoke
+│
+├── bookmarks       # Channel bookmarks
+│   └── list/add/edit/remove
+│
 ├── lists           # Slack List operations
-│   ├── items       # Fetch items from a Slack List
-│   └── item        # Fetch one item with list metadata
+│   ├── items/item  # Fetch items and schema metadata
+│   ├── create/update/share/revoke
+│   ├── item-add/item-update/item-delete/items-delete
+│   └── export/export-start/export-get
 │
 ├── reactions       # Reaction operations
 │   ├── add         # Add reaction to message
@@ -209,16 +224,19 @@ slk
 │
 ├── users           # User operations
 │   ├── list        # List workspace members
+│   ├── search      # Search the visible user directory
 │   ├── info        # Get user details
 │   ├── lookup      # Look up a user by email
-│   ├── profile     # Get a user profile
+│   ├── profile     # Get a profile; set selected fields
 │   ├── status      # Get, set, or clear custom status
 │   ├── conversations # List conversations for a user
-│   └── presence    # Check user presence
+│   ├── presence    # Check presence; get/set
+│   ├── photo       # Set/delete the authenticated user's photo
+│   └── dnd         # Inspect/snooze/end Do Not Disturb
 │
 ├── usergroups      # User group operations
 │   ├── list        # List user groups
-│   ├── members     # List or replace members
+│   ├── members     # List/set/add/remove members
 │   ├── create      # Create a user group
 │   ├── update      # Update group metadata
 │   ├── enable      # Enable a user group
@@ -425,6 +443,13 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 
 Current online validation and credential limitations are recorded in
 [Controlled Slack verification](docs/LIVE_TESTING.md).
+
+- v0.5.0 CLI expansion: P1/P2 implementation, source review, offline
+  tests/build/vet, and authorized E2E results from `#_bot-testing` are
+  recorded in the [channel acceptance report](docs/e2e/2026-09-16-channel-summary.md).
+  Missing scopes and excluded workspace-wide actions remain explicit gaps;
+  they are not implied to pass. Public API limitations and the implemented
+  command surface are recorded in [CLI coverage](docs/CLI_COVERAGE.md).
 
 - Live follow-up: repeat profile/email-present checks with suitable scopes,
   and investigate repeated directory-lookup timeouts and bot-message search

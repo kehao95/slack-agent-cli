@@ -56,6 +56,8 @@ func CheckMethod(method string) error {
 // https://docs.slack.dev/reference/methods/<method>/
 // apps.connections.open is the explicit event-delivery transport exception:
 // it obtains a Socket Mode URL; CLI acknowledgments carry no response payload.
+// slackLists.download.start creates a temporary read/export job, not a change
+// to the source List or its permissions. Both export methods require lists:read.
 // assistant.search.context remains unsupported pending the separate UAT issue.
 var readMethods = map[string]struct{}{
 	"auth.test":          {},
@@ -69,5 +71,8 @@ var readMethods = map[string]struct{}{
 	"chat.getPermalink": {}, "chat.scheduledMessages.list": {},
 	"search.all": {}, "search.messages": {}, "search.files": {},
 	"slackLists.items.list": {}, "slackLists.items.info": {},
+	"slackLists.download.start": {}, "slackLists.download.get": {},
+	"canvases.sections.lookup": {}, "bookmarks.list": {},
+	"dnd.info": {}, "dnd.teamInfo": {},
 	"apps.connections.open": {},
 }

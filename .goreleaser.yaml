@@ -52,6 +52,7 @@ archives:
       - LICENSE
       - SLACK_SETUP.md
       - docs/*.md
+      - docs/e2e/*.md
 
 checksum:
   name_template: 'checksums.txt'

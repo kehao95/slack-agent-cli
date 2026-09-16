@@ -28,6 +28,8 @@ oauth_config:
       - users:read.email
       - users.profile:read
       - users.profile:write
+      - users:write
+      - dnd:write
 
       # User groups
       - usergroups:read
@@ -48,8 +50,18 @@ oauth_config:
       - files:read
       - files:write
 
-      # Lists (read-only for inspection)
+      # Lists and canvases
       - lists:read
+      - lists:write
+      - canvases:read
+      - canvases:write
+
+      # Channel bookmarks
+      - bookmarks:read
+      - bookmarks:write
+
+      # Do Not Disturb inspection
+      - dnd:read
 
       # Emoji
       - emoji:read
@@ -76,6 +88,7 @@ oauth_config:
       - users:read
       - users:read.email
       - users.profile:read
+      - users:write
 
       # User groups
       - usergroups:read
@@ -93,8 +106,18 @@ oauth_config:
       - files:read
       - files:write
 
-      # Lists (read-only for inspection)
+      # Lists and canvases
       - lists:read
+      - lists:write
+      - canvases:read
+      - canvases:write
+
+      # Channel bookmarks
+      - bookmarks:read
+      - bookmarks:write
+
+      # Do Not Disturb inspection
+      - dnd:read
 
       # Emoji
       - emoji:read
