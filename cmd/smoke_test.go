@@ -102,7 +102,6 @@ func TestRequiredFlagsEnforced(t *testing.T) {
 		{"messages send", messagesSendCmd, "channel"},
 		{"messages edit", messagesEditCmd, "channel"},
 		{"messages edit ts", messagesEditCmd, "ts"},
-		{"messages edit text", messagesEditCmd, "text"},
 		{"messages delete", messagesDeleteCmd, "channel"},
 		{"messages delete ts", messagesDeleteCmd, "ts"},
 		{"reactions add", reactionsAddCmd, "channel"},
@@ -124,7 +123,6 @@ func TestRequiredFlagsEnforced(t *testing.T) {
 		{"lists item list", listsItemCmd, "list"},
 		{"lists item id", listsItemCmd, "id"},
 		{"users info", usersInfoCmd, "user"},
-		{"users presence", usersPresenceCmd, "user"},
 	}
 
 	for _, tt := range tests {
@@ -155,6 +153,41 @@ func TestRequiredFlagsEnforced(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPartialMessageEditAndPresenceSetContracts(t *testing.T) {
+	for _, name := range []string{"text", "blocks", "attachments", "metadata"} {
+		flag := messagesEditCmd.Flag(name)
+		if flag == nil {
+			t.Fatalf("messages edit missing editable flag %q", name)
+		}
+		for _, required := range getRequiredFlags(messagesEditCmd) {
+			if required == name {
+				t.Errorf("messages edit field %q must remain optional for partial updates", name)
+			}
+		}
+	}
+	if flag := usersPresenceCmd.Flag("user"); flag == nil {
+		t.Fatal("users presence missing compatibility --user flag")
+	} else {
+		for _, required := range getRequiredFlags(usersPresenceCmd) {
+			if required == "user" {
+				t.Error("parent users presence must allow dispatch to the nested set command")
+			}
+		}
+	}
+	if required := getRequiredFlags(usersPresenceGetCmd); !containsString(required, "user") {
+		t.Error("users presence get must require --user")
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestInvalidFlagsRejected verifies that commands reject unknown flags

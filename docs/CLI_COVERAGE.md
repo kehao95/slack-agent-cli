@@ -1,10 +1,12 @@
 # CLI P1/P2 expansion
 
 Implementation branch: `feat/cli-p1-p2-coverage`, based on `ae3900e`.
-Status: implementation and source review complete; **no tests, build, vet or live Slack
-operations have been run for this change**. Source review and formatting do not
-establish runtime correctness. The Human requested implementation first and an
-[isolated E2E plan](CLI_E2E_PLAN.md) for a subsequent phase.
+Status: implementation and authorized channel-scoped acceptance are recorded.
+Build, vet and unit tests have now passed; live coverage and scope limitations
+are recorded in the [channel E2E report](e2e/2026-09-16-channel-summary.md).
+The initial implementation deliberately deferred tests; the Human subsequently
+authorized both rounds using the existing user/bot credentials and
+`#_bot-testing`, including Canvas and Lists.
 
 ## Scope
 
@@ -110,7 +112,9 @@ Message edits omit fields that were not supplied and follow
 retaining a block layout while changing fallback text. Explicit `--blocks '[]'`
 and `--attachments '[]'` clear those fields; `--metadata '{}'` clears metadata.
 Omitted metadata and attachments are retained by Slack. This is not a general
-merge-patch API.
+merge-patch API. If Slack rejects a content-free update with `no_text`, the CLI
+asks for explicit text or non-empty blocks. It does not read and resubmit the
+old text automatically, because that could remove an omitted block layout.
 
 ## Authorization
 
@@ -137,14 +141,16 @@ temporary read/export operation, not a mutation of the source List.
 
 `bd` is unavailable in this environment. This document and the branch commit
 record implementation status; no Beads task is marked tested or closed.
-The next step is the offline gate followed by sandbox acceptance and precise
-cleanup in [CLI_E2E_PLAN.md](CLI_E2E_PLAN.md). Do not promote this change to a
-validated release until those results are recorded.
+The [E2E plan](CLI_E2E_PLAN.md) describes the original full sandbox suite.
+The later channel-only execution has narrower evidence: permission-blocked
+Canvas/bookmark operations and workspace-wide personal/group operations are
+not covered by a passing List or message test. Consult the per-area reports
+before making release claims.
 
 Implementation was split across three Luna agents (artifacts, messages/files,
 people/discovery), followed by source cross-review and integration of the
 read-only policy, scopes and documentation. Regression test sources were added
 for column resolution, partial profile updates, group membership deltas,
-message-field clearing, URL parsing and buffered-read limits; none were run.
-Only formatting and `git diff --check` were performed. Work is retained on the
-feature branch; main and release tags are unchanged.
+message-field clearing, URL parsing and buffered-read limits. These sources
+were initially unexecuted and subsequently included in the offline test gate.
+Work is retained on the feature branch; main and release tags are unchanged.

@@ -151,7 +151,7 @@ func (c *APIClient) GetMessage(ctx context.Context, channel, timestamp string, i
 		}
 		return nil, fmt.Errorf("message %s was not found in thread %s", timestamp, root)
 	}
-	response, err := c.ListConversationsHistory(ctx, HistoryParams{Channel: channel, Limit: 1, Oldest: timestamp, Latest: timestamp, Inclusive: true})
+	response, err := c.ListConversationsHistory(ctx, HistoryParams{Channel: channel, Limit: 1, Oldest: timestamp, Latest: timestamp, Inclusive: true, IncludeAllMetadata: true})
 	if err != nil {
 		return nil, fmt.Errorf("get message: %w", err)
 	}
@@ -177,7 +177,7 @@ func (c *APIClient) getAllThreadReplies(ctx context.Context, channel, root strin
 	cursor := ""
 	seen := map[string]bool{}
 	for {
-		page, more, next, err := c.ListThreadReplies(ctx, ThreadParams{Channel: channel, Thread: root, Limit: 100, Cursor: cursor})
+		page, more, next, err := c.ListThreadReplies(ctx, ThreadParams{Channel: channel, Thread: root, Limit: 100, Cursor: cursor, IncludeAllMetadata: true})
 		if err != nil {
 			return nil, err
 		}
@@ -277,8 +277,14 @@ func (c *APIClient) EditMessageWithOptions(ctx context.Context, channel, timesta
 	if !opts.MetadataClear && !opts.TextSet && !opts.BlocksSet && !opts.AttachmentsSet && opts.Text == "" && len(opts.Blocks) == 0 && len(opts.Attachments) == 0 && opts.Metadata == nil {
 		return nil, fmt.Errorf("at least one of text, blocks, attachments, or metadata is required")
 	}
-	if opts.MetadataClear {
-		payload := map[string]interface{}{"channel": channel, "ts": timestamp, "metadata": map[string]interface{}{}}
+	if opts.MetadataClear || opts.Metadata != nil || opts.BlocksSet || opts.AttachmentsSet {
+		payload := map[string]interface{}{"channel": channel, "ts": timestamp}
+		if opts.MetadataClear {
+			payload["metadata"] = map[string]interface{}{}
+		}
+		if opts.Metadata != nil {
+			payload["metadata"] = opts.Metadata
+		}
 		if opts.Text != "" || opts.TextSet {
 			payload["text"] = opts.Text
 		}
@@ -296,9 +302,13 @@ func (c *APIClient) EditMessageWithOptions(ctx context.Context, channel, timesta
 		}
 		raw, err := c.CallAPI(ctx, "chat.update", payload, CallAPIOptions{MaxRetries: 3})
 		if err != nil {
+			if strings.Contains(err.Error(), "no_text") {
+				return nil, fmt.Errorf("edit message: %w; provide --text or non-empty --blocks", err)
+			}
 			return nil, fmt.Errorf("edit message: %w", err)
 		}
 		var response struct {
+			OK        bool   `json:"ok"`
 			Channel   string `json:"channel"`
 			Timestamp string `json:"ts"`
 			Text      string `json:"text"`
@@ -306,7 +316,7 @@ func (c *APIClient) EditMessageWithOptions(ctx context.Context, channel, timesta
 		if err := json.Unmarshal(raw, &response); err != nil {
 			return nil, fmt.Errorf("decode edited message: %w", err)
 		}
-		return &EditMessageResult{OK: true, Channel: response.Channel, Timestamp: response.Timestamp, Text: response.Text}, nil
+		return &EditMessageResult{OK: response.OK, Channel: response.Channel, Timestamp: response.Timestamp, Text: response.Text}, nil
 	}
 
 	messageOptions := make([]slackapi.MsgOption, 0, 4)

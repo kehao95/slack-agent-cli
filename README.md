@@ -445,11 +445,12 @@ Current online validation and credential limitations are recorded in
 [Controlled Slack verification](docs/LIVE_TESTING.md).
 
 - P1/P2 CLI expansion: implementation and source review are complete on
-  `feat/cli-p1-p2-coverage`. Tests, build and vet are deliberately deferred at
-  the Human's request. Follow the [isolated E2E plan](docs/CLI_E2E_PLAN.md)
-  before treating the new commands as validated. Public API limitations and
-  the implemented command surface are recorded in
-  [CLI coverage](docs/CLI_COVERAGE.md).
+  `feat/cli-p1-p2-coverage`. Offline tests/build/vet and authorized E2E in
+  `#_bot-testing` are recorded in the
+  [channel acceptance report](docs/e2e/2026-09-16-channel-summary.md).
+  Missing scopes and excluded workspace-wide actions remain explicit gaps;
+  they are not implied to pass. Public API limitations and the implemented
+  command surface are recorded in [CLI coverage](docs/CLI_COVERAGE.md).
 
 - Live follow-up: repeat profile/email-present checks with suitable scopes,
   and investigate repeated directory-lookup timeouts and bot-message search

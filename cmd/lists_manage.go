@@ -506,6 +506,7 @@ func normalizeListFields(ctx *CommandContext, listID string, data interface{}) (
 		if !exists {
 			return nil, fmt.Errorf("list field %d requires value when using column names", i)
 		}
+		var err error
 		if definition.Type == "user" {
 			value, err = resolveListUsers(ctx, value)
 			if err != nil {

@@ -1,9 +1,16 @@
 # Isolated CLI P1/P2 E2E plan
 
-Status: **plan only; not executed**. The implementation accompanying this plan
-has not been built, vetted, unit-tested, or exercised against Slack, at the
-Human's request. Formatting and source review are not evidence of a passing
-test. Execute this plan only in a later testing phase.
+Original status: plan only, with testing deferred during implementation.
+On 2026-09-16 the Human subsequently authorized execution of both proposed
+channel-scoped rounds, including Canvas and Lists, using only the existing
+user/bot credentials and `#_bot-testing`. This overrides the dedicated-workspace
+prerequisite for that narrower run, not the boundary against unrelated members,
+channels, personal settings or OAuth changes. Build/vet/unit checks and the
+available live cases are recorded in the
+[channel E2E report](e2e/2026-09-16-channel-summary.md).
+
+The full sandbox plan below remains a template for broader coverage; it is not
+a claim that every case was executed in the existing workspace.
 
 ## Isolation contract
 

@@ -33,7 +33,7 @@ var slackMessagePathPattern = regexp.MustCompile(`^p([0-9]{11,})$`)
 // ParseSlackMessageURL extracts a conversation ID and Slack timestamp from a permalink.
 func ParseSlackMessageURL(reference string) (string, string, error) {
 	u, err := url.Parse(strings.TrimSpace(reference))
-	if err != nil || u.Host == "" || u.User != nil || u.Port() != "" || u.Fragment != "" {
+	if err != nil || u.Host == "" || u.User != nil || u.Port() != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return "", "", fmt.Errorf("invalid Slack message URL")
 	}
 	host := strings.ToLower(u.Hostname())
