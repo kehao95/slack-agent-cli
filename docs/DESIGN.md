@@ -199,8 +199,11 @@ yet have a stable resource abstraction.
 
 The subsequent Canvas/List/bookmark and people/message expansion is specified
 in [CLI P1/P2 coverage](CLI_COVERAGE.md), including command paths, public API
-limits, and explicit differences from Slack MCP. Its validation is deferred;
-follow the [isolated E2E plan](CLI_E2E_PLAN.md) before release.
+limits, and explicit differences from Slack MCP. Its offline gates and scoped
+channel E2E results are recorded in the [channel acceptance report](e2e/2026-09-16-channel-summary.md).
+Permission-blocked Canvas/bookmark cases, cross-role List access, and excluded
+workspace-wide operations remain explicit limits; the original isolated E2E
+plan remains a broader future exercise.
 
 #### Authentication setup
 

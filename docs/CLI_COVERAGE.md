@@ -1,12 +1,11 @@
 # CLI P1/P2 expansion
 
-Implementation branch: `feat/cli-p1-p2-coverage`, based on `ae3900e`.
-Status: implementation and authorized channel-scoped acceptance are recorded.
-Build, vet and unit tests have now passed; live coverage and scope limitations
-are recorded in the [channel E2E report](e2e/2026-09-16-channel-summary.md).
-The initial implementation deliberately deferred tests; the Human subsequently
-authorized both rounds using the existing user/bot credentials and
-`#_bot-testing`, including Canvas and Lists.
+Release target: **v0.5.0**. Implementation, source review, offline build/vet/
+unit gates, and authorized channel-scoped acceptance are recorded in the
+[channel E2E report](e2e/2026-09-16-channel-summary.md). The Human authorized
+both rounds using the existing user/bot credentials and `#_bot-testing`,
+including Canvas and Lists; unavailable scopes and unsupported API paths remain
+explicit limitations in the report.
 
 ## Scope
 
@@ -153,4 +152,5 @@ read-only policy, scopes and documentation. Regression test sources were added
 for column resolution, partial profile updates, group membership deltas,
 message-field clearing, URL parsing and buffered-read limits. These sources
 were initially unexecuted and subsequently included in the offline test gate.
-Work is retained on the feature branch; main and release tags are unchanged.
+The v0.5.0 source includes this implementation and its documented
+E2E limits; the previous v0.4.0 tag remains the historical baseline.

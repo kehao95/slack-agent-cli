@@ -444,10 +444,9 @@ Or override with `SLACK_CLI_CONFIG` environment variable.
 Current online validation and credential limitations are recorded in
 [Controlled Slack verification](docs/LIVE_TESTING.md).
 
-- P1/P2 CLI expansion: implementation and source review are complete on
-  `feat/cli-p1-p2-coverage`. Offline tests/build/vet and authorized E2E in
-  `#_bot-testing` are recorded in the
-  [channel acceptance report](docs/e2e/2026-09-16-channel-summary.md).
+- v0.5.0 CLI expansion: P1/P2 implementation, source review, offline
+  tests/build/vet, and authorized E2E results from `#_bot-testing` are
+  recorded in the [channel acceptance report](docs/e2e/2026-09-16-channel-summary.md).
   Missing scopes and excluded workspace-wide actions remain explicit gaps;
   they are not implied to pass. Public API limitations and the implemented
   command surface are recorded in [CLI coverage](docs/CLI_COVERAGE.md).
