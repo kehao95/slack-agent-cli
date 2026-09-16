@@ -54,3 +54,38 @@ func TestServiceRejectsUnknownGroup(t *testing.T) {
 		t.Fatal("expected not-found error")
 	}
 }
+
+func TestServiceMemberDeltasPreserveExistingMembership(t *testing.T) {
+	mock := &mockOperationsClient{
+		groups:  []slackapi.UserGroup{{ID: "S1", Handle: "engineering", Name: "Engineering"}},
+		members: []string{"U1", "U2"},
+	}
+	service := NewService(mock)
+
+	if _, err := service.AddMembers(context.Background(), "@engineering", []string{"U2", "U3"}); err != nil {
+		t.Fatalf("AddMembers: %v", err)
+	}
+	if got, want := mock.updatedMembers, []string{"U1", "U2", "U3"}; !sameStrings(got, want) {
+		t.Fatalf("added members = %#v, want %#v", got, want)
+	}
+
+	mock.members = mock.updatedMembers
+	if _, err := service.RemoveMembers(context.Background(), "S1", []string{"U1"}); err != nil {
+		t.Fatalf("RemoveMembers: %v", err)
+	}
+	if got, want := mock.updatedMembers, []string{"U2", "U3"}; !sameStrings(got, want) {
+		t.Fatalf("removed members = %#v, want %#v", got, want)
+	}
+}
+
+func sameStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}

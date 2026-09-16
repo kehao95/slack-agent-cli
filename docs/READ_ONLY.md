@@ -36,7 +36,10 @@ The reviewed method allowlist is maintained in
 [`internal/policy/policy.go`](../internal/policy/policy.go). It includes identity,
 conversation/history, user/profile/presence, user group membership, emoji,
 pin/reaction, file metadata, permalink/scheduled-message reads, ordinary search,
-and List item reads. All other methods, including upload stages, profile/status
+List item reads/exports, Canvas section lookup, bookmarks and DND inspection.
+Directory-backed user/channel search uses existing directory read methods.
+Local message preview does not initialize credentials or a Slack client.
+All other methods, including upload stages, profile/status
 updates, reactions, membership changes, and read-marker changes, are denied.
 
 Two transport exceptions are deliberately narrow:
@@ -48,6 +51,11 @@ Two transport exceptions are deliberately narrow:
   `files.slack.com/files-pri/` URLs. Each redirect must remain within that origin
   and path prefix. Unreviewed CDN hosts, API URLs, or other paths fail with
   `files.download`; downloads with such redirects need a future allowlist review.
+
+List export's `slackLists.download.start` and `slackLists.download.get` are
+reviewed read methods requiring `lists:read`. Starting an export produces a
+temporary download job; it does not edit the source List, its rows or grants.
+Canvas/file exports to local paths are local writes and remain available.
 
 See Slack's [Socket Mode method](https://docs.slack.dev/reference/methods/apps.connections.open/)
 and [private file URL documentation](https://docs.slack.dev/reference/objects/file-object/).
@@ -109,6 +117,9 @@ User Action Token and contextual search are deferred to
 [issue #5](https://github.com/kehao95/slack-agent-cli/issues/5). There is no new
 action-token option or contextual command; `assistant.search.context` is not in
 the read-only allowlist. Host event-context forwarding is separate work.
+
+`users search` and `conversations search` are directory-backed discovery, not
+contextual/semantic search. They do not require or consume a User Action Token.
 
 ## Message metadata recipe
 

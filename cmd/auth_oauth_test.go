@@ -42,14 +42,19 @@ func TestBuildAuthURLIncludesStateAndManifestScopes(t *testing.T) {
 	if query.Get("state") != "state-value" || query.Get("redirect_uri") != "https://example.com/callback" {
 		t.Fatalf("unexpected auth URL: %s", raw)
 	}
-	for _, scope := range []string{"channels:write", "files:write", "lists:read", "emoji:read"} {
+	for _, scope := range []string{"channels:write", "files:write", "lists:read", "lists:write", "canvases:read", "canvases:write", "bookmarks:read", "bookmarks:write", "dnd:read", "dnd:write", "users:write", "emoji:read"} {
 		if !strings.Contains(query.Get("user_scope"), scope) {
 			t.Errorf("default scopes missing %s", scope)
 		}
 	}
-	for _, scope := range []string{"channels:manage", "chat:write", "usergroups:write", "files:write"} {
+	for _, scope := range []string{"channels:manage", "chat:write", "usergroups:write", "files:write", "users:write", "lists:write", "canvases:read", "canvases:write", "bookmarks:read", "bookmarks:write", "dnd:read"} {
 		if !strings.Contains(query.Get("scope"), scope) {
 			t.Errorf("default bot scopes missing %s", scope)
+		}
+	}
+	for _, scope := range strings.Split(query.Get("scope"), ",") {
+		if scope == "dnd:write" || scope == "users.profile:write" {
+			t.Errorf("user-only scope requested for bot: %s", scope)
 		}
 	}
 }

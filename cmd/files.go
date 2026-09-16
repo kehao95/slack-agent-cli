@@ -10,6 +10,7 @@ import (
 	fileops "github.com/kehao95/slack-agent-cli/internal/files"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	appslack "github.com/kehao95/slack-agent-cli/internal/slack"
+	slackapi "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -61,6 +62,7 @@ func init() {
 	filesListCmd.Flags().Duration("page-delay", 0, "Delay between pagination requests")
 	filesListCmd.Flags().StringP("channel", "c", "", "Filter by channel name or ID")
 	filesListCmd.Flags().String("user", "", "Filter by canonical user ID, <@ID>, or @username")
+	filesListCmd.Flags().String("type", "", "Filter by Slack file type (for example text, images, or canvas)")
 
 	for _, command := range []*cobra.Command{filesInfoCmd, filesDeleteCmd, filesSharePublicCmd, filesRevokePublicCmd} {
 		command.Flags().String("file", "", "Slack file ID (required)")
@@ -213,12 +215,13 @@ func runFilesList(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 	}
+	types, _ := cmd.Flags().GetString("type")
 	service := fileops.NewService(cmdCtx.Client)
-	combined := &fileops.ListResult{OK: true}
+	combined := &fileops.ListResult{OK: true, Files: []slackapi.File{}}
 	seen := map[string]bool{}
 	for {
 		page, err := appslack.RetryRateLimited(cmdCtx.Ctx, maxRetries, func() (*fileops.ListResult, error) {
-			return service.List(cmdCtx.Ctx, fileops.ListParams{Limit: limit, Cursor: cursor, User: user, Channel: channel, TeamID: cmdCtx.TeamID})
+			return service.List(cmdCtx.Ctx, fileops.ListParams{Limit: limit, Cursor: cursor, User: user, Channel: channel, TeamID: cmdCtx.TeamID, Types: types})
 		})
 		if err != nil {
 			return err

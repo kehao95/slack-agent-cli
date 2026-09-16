@@ -197,6 +197,11 @@ Specialized commands emit normalized result envelopes and support `--human`.
 `slk api` remains the escape hatch for uncommon parameters and APIs that do not
 yet have a stable resource abstraction.
 
+The subsequent Canvas/List/bookmark and people/message expansion is specified
+in [CLI P1/P2 coverage](CLI_COVERAGE.md), including command paths, public API
+limits, and explicit differences from Slack MCP. Its validation is deferred;
+follow the [isolated E2E plan](CLI_E2E_PLAN.md) before release.
+
 #### Authentication setup
 
 The CLI is non-interactive. Save a user token directly, use environment

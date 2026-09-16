@@ -15,6 +15,8 @@ var usergroupsCmd = &cobra.Command{Use: "usergroups", Aliases: []string{"user-gr
 var usergroupsListCmd = &cobra.Command{Use: "list", Short: "List user groups", Example: "  slk usergroups list --include-users --include-disabled", RunE: runUsergroupsList}
 var usergroupsMembersCmd = &cobra.Command{Use: "members", Short: "List user group members", Example: "  slk usergroups members --group @engineering", RunE: runUsergroupsMembers}
 var usergroupsMembersSetCmd = &cobra.Command{Use: "set", Short: "Replace user group members", Example: "  slk usergroups members set --group @engineering --members @alice,@bob", RunE: runUsergroupsMembersSet}
+var usergroupsMembersAddCmd = &cobra.Command{Use: "add", Short: "Add users to a user group", Example: "  slk usergroups members add --group @engineering --members @alice,@bob", RunE: runUsergroupsMembersAdd}
+var usergroupsMembersRemoveCmd = &cobra.Command{Use: "remove", Short: "Remove users from a user group", Example: "  slk usergroups members remove --group @engineering --members @alice,@bob", RunE: runUsergroupsMembersRemove}
 var usergroupsCreateCmd = &cobra.Command{Use: "create", Short: "Create a user group", Example: "  slk usergroups create --name Engineering --handle engineering --description 'Engineering team'", RunE: runUsergroupsCreate}
 var usergroupsUpdateCmd = &cobra.Command{Use: "update", Short: "Update a user group", Example: "  slk usergroups update --group @engineering --description 'Product engineering'", RunE: runUsergroupsUpdate}
 var usergroupsEnableCmd = &cobra.Command{Use: "enable", Short: "Enable a user group", Example: "  slk usergroups enable --group @engineering", RunE: func(cmd *cobra.Command, _ []string) error { return runUsergroupsEnabled(cmd, true) }}
@@ -23,7 +25,7 @@ var usergroupsDisableCmd = &cobra.Command{Use: "disable", Short: "Disable a user
 func init() {
 	rootCmd.AddCommand(usergroupsCmd)
 	usergroupsCmd.AddCommand(usergroupsListCmd, usergroupsMembersCmd, usergroupsCreateCmd, usergroupsUpdateCmd, usergroupsEnableCmd, usergroupsDisableCmd)
-	usergroupsMembersCmd.AddCommand(usergroupsMembersSetCmd)
+	usergroupsMembersCmd.AddCommand(usergroupsMembersSetCmd, usergroupsMembersAddCmd, usergroupsMembersRemoveCmd)
 	usergroupsListCmd.Flags().Bool("include-users", false, "Include member IDs")
 	usergroupsListCmd.Flags().Bool("include-count", true, "Include member counts")
 	usergroupsListCmd.Flags().Bool("include-disabled", false, "Include disabled user groups")
@@ -34,6 +36,12 @@ func init() {
 	usergroupsMembersSetCmd.Flags().String("members", "", "Comma-separated canonical user IDs, <@ID> mentions, or @usernames (required)")
 	_ = usergroupsMembersSetCmd.MarkFlagRequired("group")
 	_ = usergroupsMembersSetCmd.MarkFlagRequired("members")
+	for _, command := range []*cobra.Command{usergroupsMembersAddCmd, usergroupsMembersRemoveCmd} {
+		command.Flags().String("group", "", "User group ID, @handle, or name (required)")
+		command.Flags().String("members", "", "Comma-separated canonical user IDs, <@ID> mentions, or @usernames (required)")
+		_ = command.MarkFlagRequired("group")
+		_ = command.MarkFlagRequired("members")
+	}
 
 	usergroupsCreateCmd.Flags().String("name", "", "Display name (required)")
 	usergroupsCreateCmd.Flags().String("handle", "", "Mention handle")
@@ -100,6 +108,39 @@ func runUsergroupsMembersSet(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("resolve members: %w", err)
 	}
 	result, err := usergroupops.NewService(cmdCtx.Client).SetMembers(cmdCtx.Ctx, group, members)
+	if err != nil {
+		return err
+	}
+	return output.Print(cmd, result)
+}
+
+func runUsergroupsMembersAdd(cmd *cobra.Command, _ []string) error {
+	return runUsergroupsMembersDelta(cmd, true)
+}
+
+func runUsergroupsMembersRemove(cmd *cobra.Command, _ []string) error {
+	return runUsergroupsMembersDelta(cmd, false)
+}
+
+func runUsergroupsMembersDelta(cmd *cobra.Command, add bool) error {
+	cmdCtx, err := NewCommandContext(cmd, 0)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Close()
+	group, _ := cmd.Flags().GetString("group")
+	value, _ := cmd.Flags().GetString("members")
+	members, err := resolveUserReferences(cmdCtx, splitNonEmpty(value))
+	if err != nil {
+		return fmt.Errorf("resolve members: %w", err)
+	}
+	service := usergroupops.NewService(cmdCtx.Client)
+	var result *usergroupops.MutationResult
+	if add {
+		result, err = service.AddMembers(cmdCtx.Ctx, group, members)
+	} else {
+		result, err = service.RemoveMembers(cmdCtx.Ctx, group, members)
+	}
 	if err != nil {
 		return err
 	}

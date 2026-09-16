@@ -86,7 +86,7 @@ func (s *Service) List(ctx context.Context, params ListParams) (*ListResult, err
 	}
 
 	// Filter out bots if requested
-	var filtered []UserInfo
+	filtered := make([]UserInfo, 0, len(users))
 	for _, u := range users {
 		if !params.IncludeBots && u.IsBot {
 			continue

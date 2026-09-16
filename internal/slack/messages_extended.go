@@ -207,12 +207,24 @@ func (c *APIClient) StopMessageStream(ctx context.Context, channelID, timestamp 
 }
 
 func standardMessageOptions(opts PostMessageOptions) []slackapi.MsgOption {
-	options := []slackapi.MsgOption{slackapi.MsgOptionText(opts.Text, false)}
+	options := make([]slackapi.MsgOption, 0, 8)
+	if opts.Text != "" {
+		options = append(options, slackapi.MsgOptionText(opts.Text, false))
+	}
 	if opts.ThreadTS != "" {
 		options = append(options, slackapi.MsgOptionTS(opts.ThreadTS))
 	}
 	if len(opts.Blocks) > 0 {
 		options = append(options, slackapi.MsgOptionBlocks(opts.Blocks...))
+	}
+	if len(opts.Attachments) > 0 {
+		options = append(options, slackapi.MsgOptionAttachments(opts.Attachments...))
+	}
+	if opts.Metadata != nil {
+		options = append(options, slackapi.MsgOptionMetadata(*opts.Metadata))
+	}
+	if opts.ReplyBroadcast {
+		options = append(options, slackapi.MsgOptionBroadcast())
 	}
 	if opts.AsUser {
 		options = append(options, slackapi.MsgOptionAsUser(true))

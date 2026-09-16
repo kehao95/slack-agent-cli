@@ -36,8 +36,11 @@ oauth_config:
       # Files (read-only)
       - files:read
 
-      # Lists (read-only)
+      # Lists, canvases, bookmarks and Do Not Disturb (read-only)
       - lists:read
+      - canvases:read
+      - bookmarks:read
+      - dnd:read
 
       # Emoji
       - emoji:read
@@ -70,8 +73,11 @@ oauth_config:
       # Files (read-only)
       - files:read
 
-      # Lists (read-only)
+      # Lists, canvases, bookmarks and Do Not Disturb (read-only)
       - lists:read
+      - canvases:read
+      - bookmarks:read
+      - dnd:read
 
       # Emoji
       - emoji:read
