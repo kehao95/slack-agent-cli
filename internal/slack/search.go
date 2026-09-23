@@ -61,16 +61,28 @@ func (c *APIClient) SearchResources(ctx context.Context, kind, query string, par
 	if err != nil {
 		return nil, fmt.Errorf("search %s: %w", kind, err)
 	}
+	// search.all can clamp an exhausted family's page while the other family
+	// still has matches. Do not emit that exhausted page again.
 	if sdkMessages != nil {
 		result.Messages.Total = sdkMessages.Total
-		result.Messages.Matches = mapSearchMessageMatches(sdkMessages.Matches)
-		result.PageCount = maxInt(result.PageCount, searchPageCount(sdkMessages.Paging, sdkMessages.Pagination))
+		pageCount := searchPageCount(sdkMessages.Paging, sdkMessages.Pagination)
+		if pageCount == 0 || result.Page <= pageCount {
+			result.Messages.Matches = mapSearchMessageMatches(sdkMessages.Matches)
+		} else {
+			result.Messages.Matches = []SearchMatch{}
+		}
+		result.PageCount = maxInt(result.PageCount, pageCount)
 		result.TotalCount += sdkMessages.Total
 	}
 	if sdkFiles != nil {
 		result.Files.Total = sdkFiles.Total
-		result.Files.Matches = sdkFiles.Matches
-		result.PageCount = maxInt(result.PageCount, searchPageCount(sdkFiles.Paging, sdkFiles.Pagination))
+		pageCount := searchPageCount(sdkFiles.Paging, sdkFiles.Pagination)
+		if pageCount == 0 || result.Page <= pageCount {
+			result.Files.Matches = sdkFiles.Matches
+		} else {
+			result.Files.Matches = []slackapi.File{}
+		}
+		result.PageCount = maxInt(result.PageCount, pageCount)
 		result.TotalCount += sdkFiles.Total
 	}
 	return result, nil
@@ -79,7 +91,12 @@ func (c *APIClient) SearchResources(ctx context.Context, kind, query string, par
 func mapSearchMessageMatches(matches []slackapi.SearchMessage) []SearchMatch {
 	result := make([]SearchMatch, len(matches))
 	for i, match := range matches {
-		result[i] = SearchMatch{Type: match.Type, Channel: SearchChannel{ID: match.Channel.ID, Name: match.Channel.Name}, User: match.User, Username: match.Username, Timestamp: match.Timestamp, Text: match.Text, Permalink: match.Permalink}
+		result[i] = SearchMatch{
+			Type: match.Type, Channel: SearchChannel{ID: match.Channel.ID, Name: match.Channel.Name},
+			User: match.User, Username: match.Username, Timestamp: match.Timestamp,
+			Text: match.Text, Permalink: match.Permalink,
+			Attachments: match.Attachments, Blocks: match.Blocks,
+		}
 	}
 	return result
 }

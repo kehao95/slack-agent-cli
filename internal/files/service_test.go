@@ -12,7 +12,7 @@ import (
 
 type mockClient struct {
 	files       []slackapi.File
-	cursor      string
+	paging      *slackapi.Paging
 	info        *slackapi.File
 	downloadURL string
 	deleted     string
@@ -22,8 +22,8 @@ type mockClient struct {
 func (m *mockClient) UploadLocalFile(context.Context, string, appslack.UploadFileOptions) (*appslack.UploadFileResult, error) {
 	return nil, nil
 }
-func (m *mockClient) ListFiles(_ context.Context, _ slackapi.ListFilesParameters) ([]slackapi.File, string, error) {
-	return m.files, m.cursor, nil
+func (m *mockClient) ListFiles(_ context.Context, _ slackapi.GetFilesParameters) ([]slackapi.File, *slackapi.Paging, error) {
+	return m.files, m.paging, nil
 }
 func (m *mockClient) GetFileInfo(context.Context, string) (*slackapi.File, error) { return m.info, nil }
 func (m *mockClient) DownloadFile(_ context.Context, url string, w io.Writer) error {
@@ -42,10 +42,10 @@ func (m *mockClient) RevokeFilePublicURL(context.Context, string) (*slackapi.Fil
 }
 
 func TestServiceListAndDownload(t *testing.T) {
-	mock := &mockClient{files: []slackapi.File{{ID: "F1"}}, cursor: "next", info: &slackapi.File{ID: "F1", URLPrivateDownload: "https://download"}}
+	mock := &mockClient{files: []slackapi.File{{ID: "F1"}}, paging: &slackapi.Paging{Count: 100, Total: 101, Page: 1, Pages: 2}, info: &slackapi.File{ID: "F1", URLPrivateDownload: "https://download"}}
 	service := NewService(mock)
 	list, err := service.List(context.Background(), ListParams{})
-	if err != nil || len(list.Files) != 1 || list.NextCursor != "next" {
+	if err != nil || len(list.Files) != 1 || list.NextPage != 2 || !list.HasMore {
 		t.Fatalf("unexpected list: %#v err=%v", list, err)
 	}
 	var output bytes.Buffer

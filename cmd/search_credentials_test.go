@@ -156,7 +156,7 @@ func TestOrdinarySearchActiveUserAndCookiePreserved(t *testing.T) {
 									page = "1"
 								} // The SDK omits Slack's default first page.
 								pages = append(pages, page)
-								body := `{"ok":true,"messages":{"total":2,"paging":{"pages":2},"matches":[{"type":"message","user":"U123","text":"hi <@U456>","ts":"1.0","permalink":"https://example.slack.com/archives/C123/p1000000","channel":{"id":"C123","name":"general"}}]},"files":{"total":2,"paging":{"pages":2},"matches":[{"id":"F123","title":"Report"}]}}`
+								body := fmt.Sprintf(`{"ok":true,"messages":{"total":2,"paging":{"pages":2},"matches":[{"type":"message","user":"U123","text":"hi <@U456>","ts":"%s.0","permalink":"https://example.slack.com/archives/C123/p%s000000","channel":{"id":"C123","name":"general"},"attachments":[{"text":"Synthetic alert details","title_link":"https://example.test/alert"}],"blocks":[{"type":"section","text":{"type":"mrkdwn","text":"Synthetic block details"}}]}]},"files":{"total":2,"paging":{"pages":2},"matches":[{"id":"F%s","title":"Report"}]}}`, page, page, page)
 								return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
 							})
 							command := newSearchResourceCommand("messages", "test")
@@ -180,6 +180,12 @@ func TestOrdinarySearchActiveUserAndCookiePreserved(t *testing.T) {
 							if !reflect.DeepEqual(pages, wantPages) {
 								t.Fatalf("pages=%v, want %v", pages, wantPages)
 							}
+							if output["has_more"] != (surface == "legacy") || output["page_count"] != float64(2) {
+								t.Fatalf("pagination missing from %s output: %v", surface, output)
+							}
+							if surface == "legacy" && (output["next_page"] != float64(2) || output["returned_count"] != float64(1)) {
+								t.Fatalf("legacy output hides partial search: %v", output)
+							}
 							encoded, _ := json.Marshal(output)
 							if strings.Contains(string(encoded), token) || (cookie != "" && strings.Contains(string(encoded), cookie)) {
 								t.Fatal("credential leaked to output")
@@ -189,6 +195,11 @@ func TestOrdinarySearchActiveUserAndCookiePreserved(t *testing.T) {
 								first := matches[0].(map[string]interface{})
 								if first["user"] != "U123" || first["text"] != "hi <@U456>" || first["permalink"] == "" {
 									t.Fatalf("lost message identity/text/link: %v", first)
+								}
+								attachments, _ := first["attachments"].([]interface{})
+								blocks, _ := first["blocks"].([]interface{})
+								if len(attachments) != 1 || len(blocks) != 1 {
+									t.Fatalf("%s lost structured content: %v", surface, first)
 								}
 								if len(matches) != len(wantPages) {
 									t.Fatalf("lost pages: %v", matches)

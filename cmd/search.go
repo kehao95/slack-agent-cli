@@ -31,7 +31,7 @@ func newSearchResourceCommand(kind, short string) *cobra.Command {
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runUnifiedSearch(cmd, kind) },
 	}
 	command.Flags().StringP("query", "q", "", "Search query (required)")
-	command.Flags().IntP("limit", "l", 20, "Results per page (maximum 100)")
+	command.Flags().IntP("limit", "l", 20, "Results per resource family per page (maximum 100)")
 	command.Flags().Int("page", 1, "Page number to fetch")
 	command.Flags().Bool("all", false, "Fetch all pages starting at --page")
 	command.Flags().Int("max-retries", 3, "Maximum retries after Slack rate limits")

@@ -189,3 +189,26 @@ func writeJSON(t *testing.T, w http.ResponseWriter, value any) {
 		t.Fatalf("write JSON: %v", err)
 	}
 }
+
+func TestListFilesSendsCountAndTypes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Error(err)
+		}
+		for name, want := range map[string]string{"count": "2", "types": "canvas", "user": "U123", "channel": "C123", "team_id": "T123"} {
+			if got := r.Form.Get(name); got != want {
+				t.Errorf("files.list %s=%q, want %q", name, got, want)
+			}
+		}
+		if r.Form.Has("limit") || r.Form.Has("cursor") {
+			t.Error("files.list must use count/page, not limit/cursor")
+		}
+		writeJSON(t, w, map[string]any{"ok": true, "files": []map[string]any{{"id": "F1"}, {"id": "F2"}}, "paging": map[string]int{"count": 2, "total": 10, "page": 1, "pages": 5}})
+	}))
+	defer server.Close()
+	client := New("xoxp-test", slackapi.OptionAPIURL(server.URL+"/"))
+	_, _, err := client.ListFiles(context.Background(), slackapi.GetFilesParameters{Count: 2, Page: 1, Types: "canvas", User: "U123", Channel: "C123", TeamID: "T123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

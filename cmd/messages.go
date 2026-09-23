@@ -282,7 +282,7 @@ func init() {
 	messagesListCmd.MarkFlagRequired("channel")
 
 	messagesSearchCmd.Flags().StringP("query", "q", "", "Search query (required)")
-	messagesSearchCmd.Flags().IntP("limit", "l", 20, "Maximum results to return")
+	messagesSearchCmd.Flags().IntP("limit", "l", 20, "Results on the first page (maximum 100)")
 	messagesSearchCmd.Flags().String("sort", "timestamp", "Sort by 'score' or 'timestamp'")
 	messagesSearchCmd.Flags().String("sort-dir", "desc", "Sort direction 'asc' or 'desc'")
 	messagesSearchCmd.Flags().Bool("resolved-json", true, "Enrich JSON with channel names and separate user metadata")
@@ -431,7 +431,10 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	rawJSON, _ := cmd.Flags().GetBool("raw-json")
 	resolvedJSON, _ := cmd.Flags().GetBool("resolved-json")
 
-	// Validate sort parameters
+	// Validate search parameters.
+	if limit < 1 || limit > 100 {
+		return fmt.Errorf("--limit must be between 1 and 100")
+	}
 	if sortBy != "score" && sortBy != "timestamp" {
 		return fmt.Errorf("invalid sort value '%s': must be 'score' or 'timestamp'", sortBy)
 	}
@@ -449,7 +452,10 @@ func runMessagesSearch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("search messages: %w", err)
 	}
-	result := &slack.SearchResult{Query: page.Query, Messages: page.Messages}
+	result := &slack.SearchResult{Query: page.Query, Messages: page.Messages, Page: page.Page, PageCount: page.PageCount, HasMore: page.Page < page.PageCount}
+	if result.HasMore {
+		result.NextPage = page.Page + 1
+	}
 	result.SetUserResolver(cmdCtx.Ctx, cmdCtx.UserResolver)
 	result.SetChannelResolver(cmdCtx.Ctx, cmdCtx.ChannelResolver)
 	result.SetRawJSON(rawJSON || !resolvedJSON)

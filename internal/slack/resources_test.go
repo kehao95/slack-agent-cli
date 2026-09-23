@@ -33,27 +33,6 @@ func TestListUsersUsesProvidedCursorAndReturnsNextCursor(t *testing.T) {
 	}
 }
 
-func TestListFilesReturnsCursor(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/files.list" {
-			t.Fatalf("unexpected path %s", r.URL.Path)
-		}
-		if err := r.ParseForm(); err != nil {
-			t.Fatal(err)
-		}
-		if r.Form.Get("cursor") != "incoming" {
-			t.Fatalf("missing incoming cursor")
-		}
-		writeJSON(t, w, map[string]any{"ok": true, "files": []map[string]any{{"id": "F1"}}, "response_metadata": map[string]any{"next_cursor": "outgoing"}})
-	}))
-	defer server.Close()
-	client := New("xoxp-test", slackapi.OptionAPIURL(server.URL+"/"))
-	files, cursor, err := client.ListFiles(context.Background(), slackapi.ListFilesParameters{Limit: 20, Cursor: "incoming"})
-	if err != nil || len(files) != 1 || cursor != "outgoing" {
-		t.Fatalf("files=%#v cursor=%q err=%v", files, cursor, err)
-	}
-}
-
 func TestSearchResourcesAll(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/search.all" {

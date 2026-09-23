@@ -10,7 +10,6 @@ import (
 	fileops "github.com/kehao95/slack-agent-cli/internal/files"
 	"github.com/kehao95/slack-agent-cli/internal/output"
 	appslack "github.com/kehao95/slack-agent-cli/internal/slack"
-	slackapi "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -26,11 +25,7 @@ var filesDownloadCmd = &cobra.Command{
 	Example: "  slk files download --file F123 --output ./report.pdf\n  slk files download --file F123 --output ./report.pdf --force",
 	RunE:    runFilesDownload,
 }
-var filesListCmd = &cobra.Command{
-	Use: "list", Short: "List Slack files",
-	Example: "  slk files list --limit 50\n  slk files list --channel '#general' --all\n  slk files list --user @alice --cursor NEXT",
-	RunE:    runFilesList,
-}
+var filesListCmd = newFilesListCommand()
 var filesInfoCmd = &cobra.Command{Use: "info", Short: "Get file metadata", Example: "  slk files info --file F123", RunE: runFilesInfo}
 var filesDeleteCmd = &cobra.Command{Use: "delete", Short: "Delete a file", Example: "  slk files delete --file F123", RunE: runFilesDelete}
 var filesSharePublicCmd = &cobra.Command{Use: "share-public", Short: "Create a public URL for a file", Example: "  slk files share-public --file F123", RunE: runFilesSharePublic}
@@ -55,19 +50,29 @@ func init() {
 	_ = filesDownloadCmd.MarkFlagRequired("file")
 	_ = filesDownloadCmd.MarkFlagRequired("output")
 
-	filesListCmd.Flags().IntP("limit", "l", 100, "Maximum files per page")
-	filesListCmd.Flags().String("cursor", "", "Continuation cursor")
-	filesListCmd.Flags().Bool("all", false, "Fetch all remaining pages")
-	filesListCmd.Flags().Int("max-retries", 3, "Maximum retries after Slack rate limits")
-	filesListCmd.Flags().Duration("page-delay", 0, "Delay between pagination requests")
-	filesListCmd.Flags().StringP("channel", "c", "", "Filter by channel name or ID")
-	filesListCmd.Flags().String("user", "", "Filter by canonical user ID, <@ID>, or @username")
-	filesListCmd.Flags().String("type", "", "Filter by Slack file type (for example text, images, or canvas)")
-
 	for _, command := range []*cobra.Command{filesInfoCmd, filesDeleteCmd, filesSharePublicCmd, filesRevokePublicCmd} {
 		command.Flags().String("file", "", "Slack file ID (required)")
 		_ = command.MarkFlagRequired("file")
 	}
+}
+
+func newFilesListCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use: "list", Short: "List Slack files",
+		Long:    "List files using numbered pages. JSON includes Slack paging metadata and next_page when more files are available. --all fetches all pages starting at --page.",
+		Example: "  slk files list --limit 50\n  slk files list --channel '#general' --all\n  slk files list --user @alice --type canvas --limit 2 --page 2",
+		RunE:    runFilesList,
+	}
+	command.Flags().IntP("limit", "l", 100, "Maximum files per page (1-1000)")
+	command.Flags().Int("page", 1, "Page number to fetch")
+	command.Flags().Bool("all", false, "Fetch all pages starting at --page")
+	command.Flags().Int("max-retries", 3, "Maximum retries after Slack rate limits")
+	command.Flags().Duration("page-delay", 0, "Delay between pagination requests")
+	command.Flags().StringP("channel", "c", "", "Filter by channel name or ID")
+	command.Flags().String("user", "", "Filter by canonical user ID, <@ID>, or @username")
+	command.Flags().String("type", "", "Comma-separated Slack type filters (for example snippets, images, or canvas)")
+
+	return command
 }
 
 func runFilesUpload(cmd *cobra.Command, _ []string) error {
@@ -181,7 +186,25 @@ func (r *downloadResult) Lines() []string {
 }
 
 func runFilesList(cmd *cobra.Command, _ []string) error {
+	limit, _ := cmd.Flags().GetInt("limit")
+	page, _ := cmd.Flags().GetInt("page")
 	all, _ := cmd.Flags().GetBool("all")
+	maxRetries, _ := cmd.Flags().GetInt("max-retries")
+	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
+	if limit < 1 || limit > 1000 {
+		return fmt.Errorf("--limit must be between 1 and 1000")
+	}
+	if page < 1 {
+		return fmt.Errorf("--page must be at least 1")
+	}
+	if maxRetries < 0 || pageDelay < 0 {
+		return fmt.Errorf("--max-retries and --page-delay cannot be negative")
+	}
+	types, _ := cmd.Flags().GetString("type")
+	types, err := fileops.NormalizeListTypes(types)
+	if err != nil {
+		return err
+	}
 	timeout := time.Duration(0)
 	if all {
 		timeout = 15 * time.Minute
@@ -191,16 +214,6 @@ func runFilesList(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	defer cmdCtx.Close()
-	limit, _ := cmd.Flags().GetInt("limit")
-	if limit < 1 || limit > 1000 {
-		return fmt.Errorf("--limit must be between 1 and 1000")
-	}
-	cursor, _ := cmd.Flags().GetString("cursor")
-	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	pageDelay, _ := cmd.Flags().GetDuration("page-delay")
-	if maxRetries < 0 || pageDelay < 0 {
-		return fmt.Errorf("--max-retries and --page-delay cannot be negative")
-	}
 	channel, _ := cmd.Flags().GetString("channel")
 	if channel != "" {
 		channel, err = cmdCtx.ResolveChannel(channel)
@@ -215,32 +228,14 @@ func runFilesList(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 	}
-	types, _ := cmd.Flags().GetString("type")
-	service := fileops.NewService(cmdCtx.Client)
-	combined := &fileops.ListResult{OK: true, Files: []slackapi.File{}}
-	seen := map[string]bool{}
-	for {
-		page, err := appslack.RetryRateLimited(cmdCtx.Ctx, maxRetries, func() (*fileops.ListResult, error) {
-			return service.List(cmdCtx.Ctx, fileops.ListParams{Limit: limit, Cursor: cursor, User: user, Channel: channel, TeamID: cmdCtx.TeamID, Types: types})
-		})
-		if err != nil {
-			return err
-		}
-		combined.Files = append(combined.Files, page.Files...)
-		combined.NextCursor = page.NextCursor
-		if !all || page.NextCursor == "" {
-			break
-		}
-		if seen[page.NextCursor] {
-			return fmt.Errorf("Slack returned repeated file cursor %q", page.NextCursor)
-		}
-		seen[page.NextCursor] = true
-		if err := appslack.WaitContext(cmdCtx.Ctx, pageDelay); err != nil {
-			return err
-		}
-		cursor = page.NextCursor
+	result, err := fileops.NewService(cmdCtx.Client).List(cmdCtx.Ctx, fileops.ListParams{
+		Limit: limit, Page: page, All: all, User: user, Channel: channel, TeamID: cmdCtx.TeamID, Types: types,
+		MaxRetries: maxRetries, PageDelay: pageDelay,
+	})
+	if err != nil {
+		return err
 	}
-	return output.Print(cmd, combined)
+	return output.Print(cmd, result)
 }
 
 func runFilesInfo(cmd *cobra.Command, _ []string) error {

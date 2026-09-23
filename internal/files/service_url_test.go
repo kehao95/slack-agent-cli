@@ -53,8 +53,8 @@ type largeContentClient struct{}
 func (largeContentClient) UploadLocalFile(context.Context, string, appslack.UploadFileOptions) (*appslack.UploadFileResult, error) {
 	return nil, nil
 }
-func (largeContentClient) ListFiles(context.Context, slackapi.ListFilesParameters) ([]slackapi.File, string, error) {
-	return nil, "", nil
+func (largeContentClient) ListFiles(context.Context, slackapi.GetFilesParameters) ([]slackapi.File, *slackapi.Paging, error) {
+	return nil, nil, nil
 }
 func (largeContentClient) GetFileInfo(context.Context, string) (*slackapi.File, error) {
 	return &slackapi.File{ID: "F123", URLPrivateDownload: "https://files.slack.com/files-pri/T123-F123/content"}, nil

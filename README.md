@@ -177,7 +177,7 @@ slk
 │   ├── upload      # Upload and optionally share a local file
 │   ├── download    # Download a file by ID
 │   ├── read/export # Read text or export content by file ID/URL
-│   ├── list        # List files with cursor pagination
+│   ├── list        # List files with numbered pages
 │   ├── info        # Inspect file metadata
 │   ├── delete      # Delete a file
 │   ├── share-public # Create a public URL

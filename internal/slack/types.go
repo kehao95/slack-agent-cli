@@ -388,6 +388,10 @@ type SearchParams struct {
 type SearchResult struct {
 	Query           string                `json:"query"`
 	Messages        SearchMessages        `json:"messages"`
+	Page            int                   `json:"page"`
+	PageCount       int                   `json:"page_count"`
+	NextPage        int                   `json:"next_page,omitempty"`
+	HasMore         bool                  `json:"has_more"`
 	userResolver    SearchUserResolver    `json:"-"`
 	channelResolver SearchChannelResolver `json:"-"`
 	ctx             context.Context       `json:"-"`
@@ -403,13 +407,15 @@ type SearchMessages struct {
 // SearchMatch represents a single native search result. Username may contain a
 // message alias; normalized output replaces it only with a resolved account handle.
 type SearchMatch struct {
-	Type      string        `json:"type"`
-	Channel   SearchChannel `json:"channel"`
-	User      string        `json:"user"`
-	Username  string        `json:"username"`
-	Timestamp string        `json:"ts"`
-	Text      string        `json:"text"`
-	Permalink string        `json:"permalink"`
+	Type        string                `json:"type"`
+	Channel     SearchChannel         `json:"channel"`
+	User        string                `json:"user"`
+	Username    string                `json:"username"`
+	Timestamp   string                `json:"ts"`
+	Text        string                `json:"text"`
+	Permalink   string                `json:"permalink"`
+	Attachments []slackapi.Attachment `json:"attachments,omitempty"`
+	Blocks      slackapi.Blocks       `json:"blocks,omitempty"`
 }
 
 // SearchChannel contains channel metadata for a search result.
@@ -449,14 +455,22 @@ func (r *SearchResult) SetRawJSON(raw bool) {
 // MarshalJSON adds user handles and names while preserving canonical user IDs.
 func (r SearchResult) MarshalJSON() ([]byte, error) {
 	type output struct {
-		Query    string `json:"query"`
-		Messages struct {
+		Query         string `json:"query"`
+		Page          int    `json:"page"`
+		PageCount     int    `json:"page_count"`
+		NextPage      int    `json:"next_page,omitempty"`
+		HasMore       bool   `json:"has_more"`
+		ReturnedCount int    `json:"returned_count"`
+		Incomplete    bool   `json:"incomplete"`
+		Messages      struct {
 			Total   int                      `json:"total"`
 			Matches []map[string]interface{} `json:"matches"`
 		} `json:"messages"`
 	}
 
-	result := output{Query: r.Query}
+	result := output{Query: r.Query, Page: r.Page, PageCount: r.PageCount,
+		NextPage: r.NextPage, HasMore: r.HasMore, ReturnedCount: len(r.Messages.Matches),
+		Incomplete: len(r.Messages.Matches) < r.Messages.Total}
 	result.Messages.Total = r.Messages.Total
 	result.Messages.Matches = make([]map[string]interface{}, len(r.Messages.Matches))
 
@@ -472,6 +486,12 @@ func (r SearchResult) MarshalJSON() ([]byte, error) {
 				"id":   match.Channel.ID,
 				"name": match.Channel.Name,
 			},
+		}
+		if len(match.Attachments) > 0 {
+			entry["attachments"] = match.Attachments
+		}
+		if len(match.Blocks.BlockSet) > 0 {
+			entry["blocks"] = match.Blocks
 		}
 
 		if !r.rawJSON {
@@ -502,6 +522,14 @@ func (r *SearchResult) Lines() []string {
 	lines := []string{
 		fmt.Sprintf("Search Results for \"%s\" (%d matches)", r.Query, r.Messages.Total),
 		"───────────────────────────────────────────────────",
+	}
+	if len(r.Messages.Matches) < r.Messages.Total {
+		lines = append(lines, fmt.Sprintf("Showing %d of %d matches.", len(r.Messages.Matches), r.Messages.Total))
+	}
+	if r.HasMore {
+		lines = append(lines, fmt.Sprintf("More results: use slk search messages with the same query, --limit, and sort options, plus --page %d.", r.NextPage))
+	} else if len(r.Messages.Matches) < r.Messages.Total {
+		lines = append(lines, "Incomplete results: no further page was provided. Earlier pages may be excluded; narrow the query or read known message permalinks.")
 	}
 
 	if len(r.Messages.Matches) == 0 {
@@ -534,12 +562,79 @@ func (r *SearchResult) Lines() []string {
 
 		lines = append(lines, "")
 		lines = append(lines, fmt.Sprintf("[%s] #%s %s:", ts, channelName, name))
-		lines = append(lines, fmt.Sprintf("  %s", match.Text))
+		for _, line := range match.ContentLines() {
+			lines = append(lines, "  "+line)
+		}
 		if match.Permalink != "" {
 			lines = append(lines, fmt.Sprintf("  %s", match.Permalink))
 		}
 	}
 
+	return lines
+}
+
+// ContentLines previews search content without fetching each matching message.
+// JSON retains structured content; the preview makes that distinction explicit.
+func (m SearchMatch) ContentLines() []string {
+	var lines []string
+	add := func(values ...string) {
+		for _, value := range values {
+			if value != "" {
+				lines = append(lines, value)
+			}
+		}
+	}
+	add(m.Text)
+	for _, attachment := range m.Attachments {
+		add(attachment.Pretext, attachment.AuthorName, attachment.AuthorLink,
+			attachment.Title, attachment.TitleLink, attachment.Text)
+		for _, field := range attachment.Fields {
+			add(strings.TrimPrefix(field.Title+": "+field.Value, ": "))
+		}
+		if attachment.Fallback != attachment.Text {
+			add(attachment.Fallback)
+		}
+		add(attachment.Footer, attachment.ImageURL, attachment.ThumbURL,
+			attachment.FromURL, attachment.OriginalURL)
+		lines = append(lines, searchBlockLines(attachment.Blocks)...)
+	}
+	lines = append(lines, searchBlockLines(m.Blocks)...)
+	if len(m.Attachments) > 0 || len(m.Blocks.BlockSet) > 0 {
+		add("Text preview; use the default JSON output or the message permalink for full attachment/block structure.")
+	}
+	if len(lines) == 0 {
+		add("[No text content returned by Slack; inspect the message permalink.]")
+	}
+	return lines
+}
+
+func searchBlockLines(blocks slackapi.Blocks) []string {
+	var lines []string
+	addText := func(text *slackapi.TextBlockObject) {
+		if text != nil && text.Text != "" {
+			lines = append(lines, text.Text)
+		}
+	}
+	for _, block := range blocks.BlockSet {
+		switch block := block.(type) {
+		case *slackapi.SectionBlock:
+			addText(block.Text)
+			for _, field := range block.Fields {
+				addText(field)
+			}
+		case *slackapi.HeaderBlock:
+			addText(block.Text)
+		default:
+			// Keep uncommon and future block types inspectable without a second
+			// renderer that has to keep pace with Slack's schema.
+			encoded, err := json.Marshal(block)
+			if err != nil {
+				lines = append(lines, "[Block preview unavailable; inspect the message permalink.]")
+				continue
+			}
+			lines = append(lines, "Block (JSON): "+string(encoded))
+		}
+	}
 	return lines
 }
 

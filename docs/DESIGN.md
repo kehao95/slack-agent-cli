@@ -121,7 +121,7 @@ slk
 ├── files           # File operations
 │   ├── upload      # Upload a file
 │   ├── download    # Download a file
-│   ├── list        # List files with cursor pagination
+│   ├── list        # List files with numbered pages
 │   ├── info        # Get file metadata
 │   ├── delete      # Delete a file
 │   ├── share-public # Create a public URL
@@ -177,7 +177,7 @@ The dedicated resource layer favors stable agent workflows over a one-command-
 per-method mapping:
 
 ```bash
-# Files use cursor pagination and refuse to overwrite downloads unless requested.
+# Files use numbered pages and refuse to overwrite downloads unless requested.
 slk files list --channel "#general" --all
 slk files download --file F123 --output ./artifact.bin
 
@@ -196,6 +196,29 @@ slk usergroups members set --group @oncall --members @alice,@bob
 Specialized commands emit normalized result envelopes and support `--human`.
 `slk api` remains the escape hatch for uncommon parameters and APIs that do not
 yet have a stable resource abstraction.
+
+Search JSON preserves returned message `attachments` and `blocks` alongside the
+original `text` and `permalink`, in both normalized and `--raw-json` output.
+`--human` shows attachment text, fields, links, and common text blocks. It labels
+this as a preview and directs readers to JSON or the permalink for full structure;
+uncommon block types are shown as JSON. No per-message retrieval is needed to
+include content already returned by Slack, and the CLI does not truncate it.
+
+Search envelopes include `returned_count`, `incomplete`, `page`, `page_count`, `has_more`, and
+`next_page` when another page is available. `page` is the first requested page;
+`--all` reads from that page onward. For `search all`, `--limit` applies to each
+resource family, so a page can contain that many messages and that many files.
+The legacy `messages search` command reads
+one page and reports continuation through `search messages --page N`. Search
+totals reflect Slack's index and the active user's visibility, not all workspace
+content; a known message permalink should still be read directly if search does
+not find it. `incomplete` means a resource family returned fewer matches than its
+reported total, including when earlier pages were not requested. `has_more` only indicates
+a known next page; if Slack omits pagination, the CLI reports an incomplete result
+instead of inventing a continuation. Exhausted resource families are not repeated
+when `search all --all` continues through the other family's pages. Stable message
+and file identities are deduplicated across pages, so repeats cannot hide missing
+results.
 
 The subsequent Canvas/List/bookmark and people/message expansion is specified
 in [CLI P1/P2 coverage](CLI_COVERAGE.md), including command paths, public API
@@ -245,7 +268,7 @@ Options:
   --refresh-cache        Force refresh of cached channel/user metadata before running
   --resolved-json        Enrich JSON with channel names and separate user metadata (default: true)
   --raw-json             Preserve raw Slack IDs in JSON output
-  --json                 Output as JSON
+  --human                Show readable previews (JSON is the default)
 ```
 
 **Example:**
@@ -417,7 +440,7 @@ slk messages search [options]
 
 Options:
   --query <text>         Search query (required)
-  --limit <n>            Max results to return (default: 20)
+  --limit <n>            Results on the first page (default: 20, maximum: 100)
   --sort <field>         Sort by 'score' or 'timestamp' (default: timestamp)
   --sort-dir <dir>       Sort direction 'asc' or 'desc' (default: desc)
   --resolved-json        Enrich JSON with channel names and separate user metadata (default: true)
@@ -436,6 +459,38 @@ slk messages search --query "from:@alice in:#general"
 # Search and sort by relevance
 slk messages search --query "error" --sort score --limit 20
 ```
+
+---
+
+#### `slk files list`
+
+List files using Slack's [`files.list`](https://docs.slack.dev/reference/methods/files.list/)
+`count`/`page` contract. `--limit` is the
+maximum number of files per page (1–1000; default 100), and `--page` starts at 1.
+`--all` fetches every remaining page beginning at `--page`, preserving the same
+user, channel, and type filters. `--cursor` is not supported for this method.
+
+```bash
+slk files list --user @alice --type canvas --limit 2
+slk files list --user @alice --type canvas --limit 2 --page 2
+slk files list --channel '#general' --type images,pdfs --all
+```
+
+Type groups are `all`, `spaces`, `snippets`, `images`, `gdocs`, `zips`, `pdfs`,
+`canvas`, and `quip`. Multiple groups can be comma-separated. Unknown groups and
+`all` combined with narrower filters are rejected locally: Slack can silently
+ignore unsupported values and return an unfiltered file list. Canvas files can
+have `filetype: "quip"` in Slack's response.
+
+JSON contains `files`, `paging` (`count`, `total`, `page`, `pages`),
+`pages_fetched`, and `has_more`, plus `next_page` when another page exists.
+`paging` describes the last fetched Slack page, including with `--all`.
+Continue with the same filters and page size; human output gives that reminder
+even when the current page is empty. An empty response is `files: []`.
+
+HTTP 429 retries honor `Retry-After` and `--max-retries`; `--page-delay` can pace
+requests. Missing or nonadvancing paging, repeated files, and results exceeding
+the requested limit fail explicitly rather than claim a complete enumeration.
 
 ---
 
@@ -738,7 +793,7 @@ slk messages list --channel "#general" --limit 20 --json
 ### Searching messages
 ```bash
 # Search for specific content
-slk messages search --query "deployment failed" --json
+slk messages search --query "deployment failed"
 ```
 
 ### Sending messages
@@ -765,7 +820,7 @@ slk reactions add --channel "#general" --ts "1705312365.000100" --emoji "thumbsu
 slk messages list --channel "#support" --since 1h --json | jq '.messages[]'
 
 # 2. Search for specific issues
-slk messages search --query "error in:#support" --json
+slk messages search --query "error in:#support"
 
 # 3. Send a response
 slk messages send --channel "#support" --thread "$THREAD_TS" --text "Here's the answer..."

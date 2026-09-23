@@ -96,16 +96,14 @@ func (c *APIClient) UploadLocalFile(ctx context.Context, path string, opts Uploa
 	return &UploadFileResult{OK: true, FileID: summary.ID, Filename: filename, Title: title, Channel: opts.Channel, ThreadTS: opts.ThreadTS}, nil
 }
 
-// ListFiles fetches one cursor-based page of files.
-func (c *APIClient) ListFiles(ctx context.Context, params slackapi.ListFilesParameters) ([]slackapi.File, string, error) {
-	files, next, err := c.sdk.ListFilesContext(ctx, params)
+// ListFiles fetches one numbered page of files. files.list accepts count/page
+// and returns paging; the SDK's cursor-based ListFilesContext drops type filters.
+func (c *APIClient) ListFiles(ctx context.Context, params slackapi.GetFilesParameters) ([]slackapi.File, *slackapi.Paging, error) {
+	files, paging, err := c.sdk.GetFilesContext(ctx, params)
 	if err != nil {
-		return nil, "", fmt.Errorf("list files: %w", err)
+		return nil, nil, fmt.Errorf("list files: %w", err)
 	}
-	if next == nil {
-		return files, "", nil
-	}
-	return files, next.Cursor, nil
+	return files, paging, nil
 }
 
 // GetFileInfo fetches metadata for a Slack file.

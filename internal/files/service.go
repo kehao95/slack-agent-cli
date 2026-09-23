@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	appslack "github.com/kehao95/slack-agent-cli/internal/slack"
@@ -17,7 +18,7 @@ import (
 
 type Client interface {
 	UploadLocalFile(context.Context, string, appslack.UploadFileOptions) (*appslack.UploadFileResult, error)
-	ListFiles(context.Context, slackapi.ListFilesParameters) ([]slackapi.File, string, error)
+	ListFiles(context.Context, slackapi.GetFilesParameters) ([]slackapi.File, *slackapi.Paging, error)
 	GetFileInfo(context.Context, string) (*slackapi.File, error)
 	DownloadFile(context.Context, string, io.Writer) error
 	DeleteFile(context.Context, string) error
@@ -30,31 +31,118 @@ type Service struct{ client Client }
 func NewService(client Client) *Service { return &Service{client: client} }
 
 type ListParams struct {
-	Limit   int
-	Cursor  string
-	User    string
-	Channel string
-	TeamID  string
-	Types   string
+	Limit      int
+	Page       int
+	All        bool
+	User       string
+	Channel    string
+	TeamID     string
+	Types      string
+	MaxRetries int
+	PageDelay  time.Duration
 }
 
 type ListResult struct {
-	OK         bool            `json:"ok"`
-	Files      []slackapi.File `json:"files"`
-	NextCursor string          `json:"next_cursor,omitempty"`
+	OK           bool            `json:"ok"`
+	Files        []slackapi.File `json:"files"`
+	Paging       slackapi.Paging `json:"paging"`
+	PagesFetched int             `json:"pages_fetched"`
+	HasMore      bool            `json:"has_more"`
+	NextPage     int             `json:"next_page,omitempty"`
 }
 
 func (s *Service) List(ctx context.Context, params ListParams) (*ListResult, error) {
-	if params.Limit <= 0 {
+	if params.Limit == 0 {
 		params.Limit = 100
 	}
-	items, cursor, err := s.client.ListFiles(ctx, slackapi.ListFilesParameters{
-		Limit: params.Limit, Cursor: params.Cursor, User: params.User, Channel: params.Channel, TeamID: params.TeamID, Types: params.Types,
-	})
+	if params.Limit < 1 || params.Limit > 1000 {
+		return nil, fmt.Errorf("file limit must be between 1 and 1000")
+	}
+	if params.Page == 0 {
+		params.Page = 1
+	}
+	if params.Page < 1 {
+		return nil, fmt.Errorf("file page must be at least 1")
+	}
+	if params.MaxRetries < 0 || params.PageDelay < 0 {
+		return nil, fmt.Errorf("file max retries and page delay cannot be negative")
+	}
+	types, err := NormalizeListTypes(params.Types)
 	if err != nil {
 		return nil, err
 	}
-	return &ListResult{OK: true, Files: items, NextCursor: cursor}, nil
+	params.Types = types
+	result := &ListResult{OK: true, Files: []slackapi.File{}}
+	seen := make(map[string]bool)
+	for page := params.Page; ; page++ {
+		current, err := appslack.RetryRateLimited(ctx, params.MaxRetries, func() (*ListResult, error) {
+			items, paging, err := s.client.ListFiles(ctx, slackapi.GetFilesParameters{
+				Count: params.Limit, Page: page, User: params.User, Channel: params.Channel, TeamID: params.TeamID, Types: params.Types,
+			})
+			if err != nil {
+				return nil, err
+			}
+			if paging == nil || paging.Page != page || paging.Count < 1 || paging.Total < 0 || paging.Pages < 0 {
+				return nil, fmt.Errorf("Slack returned invalid file paging for requested page %d", page)
+			}
+			if len(items) > params.Limit {
+				return nil, fmt.Errorf("Slack returned %d files, exceeding requested limit %d", len(items), params.Limit)
+			}
+			if paging.Total > 0 && paging.Pages < 1 {
+				return nil, fmt.Errorf("Slack returned file totals without page count")
+			}
+			return &ListResult{Files: items, Paging: *paging}, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, file := range current.Files {
+			if seen[file.ID] {
+				return nil, fmt.Errorf("Slack returned repeated file %s on page %d; the listing changed or pagination did not advance", file.ID, page)
+			}
+			seen[file.ID] = true
+		}
+		result.Files = append(result.Files, current.Files...)
+		result.Paging = current.Paging
+		result.PagesFetched++
+		result.HasMore = page < current.Paging.Pages
+		result.NextPage = 0
+		if result.HasMore {
+			result.NextPage = page + 1
+		}
+		if !params.All || !result.HasMore {
+			return result, nil
+		}
+		if err := appslack.WaitContext(ctx, params.PageDelay); err != nil {
+			return nil, err
+		}
+	}
+}
+
+// NormalizeListTypes accepts Slack's documented filter groups and verified
+// Canvas aliases. Slack silently ignores unknown types and returns all files.
+func NormalizeListTypes(value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "all", nil
+	}
+	var types []string
+	seen := make(map[string]bool)
+	for _, value := range strings.Split(value, ",") {
+		value = strings.ToLower(strings.TrimSpace(value))
+		switch value {
+		case "all", "spaces", "snippets", "images", "gdocs", "zips", "pdfs", "canvas", "quip":
+		default:
+			return "", fmt.Errorf("unsupported file type %q: use all, spaces, snippets, images, gdocs, zips, pdfs, canvas, or quip", value)
+		}
+		if !seen[value] {
+			types = append(types, value)
+			seen[value] = true
+		}
+	}
+	if seen["all"] && len(types) > 1 {
+		return "", fmt.Errorf("file type all cannot be combined with narrower filters")
+	}
+	return strings.Join(types, ","), nil
 }
 
 type InfoResult struct {
@@ -231,15 +319,16 @@ func (s *Service) SetPublic(ctx context.Context, fileID string, public bool) (*M
 }
 
 func (r *ListResult) Lines() []string {
-	if len(r.Files) == 0 {
-		return []string{"No files found."}
-	}
 	lines := []string{fmt.Sprintf("Files (%d)", len(r.Files))}
+	if len(r.Files) == 0 {
+		lines = []string{"No files found on the requested pages."}
+	}
 	for _, file := range r.Files {
 		lines = append(lines, fmt.Sprintf("%s  %s  %d bytes", file.ID, firstNonEmpty(file.Title, file.Name), file.Size))
 	}
-	if r.NextCursor != "" {
-		lines = append(lines, "", "Next cursor: "+r.NextCursor)
+	lines = append(lines, fmt.Sprintf("Pages fetched: %d; last page: %d of %d; page size: %d; total files: %d", r.PagesFetched, r.Paging.Page, r.Paging.Pages, r.Paging.Count, r.Paging.Total))
+	if r.HasMore {
+		lines = append(lines, fmt.Sprintf("More files available; continue with the same filters and --page %d --limit %d", r.NextPage, r.Paging.Count))
 	}
 	return lines
 }
