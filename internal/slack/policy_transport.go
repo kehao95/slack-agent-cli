@@ -66,7 +66,7 @@ func (c policyHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func guardedHTTPClient(cookie string) *http.Client {
-	var base http.RoundTripper = http.DefaultTransport
+	var base http.RoundTripper = &formAuthTransport{base: http.DefaultTransport}
 	if cookie != "" {
 		base = &cookieTransport{cookie: cookie, base: base}
 	}

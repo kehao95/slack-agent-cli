@@ -922,6 +922,11 @@ The CLI is built in Go using slack-go/slack. Single binary distribution and fast
 3. **Rate Limiting**: Respect Slack's rate limits, implement backoff
 4. **Audit Logging**: Optional `--verbose` flag for debugging
 5. **No Token Echo**: Never print tokens in output
+6. **Header Authentication**: The default HTTP client moves SDK form authentication
+   to `Authorization: Bearer` for Slack Web API requests, so credential brokers can
+   inject credentials without rewriting payloads. Already authenticated requests,
+   JSON payloads, upload destinations, and explicitly supplied custom HTTP clients
+   keep their existing behavior.
 
 ---
 
